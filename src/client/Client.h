@@ -20,17 +20,6 @@ public:
     ~Client();
 };
 
-class Boomerman{
-private:
-    int player_x;
-    int player_y;
-    int health;
-public:
-    Boomerman(int player_x, int player_y, int health);
-    int getBoomermanPosX();
-    int getBoomermanPosY();
-};
-
 class Map{
 private:
     int map[MAP_WIDTH][MAP_HEIGHT]{};
@@ -40,10 +29,23 @@ private:
 public:
     explicit Map(int size);
 
-    void updateMap(const std::vector<std::array<int, 2>>& player_positions);
+    int getSquareState(int x, int y);
+    void setSquareState(int x, int y, int state);
+
+    void localMapUpdate(const int *pos) ;
     void drawMap(Client *client);
+};
 
-
+class Boomerman{
+private:
+    int player_x;
+    int player_y;
+    int health;
+public:
+    Boomerman(int player_x, int player_y, int health);
+    int* getBoomermanPos();
+    void setBoomermanPos( int x, int y);
+    void move(Map *map, int* current_position, int x, int y);
 };
 
 #endif
