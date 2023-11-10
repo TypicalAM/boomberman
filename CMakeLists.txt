@@ -16,7 +16,7 @@ if (NOT raylib_FOUND)
 endif ()
 
 # This is the main part:
-set(SOURCES src/Main.cpp src/server/Sever.h src/server/Server.cpp src/client/Client.cpp src/client/Client.h)
+set(SOURCES src/Main.cpp src/server/Sever.h src/server/Server.cpp src/client/Client.cpp src/client/Client.h src/server/Room.cpp src/server/Room.h)
 add_executable(${PROJECT_NAME} ${SOURCES})
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17)
 target_link_libraries(${PROJECT_NAME} PUBLIC raylib)
