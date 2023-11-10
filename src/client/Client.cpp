@@ -2,7 +2,6 @@
 #include <cstring>
 #include "Client.h"
 #include "raylib.h"
-#include <array>
 
 void Client::Run() {
     Map map(25);
@@ -11,6 +10,9 @@ void Client::Run() {
 
     while (!WindowShouldClose()) {
         current_local_Boomerman_pos = local_boomerman.getBoomermanPos();
+        if(IsKeyPressed(KEY_SPACE)){
+            local_boomerman.shitYourself(&map);
+        }
         if (IsKeyPressed(KEY_RIGHT)) {
             local_boomerman.move(&map, current_local_Boomerman_pos, 1, 0);
         }
@@ -51,12 +53,10 @@ void Map::setSquareState(int x, int y, int state) {
     this->map[x][y]=state;
 }
 void Map::localMapUpdate(const int *pos) {
-    int x = pos[0];
-    int y = pos[1];
-    this->map[x][y]=2;
+    this->map[pos[0]][pos[1]]=2;
 }
 void Map::drawMap(Client *client) {
-    int offset = int((size*4)/3);
+    int offset = int((this->size*4)/3);
     int start_x = int(client->getDimension("width")/2 - (cols/2)*offset);
     int start_y = int(client->getDimension("height")/2 - (rows/2)*offset);
 
@@ -69,11 +69,16 @@ void Map::drawMap(Client *client) {
             DrawRectangle(x * offset + start_x, y * offset + start_y, this->size, this->size, color);
         }
     }
+    this->drawLocalBombs(offset, start_x+this->size/4, start_y+this->size/4); //TODO BOMBS ARE OFF CENTER
 }
-
-void Map::addBomb(int* pos) {
-    Bomb newBomb(pos,3,10,3.0);
+void Map::addLocalBomb(int* pos) {
+    Bomb newBomb(pos[0],pos[1],3,15,3.0);
     this->bombs.push_back(newBomb);
+}
+void Map::drawLocalBombs(int offset, float start_x, float start_y) {
+    for(const auto& bomb: this->bombs){
+        DrawRectangle(bomb.pos_x*offset+start_x, bomb.pos_y*offset+start_y,bomb.size,bomb.size,BLACK);
+    }
 }
 
 Boomerman::Boomerman(int start_x, int start_y, int health) {
@@ -96,12 +101,13 @@ void Boomerman::move(Map* map, int* curr_pos, int x, int y) {
     int new_x = curr_pos[0]+x;
     int new_y = curr_pos[1]+y;
     if(map->getSquareState(new_x,new_y)!=1){
-        this->setBoomermanPos(new_x,new_y);
+        this->setBoomermanPos(new_x, new_y);
         map->setSquareState(curr_pos[0],curr_pos[1],0);
     }
 }
 
 void Boomerman::shitYourself(Map *map) {
+    map->addLocalBomb(this->position);
 }
 
 Client::Client(int width, int height) {
@@ -121,9 +127,9 @@ Client::~Client() {
     CloseWindow();
 }
 
-Bomb::Bomb(int* pos, int explosion, int size, float ttl) {
-    this->position = new int[2];
-    this->position=pos;
+Bomb::Bomb(int pos_x, int pos_y, int explosion, int size, float ttl) {
+    this->pos_x=pos_x;
+    this->pos_y=pos_y;
     this->explosion=explosion;
     this->size=size;
     this->ttl=ttl;

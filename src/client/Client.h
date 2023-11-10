@@ -22,12 +22,11 @@ public:
 };
 
 class Bomb{
-private:
-    int* position;
+public:
+    int pos_x, pos_y;
     int explosion, size;
     float ttl;
-public:
-    Bomb(int* pos, int explosion, int size, float ttl);
+    Bomb(int pos_x, int pos_y, int explosion, int size, float ttl);
 };
 
 class Map{
@@ -45,8 +44,8 @@ public:
 
     void localMapUpdate(const int *pos) ;
     void drawMap(Client *client);
-    void addBomb(int* pos);
-    void drawBombs(std::vector<Bomb> bombs);
+    void addLocalBomb(int* pos);
+    void drawLocalBombs(int offset, float start_x, float start_y);
 };
 
 
