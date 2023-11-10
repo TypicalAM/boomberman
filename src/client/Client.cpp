@@ -7,7 +7,7 @@
 void Client::Run() {
     Map map(25);
     Boomerman local_boomerman(1,1,3);
-    int* current_local_Boomerman_pos = new int[2];
+    int* current_local_Boomerman_pos;
 
     while (!WindowShouldClose()) {
         current_local_Boomerman_pos = local_boomerman.getBoomermanPos();
@@ -71,20 +71,26 @@ void Map::drawMap(Client *client) {
     }
 }
 
-Boomerman::Boomerman(int player_x, int player_y, int health) {
-    this->player_x=player_x;
-    this->player_y=player_y;
+void Map::addBomb(int* pos) {
+    Bomb newBomb(pos,3,10,3.0);
+    this->bombs.push_back(newBomb);
+}
+
+Boomerman::Boomerman(int start_x, int start_y, int health) {
+    this->position=new int[2];
+    this->position[0]=start_x;
+    this->position[1]=start_y;
     this->health=health;
 }
-int* Boomerman::getBoomermanPos(){
+int* Boomerman::getBoomermanPos() const{
     int* pos = new int[2];
-    pos[0]=this->player_x;
-    pos[1]=this->player_y;
+    pos[0]=this->position[0];
+    pos[1]=this->position[1];
     return pos;
 }
-void Boomerman::setBoomermanPos(int x, int y) {
-    this->player_x=x;
-    this->player_y=y;
+void Boomerman::setBoomermanPos(int new_x, int new_y) {
+    this->position[0]=new_x;
+    this->position[1]=new_y;
 }
 void Boomerman::move(Map* map, int* curr_pos, int x, int y) {
     int new_x = curr_pos[0]+x;
@@ -93,6 +99,9 @@ void Boomerman::move(Map* map, int* curr_pos, int x, int y) {
         this->setBoomermanPos(new_x,new_y);
         map->setSquareState(curr_pos[0],curr_pos[1],0);
     }
+}
+
+void Boomerman::shitYourself(Map *map) {
 }
 
 Client::Client(int width, int height) {
@@ -110,4 +119,12 @@ int Client::getDimension(const std::string& dimension) const {
 Client::~Client() {
     std::cout << "Closing window..." << std::endl;
     CloseWindow();
+}
+
+Bomb::Bomb(int* pos, int explosion, int size, float ttl) {
+    this->position = new int[2];
+    this->position=pos;
+    this->explosion=explosion;
+    this->size=size;
+    this->ttl=ttl;
 }
