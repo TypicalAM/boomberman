@@ -2,6 +2,7 @@
 #define BOOMBERMAN_CLIENT_H
 
 #include <vector>
+#include <array>
 
 #define MAP_WIDTH 18
 #define MAP_HEIGHT 10
