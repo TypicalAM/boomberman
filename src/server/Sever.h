@@ -7,12 +7,12 @@
 
 class Server {
 private:
-    std::vector<std::shared_ptr<Room>> rooms;
+    std::unordered_map<std::string, std::shared_ptr<Room>> rooms;
     std::mutex roomsMtx;
     int port;
 
 public:
-    void Run();
+    [[noreturn]] void Run();
 
     explicit Server(int port);
 };

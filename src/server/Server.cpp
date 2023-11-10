@@ -5,21 +5,19 @@
 #include <thread>
 #include "Sever.h"
 
-std::string generateRandomString(int length) {
-    const std::string characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+// Thanks https://stackoverflow.com/questions/440133/how-do-i-create-a-random-alpha-numeric-string-in-c
+std::string random_string(std::string::size_type length) {
+    static auto &chrs = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    thread_local static std::mt19937 rg{std::random_device{}()};
+    thread_local static std::uniform_int_distribution<std::string::size_type> pick(0, sizeof(chrs) - 2);
 
-    std::mt19937 rng(static_cast<unsigned int>(std::time(0)));
-    std::uniform_int_distribution<> distribution(0, characters.size() - 1);
-
-    std::string randomString;
-    for (int i = 0; i < length; ++i) {
-        randomString += characters[distribution(rng)];
-    }
-
-    return randomString;
+    std::string result;
+    result.reserve(length);
+    while (length--) result += chrs[pick(rg)];
+    return result;
 }
 
-void Server::Run() {
+[[noreturn]] void Server::Run() {
     std::cout << "Starting server" << std::endl;
     sockaddr_in localAddress{
             .sin_family = AF_INET,
@@ -43,19 +41,19 @@ void Server::Run() {
         std::cout << "Got client!: " << clientSock << std::endl;
 
         bool foundRoom = false;
-        for (const auto &room: rooms) {
-            if (!room->CanJoin()) continue;
-            std::cout << "Joining existing room " << room->GetName() << std::endl;
+        for (const auto &pair: rooms) {
+            if (!pair.second->CanJoin()) continue;
+            std::cout << "Joining existing room " << pair.first << std::endl;
             foundRoom = true;
-            room->JoinPlayer(clientSock);
+            pair.second->JoinPlayer(clientSock);
         }
 
         std::cout << foundRoom << std::endl;
         if (!foundRoom) {
-            std::string name = generateRandomString(20);
+            std::string name = random_string(10);
             std::cout << "Assigning new room " << name << std::endl;
             std::shared_ptr<Room> room = std::make_shared<Room>(name);
-            rooms.emplace_back(room);
+            rooms[name] = room;
             room->JoinPlayer(clientSock);
             std::thread roomT(&Room::GameLoop, room);
             roomT.detach();

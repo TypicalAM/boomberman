@@ -27,7 +27,3 @@ void Room::JoinPlayer(int fd) {
 Room::Room(std::string roomName) {
     name = std::move(roomName);
 }
-
-std::string Room::GetName() {
-    return name;
-}

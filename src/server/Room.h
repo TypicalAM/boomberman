@@ -21,8 +21,6 @@ public:
 
     void GameLoop();
 
-    std::string GetName();
-
     explicit Room(std::string name);
 };
 
