@@ -5,21 +5,23 @@
 #include <mutex>
 #include <memory>
 
-#define MAX_PLAYERS 4
+#define MAX_PLAYERS 2
 
 class Room {
 private:
     std::string name;
     std::vector<int> clients;
-    std::unique_ptr<std::mutex> clientMtx;
+    std::mutex clientMtx;
     int clientCount = 0;
 
 public:
     void JoinPlayer(int fd);
 
-    int AvailableSpace() const;
+    bool CanJoin();
 
     void GameLoop();
+
+    std::string GetName();
 
     explicit Room(std::string name);
 };

@@ -24,7 +24,7 @@ void Server::Run() {
     sockaddr_in localAddress{
             .sin_family = AF_INET,
             .sin_port = htons(this->port),
-            .sin_addr = htonl(INADDR_ANY),
+            .sin_addr = {htonl(INADDR_ANY)},
     };
 
     int servSock = socket(PF_INET, SOCK_STREAM, 0);
@@ -38,26 +38,27 @@ void Server::Run() {
     std::cout << "Serving on port: " << this->port << std::endl;
 
     while (true) {
+        std::cout << "Waiting for client" << std::endl;
         int clientSock = accept(servSock, nullptr, nullptr);
         std::cout << "Got client!: " << clientSock << std::endl;
-        bool foundRoom;
 
-        for (auto &pair: rooms) {
-            if (pair.second->AvailableSpace() > 0) {
-                foundRoom = true;
-                pair.second->JoinPlayer(clientSock);
-                std::cout << "Joining player to room:" << pair.first << std::endl;
-            }
+        bool foundRoom = false;
+        for (const auto &room: rooms) {
+            if (!room->CanJoin()) continue;
+            std::cout << "Joining existing room " << room->GetName() << std::endl;
+            foundRoom = true;
+            room->JoinPlayer(clientSock);
         }
 
+        std::cout << foundRoom << std::endl;
         if (!foundRoom) {
-            // Let's create a new room
-            std::string name = generateRandomString(10);
-            Room myRoom(name);
-            std::thread roomT(&Room::GameLoop, &myRoom);
-            rooms[name] = std::make_unique<Room>(name);
-            std::cout << "Created a new room with name: " << name << std::endl;
-            roomT.join();
+            std::string name = generateRandomString(20);
+            std::cout << "Assigning new room " << name << std::endl;
+            std::shared_ptr<Room> room = std::make_shared<Room>(name);
+            rooms.emplace_back(room);
+            room->JoinPlayer(clientSock);
+            std::thread roomT(&Room::GameLoop, room);
+            roomT.detach();
         }
     }
 }

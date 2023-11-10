@@ -7,7 +7,7 @@
 
 class Server {
 private:
-    std::unordered_map<std::string, std::unique_ptr<Room>> rooms;
+    std::vector<std::shared_ptr<Room>> rooms;
     std::mutex roomsMtx;
     int port;
 
