@@ -17,27 +17,25 @@ std::string random_string(std::string::size_type length) {
     return result;
 }
 
-[[noreturn]] void Server::Run() {
-    std::cout << "Starting server" << std::endl;
-    sockaddr_in localAddress{
-            .sin_family = AF_INET,
-            .sin_port = htons(this->port),
-            .sin_addr = {htonl(INADDR_ANY)},
-    };
-
+std::optional<int> Server::setup() {
+    sockaddr_in localAddress{AF_INET, htons(this->port), htonl(INADDR_ANY)};
     int servSock = socket(PF_INET, SOCK_STREAM, 0);
     int one = 1;
     setsockopt(servSock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-
-    if (bind(servSock, (sockaddr *) &localAddress, sizeof(localAddress)))
-        throw std::runtime_error("can't bind");
-
+    if (bind(servSock, (sockaddr *) &localAddress, sizeof(localAddress))) return std::nullopt;
     listen(servSock, 1);
+    return servSock;
+}
+
+[[noreturn]] void Server::Run() {
     std::cout << "Serving on port: " << this->port << std::endl;
+    std::optional<int> serv = setup();
+    if (!serv.has_value())
+        throw std::runtime_error("failed to set up the tcp server");
 
     while (true) {
         std::cout << "Waiting for client" << std::endl;
-        int clientSock = accept(servSock, nullptr, nullptr);
+        int clientSock = accept(serv.value(), nullptr, nullptr);
         std::cout << "Got client!: " << clientSock << std::endl;
 
         bool foundRoom = false;
