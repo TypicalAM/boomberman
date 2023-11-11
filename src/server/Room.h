@@ -4,15 +4,21 @@
 #include <vector>
 #include <mutex>
 #include <memory>
+#include <queue>
+#include "../shared/Message.h"
+#include "ClientHandler.h"
 
 #define MAX_PLAYERS 2
 
 class Room {
 private:
     std::string name;
-    std::vector<int> clients;
-    std::mutex clientMtx;
+    std::vector<std::shared_ptr<ClientHandler>> handlers;
+    std::mutex handlerMtx;
     int clientCount = 0;
+
+    std::shared_ptr<std::mutex> msgQueueMtx;
+    std::shared_ptr<std::queue<Message>> msgQueue;
 
 public:
     void JoinPlayer(int fd);
