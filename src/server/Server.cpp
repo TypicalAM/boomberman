@@ -52,8 +52,8 @@ std::optional<int> Server::setup() {
             std::cout << "Assigning new room " << name << std::endl;
             std::shared_ptr<Room> room = std::make_shared<Room>(name);
             rooms[name] = room;
-            room->JoinPlayer(clientSock);
             std::thread roomT(&Room::GameLoop, room);
+            room->JoinPlayer(clientSock);
             roomT.detach();
         }
     }
