@@ -2,15 +2,15 @@
 #include "messages/server/GameJoin.h"
 
 
-std::optional<int> Protocol::Encode(Message msg, char *buf[256]) {
+std::optional<int> Protocol::Encode(Message msg, char buf[256]) {
     switch (msg.type()) {
         case NONE:
             return std::nullopt;
 
         case GAMEJOIN:
             auto joinMsg = dynamic_cast<GameJoin *>(&msg);
-            buf[0] = (char *) GAMEJOIN;
-            buf[1] = (char *) joinMsg->color;
+            buf[0] = GAMEJOIN;
+            buf[1] = joinMsg->color;
             return GAMEJOIN_SIZE;
     }
 
