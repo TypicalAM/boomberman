@@ -19,6 +19,8 @@ public:
     [[nodiscard]] std::string name() const override;
 
     [[nodiscard]] MessageType type() const override;
+
+    explicit GameJoin(Color color);
 };
 
 #endif

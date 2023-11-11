@@ -3,14 +3,23 @@
 #include <thread>
 #include "Room.h"
 #include "ClientHandler.h"
+#include "../shared/messages/server/GameJoin.h"
 
 void Room::GameLoop() {
     std::cout << "Game looping!" << std::endl;
 
     for (int i = 0; i < 10; ++i) {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-        std::lock_guard<std::mutex> lock(handlerMtx);
+        std::this_thread::sleep_for(std::chrono::seconds(3));
+        handlerMtx.lock();
         std::cout << "[" << name << "]" << " got " << clientCount << " players..." << std::endl;
+        handlerMtx.unlock();
+
+        msgQueueMtx->lock();
+        if (!msgQueue->empty()) {
+            std::cout << "Cool message in gameloop: " << msgQueue->front().get()->name() << std::endl;
+            msgQueue->pop();
+        }
+        msgQueueMtx->unlock();
     }
 }
 
@@ -25,11 +34,14 @@ void Room::JoinPlayer(int fd) {
     std::thread(&ClientHandler::ReadLoop, handler).detach();
     handlers.push_back(handler);
     clientCount++;
+
+    auto msg = GameJoin(Color::RED);
+    handler->Write(&msg); // NOTE: We need to take a stack pointer because of object slicing
     std::cout << "Started a new read thread for user " << fd << std::endl;
 }
 
 Room::Room(std::string roomName) {
     name = std::move(roomName);
-    msgQueue = std::make_shared<std::queue<Message>>();
+    msgQueue = std::make_shared<std::queue<std::unique_ptr<Message>>>();
     msgQueueMtx = std::make_shared<std::mutex>();
 }

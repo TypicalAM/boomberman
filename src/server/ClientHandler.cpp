@@ -5,7 +5,7 @@
 #include <iostream>
 #include <unistd.h>
 
-void ClientHandler::Write(Message msg) {
+void ClientHandler::Write(Message *msg) {
     char buf[256];
     auto length = Protocol::Encode(msg, buf);
     if (!length.has_value())
@@ -23,26 +23,28 @@ void ClientHandler::Write(Message msg) {
 
 // TODO: Handle connection close
 void ClientHandler::ReadLoop() {
+    char buf[256];
     while (true) {
-        char buf[256];
         int bytes_read = read(clientSock, buf, 256);
         if (bytes_read == -1)
             throw std::runtime_error("can't read bytes");
+        if (bytes_read == 0) continue; // TODO: Is spinlocking here a good thing?
 
         std::cout << "Read " << bytes_read << " bytes, trying to decode..." << std::endl;
         auto msg = Protocol::Decode(buf, bytes_read);
         if (!msg.has_value())
             throw std::runtime_error("failed to decode message");
 
-        std::cout << "Decoded a message of type: " << msg.value().name() << ", putting into queue" << std::endl;
+        std::cout << "Decoded a message of type: " << msg.value()->name() << ", putting into queue" << std::endl;
         msgMtx->lock();
-        msgQueue->push(msg.value());
+        msgQueue->push(std::move(msg.value()));
         msgMtx->unlock();
         std::cout << "Message pushed into queue" << std::endl;
     }
 }
 
-ClientHandler::ClientHandler(int fd, std::shared_ptr<std::queue<Message>> queue, std::shared_ptr<std::mutex> mtx) {
+ClientHandler::ClientHandler(int fd, std::shared_ptr<std::queue<std::unique_ptr<Message>>> queue,
+                             std::shared_ptr<std::mutex> mtx) {
     clientSock = fd;
     msgQueue = std::move(queue);
     msgMtx = std::move(mtx);

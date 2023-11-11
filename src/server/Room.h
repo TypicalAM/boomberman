@@ -18,7 +18,7 @@ private:
     int clientCount = 0;
 
     std::shared_ptr<std::mutex> msgQueueMtx;
-    std::shared_ptr<std::queue<Message>> msgQueue;
+    std::shared_ptr<std::queue<std::unique_ptr<Message>>> msgQueue;
 
 public:
     void JoinPlayer(int fd);

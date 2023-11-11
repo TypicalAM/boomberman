@@ -5,12 +5,11 @@
 #include "Message.h"
 
 class Protocol {
-    // Decode from buffer, cb is the message length
 public:
-    static std::optional<int> Encode(Message msg, char buf[256]);
+    static std::optional<int> Encode(Message *msg, char buf[256]); // Encode into buffer, optionally return cb
 
-// Encode into buffer, optionally return cb
-static std::optional<Message> Decode(char buf[256], int cb);
+    static std::optional<std::unique_ptr<Message>>
+    Decode(char buf[256], int cb); // Decode from buffer, optionally return message
 };
 
 #endif

@@ -9,15 +9,15 @@
 class ClientHandler {
 private:
     int clientSock;
-    std::shared_ptr<std::queue<Message>> msgQueue;
+    std::shared_ptr<std::queue<std::unique_ptr<Message>>> msgQueue;
     std::shared_ptr<std::mutex> msgMtx;
 
 public:
-    void Write(Message msg);
+    void Write(Message *msg);
 
     void ReadLoop();
 
-    ClientHandler(int fd, std::shared_ptr<std::queue<Message>> queue, std::shared_ptr<std::mutex> mtx);
+    ClientHandler(int fd, std::shared_ptr<std::queue<std::unique_ptr<Message>>> queue, std::shared_ptr<std::mutex> mtx);
 };
 
 #endif

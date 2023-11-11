@@ -7,3 +7,7 @@ std::string GameJoin::name() const {
 MessageType GameJoin::type() const {
     return GAMEJOIN;
 }
+
+GameJoin::GameJoin(Color color) {
+    this->color = color;
+}
