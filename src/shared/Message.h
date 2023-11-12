@@ -10,6 +10,7 @@ enum MessageType {
     MOVEMENT,
     BOMBPLACE,
     LEAVEGAME,
+    YOUGOTHIT,
 };
 
 class Message {

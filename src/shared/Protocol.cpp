@@ -6,6 +6,7 @@
 #include "messages/client/Movement.h"
 #include "messages/client/BombPlace.h"
 #include "messages/client/LeaveGame.h"
+#include "messages/server/YouGotHit.h"
 
 
 std::optional<int> Protocol::Encode(Message *msg, char buf[256]) {
@@ -40,6 +41,11 @@ std::optional<int> Protocol::Encode(Message *msg, char buf[256]) {
             buf[0] = LEAVEGAME;
             return LEAVEGAME_SIZE + 1;
         }
+
+        case YOUGOTHIT: {
+            buf[0] = YOUGOTHIT;
+            return YOUGOTHIT_SIZE + 1;
+        }
     }
 
     return std::nullopt;
@@ -69,6 +75,9 @@ std::optional<std::unique_ptr<Message>> Protocol::Decode(char buf[256], int cb) 
 
         case LEAVEGAME:
             return std::make_unique<LeaveGame>();
+
+        case YOUGOTHIT:
+            return std::make_unique<YouGotHit>();
     }
 
     return std::nullopt;
