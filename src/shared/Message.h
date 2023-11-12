@@ -7,6 +7,9 @@
 enum MessageType {
     NONE, // TODO: This shouldn't exist
     GAMEJOIN,
+    MOVEMENT,
+    BOMBPLACE,
+    LEAVEGAME,
 };
 
 class Message {
@@ -14,7 +17,7 @@ private:
     int author = 0;
 
 public:
-    [[nodiscard]] virtual std::string name() const { return "No"; };
+    [[nodiscard]] virtual std::string name() const { return "None"; };
 
     [[nodiscard]] virtual MessageType type() const { return NONE; };
 

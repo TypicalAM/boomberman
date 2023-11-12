@@ -3,6 +3,7 @@
 
 #include <optional>
 #include "Message.h"
+#include <memory>
 
 class Protocol {
 public:

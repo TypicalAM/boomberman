@@ -12,6 +12,7 @@ enum Color {
     YELLOW,
 };
 
+// Gamejoin tells the newly connected client the color of his character
 class GameJoin : public Message {
 public:
     Color color;
