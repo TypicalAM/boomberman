@@ -6,19 +6,35 @@
 #include "../shared/messages/server/GameJoin.h"
 
 void Room::GameLoop() {
-    std::cout << "Game looping!" << std::endl;
-
-    for (int i = 0; i < 10; ++i) {
+    while (true) {
         std::this_thread::sleep_for(std::chrono::seconds(3));
-        handlerMtx.lock();
-        std::cout << "[" << name << "]" << " got " << clientCount << " players..." << std::endl;
-        handlerMtx.unlock();
-
         msgQueueMtx->lock();
-        if (!msgQueue->empty()) {
-            std::cout << "Cool message in gameloop: " << msgQueue->front().get()->name() << std::endl;
-            msgQueue->pop();
+        if (msgQueue->empty()) {
+            msgQueueMtx->unlock();
+            continue;
         }
+
+        auto msg = std::move(msgQueue->front()); // Acquire ownership of queue front
+        msgQueue->pop();
+
+        std::cout << "Cool message in gameloop: " << msg->name() << std::endl;
+        auto author = msg->getAuthor();
+        if (!author.has_value())
+            throw std::runtime_error("no author in queue message");
+
+        int idx = -1;
+        for (int j = 0; j < handlers.size(); j++) {
+            if (handlers[j]->GetClient() == author.value()) {
+                idx = j;
+                break;
+            }
+        }
+
+        if (idx == -1)
+            throw std::runtime_error("author not found in message");
+
+        std::cout << "The author of the message is " << idx << std::endl;
+
         msgQueueMtx->unlock();
     }
 }

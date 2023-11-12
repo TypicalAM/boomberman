@@ -34,6 +34,7 @@ void ClientHandler::ReadLoop() {
         auto msg = Protocol::Decode(buf, bytes_read);
         if (!msg.has_value())
             throw std::runtime_error("failed to decode message");
+        msg.value()->setAuthor(clientSock); // TODO: Maybe include the author forcefully
 
         std::cout << "Decoded a message of type: " << msg.value()->name() << ", putting into queue" << std::endl;
         msgMtx->lock();
@@ -41,6 +42,10 @@ void ClientHandler::ReadLoop() {
         msgMtx->unlock();
         std::cout << "Message pushed into queue" << std::endl;
     }
+}
+
+int ClientHandler::GetClient() {
+    return clientSock;
 }
 
 ClientHandler::ClientHandler(int fd, std::shared_ptr<std::queue<std::unique_ptr<Message>>> queue,
