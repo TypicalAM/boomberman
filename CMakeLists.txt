@@ -15,8 +15,10 @@ if (NOT raylib_FOUND)
     FetchContent_MakeAvailable(raylib)
 endif ()
 
-set(SOURCES src/Main.cpp src/server/Server.h src/server/Server.cpp src/client/Client.cpp src/client/Client.h src/server/Room.cpp src/server/Room.h src/shared/Protocol.cpp src/shared/Protocol.h src/shared/Message.h src/shared/messages/server/GameJoin.h src/server/ClientHandler.cpp src/server/ClientHandler.h src/shared/messages/client/IMove.h src/shared/messages/client/IPlaceBomb.h src/shared/messages/client/ILeave.h src/shared/messages/server/GotHit.h src/shared/messages/server/GameWait.h src/shared/messages/server/OtherBombPlace.h src/shared/messages/server/OtherMove.h src/shared/messages/server/OtherLeave.h src/shared/messages/server/GameWon.h
-        src/shared/messages.pb.cc)
+set(SOURCES src/Main.cpp src/server/Server.h src/server/Server.cpp src/client/Client.cpp src/client/Client.h src/server/Room.cpp src/server/Room.h src/server/ClientHandler.cpp src/server/ClientHandler.h src/shared/messages.pb.cc
+        src/shared/Channel.cpp
+        src/shared/Channel.h
+)
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS messages.proto)
 add_executable(${PROJECT_NAME} ${SOURCES} ${PROTO_SRCS} ${PROTO_HDRS})
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17)

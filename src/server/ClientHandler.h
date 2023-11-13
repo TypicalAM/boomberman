@@ -4,22 +4,21 @@
 #include <queue>
 #include <memory>
 #include <mutex>
-#include "../shared/Message.h"
+#include "../shared/Channel.h"
 
 class ClientHandler {
 private:
-    std::shared_ptr<std::queue<std::unique_ptr<Message>>> msgQueue;
+    std::shared_ptr<std::queue<std::unique_ptr<GameMessage>>> msgQueue;
     std::shared_ptr<std::mutex> msgMtx;
     int clientSock;
 
 public:
-    void Write(Message *msg);
+    [[noreturn]] void ReadLoop();
 
-    void ReadLoop();
+    int GetClient() const;
 
-    int GetClient();
-
-    ClientHandler(int fd, std::shared_ptr<std::queue<std::unique_ptr<Message>>> queue, std::shared_ptr<std::mutex> mtx);
+    ClientHandler(int fd, std::shared_ptr<std::queue<std::unique_ptr<GameMessage>>> queue,
+                  std::shared_ptr<std::mutex> mtx);
 };
 
 #endif
