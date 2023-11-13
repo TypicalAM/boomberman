@@ -51,7 +51,7 @@ void Room::JoinPlayer(int fd) {
     handlers.push_back(handler);
     clientCount++;
 
-    auto msg = GameJoin(Color::RED);
+    auto msg = GameJoin(Color::RED, "maciek", true);
     handler->Write(&msg); // NOTE: We need to take a stack pointer because of object slicing
     std::cout << "Started a new read thread for user " << fd << std::endl;
 }

@@ -3,19 +3,22 @@
 
 #include "../../Message.h"
 
-#define IMOVE_SIZE (2 * sizeof(float))
-
 // IMove tells the server the new position of the player
 class IMove : public Message {
 public:
     float x;
     float y;
 
-    [[nodiscard]] std::string name() const override;
+    [[nodiscard]] std::string name() const override { return "I Move"; }
 
-    [[nodiscard]] MessageType type() const override;
+    [[nodiscard]] MessageType type() const override { return IMOVE; }
 
-    explicit IMove(float newX, float newY);
+    static size_t size() { return 2 * sizeof(float); }
+
+    explicit IMove(float newX, float newY) {
+        x = newX;
+        y = newY;
+    }
 };
 
 #endif

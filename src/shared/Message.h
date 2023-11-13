@@ -7,10 +7,15 @@
 enum MessageType {
     NONE, // TODO: This shouldn't exist
     GAMEJOIN,
-    MOVEMENT,
-    BOMBPLACE,
-    LEAVEGAME,
-    YOUGOTHIT,
+    IMOVE,
+    IPLACEBOMB,
+    ILEAVE,
+    GOTHIT,
+    GAMEWAIT,
+    OTHERBOMBPLACE,
+    OTHERMOVE,
+    OTHERLEAVE,
+    GAMEWON,
 };
 
 class Message {
