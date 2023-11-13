@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+// Enum for representing colors
+enum Color {
+  RED = 0;
+  GREEN = 1;
+  BLUE = 2;
+  YELLOW = 3;
+}
+
+// Klient
+message IPlaceBomb {
+  float x = 1;
+  float y = 2;
+}
+
+message IMove {
+  float x = 1;
+  float y = 2;
+}
+
+message ILeave {}
+
+// Serwer
+message GameJoin {
+  string name = 1;
+  Color color = 2;
+  bool You = 3;
+}
+
+message GameWait {
+  int32 waitingFor = 1;
+}
+
+message OtherBombPlace {
+  int64 timestamp = 1;
+  string name = 2;
+  float x = 3;
+  float y = 4;
+}
+
+message GotHitMessage {
+  string name = 1;
+  int32 livesRemaining = 2;
+}
+
+message OtherMove {
+  string name = 1;
+  float x = 2;
+  float y = 3;
+}
+
+message OtherLeave {
+  string name = 1;
+}
+
+message GameWon {
+  string winner = 1;
+}
