@@ -1,5 +1,5 @@
-#ifndef BOOMBERMAN_SEVER_H
-#define BOOMBERMAN_SEVER_H
+#ifndef BOOMBERMAN_SERVER_H
+#define BOOMBERMAN_SERVER_H
 
 #include <unordered_map>
 #include <mutex>

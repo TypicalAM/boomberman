@@ -3,7 +3,7 @@
 #include <sys/socket.h>
 #include <random>
 #include <thread>
-#include "Sever.h"
+#include "Server.h"
 
 // Thanks https://stackoverflow.com/questions/440133/how-do-i-create-a-random-alpha-numeric-string-in-c
 std::string random_string(std::string::size_type length) {
