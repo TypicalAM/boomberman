@@ -3,9 +3,9 @@
 #include <cstring>
 #include "Protocol.h"
 #include "messages/server/GameJoin.h"
-#include "messages/client/Movement.h"
-#include "messages/client/BombPlace.h"
-#include "messages/client/LeaveGame.h"
+#include "messages/client/IMove.h"
+#include "messages/client/IPlaceBomb.h"
+#include "messages/client/ILeave.h"
 #include "messages/server/YouGotHit.h"
 
 
@@ -22,24 +22,24 @@ std::optional<int> Protocol::Encode(Message *msg, char buf[256]) {
         }
 
         case MOVEMENT: {
-            auto movementMsg = dynamic_cast<Movement *>(msg);
+            auto movementMsg = dynamic_cast<IMove *>(msg);
             buf[0] = MOVEMENT;
             std::memcpy(buf, &movementMsg->x + 1, sizeof(float));
             std::memcpy(buf, &movementMsg->y + 1 + sizeof(float), sizeof(float));
-            return MOVEMENT_SIZE + 1;
+            return IMOVE_SIZE + 1;
         }
 
         case BOMBPLACE: {
-            auto bombplaceMsg = dynamic_cast<BombPlace * >(msg);
+            auto bombplaceMsg = dynamic_cast<IPlaceBomb * >(msg);
             buf[0] = BOMBPLACE;
             std::memcpy(buf, &bombplaceMsg->x + 1, sizeof(float));
             std::memcpy(buf, &bombplaceMsg->y + 1 + sizeof(float), sizeof(float));
-            return BOMBPLACE_SIZE + 1;
+            return IPLACEBOMB_SIZE + 1;
         }
 
         case LEAVEGAME: {
             buf[0] = LEAVEGAME;
-            return LEAVEGAME_SIZE + 1;
+            return ILEAVE_SIZE + 1;
         }
 
         case YOUGOTHIT: {
@@ -63,18 +63,18 @@ std::optional<std::unique_ptr<Message>> Protocol::Decode(char buf[256], int cb) 
             float x, y;
             std::memcpy(&x, &buf[1], sizeof(float));
             std::memcpy(&y, &buf[sizeof(float) + 1], sizeof(float));
-            return std::make_unique<Movement>(x, y);
+            return std::make_unique<IMove>(x, y);
         }
 
         case BOMBPLACE: {
             float x, y;
             std::memcpy(&x, &buf[1], sizeof(float));
             std::memcpy(&y, &buf[sizeof(float) + 1], sizeof(float));
-            return std::make_unique<BombPlace>(x, y);
+            return std::make_unique<IPlaceBomb>(x, y);
         }
 
         case LEAVEGAME:
-            return std::make_unique<LeaveGame>();
+            return std::make_unique<ILeave>();
 
         case YOUGOTHIT:
             return std::make_unique<YouGotHit>();
