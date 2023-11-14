@@ -30,6 +30,8 @@ set(SOURCES
 	src/server/Server.cpp
 	src/server/Server.h
         src/client/Client.cpp
+		src/shared/Builder.cpp
+		src/shared/Builder.h
 )
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS messages.proto)
 add_executable(${PROJECT_NAME} ${SOURCES})

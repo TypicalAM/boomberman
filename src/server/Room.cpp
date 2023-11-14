@@ -2,6 +2,7 @@
 #include <utility>
 #include <thread>
 #include "Room.h"
+#include "../shared/Builder.h"
 
 void Room::GameLoop() {
     while (true) {
