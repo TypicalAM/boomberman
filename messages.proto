@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+// Enum for Color
+enum Color {
+  RED = 0;
+  GREEN = 1;
+  BLUE = 2;
+  YELLOW = 3;
+}
+
+// Client Messages
+message IPlaceBombMsg {
+  float x = 1;
+  float y = 2;
+}
+
+message IMoveMsg {
+  float x = 1;
+  float y = 2;
+}
+
+message ILeaveMsg {}
+
+// Server Messages
+message GameJoinMsg {
+  string name = 1;
+  Color color = 2;
+  bool You = 3;
+}
+
+message GameWaitMsg {
+  int32 waitingFor = 1;
+}
+
+message OtherBombPlaceMsg {
+  int64 timestamp = 1;
+  string name = 2;
+  float x = 3;
+  float y = 4;
+}
+
+message GotHitMessageMsg {
+  string name = 1;
+  int32 livesRemaining = 2;
+}
+
+message OtherMoveMsg {
+  string name = 1;
+  float x = 2;
+  float y = 3;
+}
+
+message OtherLeaveMsg {
+  string name = 1;
+}
+
+message GameWonMsg {
+  string winner = 1;
+}
+
+// Enum for Message Type
+enum MessageType {
+  I_PLACE_BOMB = 0;
+  I_MOVE = 1;
+  I_LEAVE = 2;
+  GAME_JOIN = 3;
+  GAME_WAIT = 4;
+  OTHER_BOMB_PLACE = 5;
+  GOT_HIT_MESSAGE = 6;
+  OTHER_MOVE = 7;
+  OTHER_LEAVE = 8;
+  GAME_WON = 9;
+}
+
+// Wrapper Message
+message GameMessage {
+  MessageType message_type = 1;
+  oneof message {
+    IPlaceBombMsg i_place_bomb = 2;
+    IMoveMsg i_move = 3;
+    ILeaveMsg i_leave = 4;
+    GameJoinMsg game_join = 5;
+    GameWaitMsg game_wait = 6;
+    OtherBombPlaceMsg other_bomb_place = 7;
+    GotHitMessageMsg got_hit_message = 8;
+    OtherMoveMsg other_move = 9;
+    OtherLeaveMsg other_leave = 10;
+    GameWonMsg game_won = 11;
+  }
+}

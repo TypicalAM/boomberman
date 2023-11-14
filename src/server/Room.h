@@ -5,7 +5,6 @@
 #include <mutex>
 #include <memory>
 #include <queue>
-#include "../shared/Message.h"
 #include "ClientHandler.h"
 
 #define MAX_PLAYERS 2
@@ -18,7 +17,7 @@ private:
     int clientCount = 0;
 
     std::shared_ptr<std::mutex> msgQueueMtx;
-    std::shared_ptr<std::queue<std::unique_ptr<Message>>> msgQueue;
+    std::shared_ptr<std::queue<std::unique_ptr<GameMessage>>> msgQueue;
 
 public:
     void JoinPlayer(int fd);

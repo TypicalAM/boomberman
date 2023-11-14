@@ -3,8 +3,8 @@ project(boomberman)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# raylib
-find_package(raylib QUIET)
+find_package(Protobuf REQUIRED)
+find_package(raylib)
 if (NOT raylib_FOUND)
     include(FetchContent)
     FetchContent_Declare(
@@ -15,14 +15,23 @@ if (NOT raylib_FOUND)
     FetchContent_MakeAvailable(raylib)
 endif ()
 
-# This is the main part:
-set(SOURCES src/Main.cpp src/server/Sever.h src/server/Server.cpp src/client/Client.cpp src/client/Client.h src/server/Room.cpp src/server/Room.h src/shared/Protocol.cpp src/shared/Protocol.h src/shared/Message.h src/shared/messages/server/GameJoin.h src/server/ClientHandler.cpp src/server/ClientHandler.h src/shared/messages/client/IMove.h src/shared/messages/client/IPlaceBomb.h src/shared/messages/client/ILeave.h src/shared/messages/server/GotHit.h src/shared/messages/server/GameWait.h src/shared/messages/server/OtherBombPlace.h src/shared/messages/server/OtherMove.h src/shared/messages/server/OtherLeave.h src/shared/messages/server/GameWon.h)
+set(SOURCES
+	src/Main.cpp
+
+	src/shared/Channel.cpp
+	src/shared/Channel.h
+	src/shared/messages.pb.cc
+	src/shared/messages.pb.h
+
+	src/server/ClientHandler.cpp
+	src/server/ClientHandler.h
+	src/server/Room.cpp
+	src/server/Room.h
+	src/server/Server.cpp
+	src/server/Server.h
+        src/client/Client.cpp
+)
+protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS messages.proto)
 add_executable(${PROJECT_NAME} ${SOURCES})
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17)
-target_link_libraries(${PROJECT_NAME} PUBLIC raylib)
-
-# Web Configurations
-if (${PLATFORM} STREQUAL "Web")
-    # Tell Emscripten to build an example.html file.
-    set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html")
-endif ()
+target_link_libraries(${PROJECT_NAME} PUBLIC raylib protobuf)

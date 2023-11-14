@@ -1,5 +1,10 @@
-# Prerequisites
+# Additional 
+src/shared/messages.pb.cc
+src/shared/messages.pb.h
+build
 test.md
+
+# Prerequisites
 .idea
 *.d
 cmake-build-debug

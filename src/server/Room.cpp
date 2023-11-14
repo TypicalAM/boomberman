@@ -2,8 +2,6 @@
 #include <utility>
 #include <thread>
 #include "Room.h"
-#include "ClientHandler.h"
-#include "../shared/messages/server/GameJoin.h"
 
 void Room::GameLoop() {
     while (true) {
@@ -16,25 +14,7 @@ void Room::GameLoop() {
 
         auto msg = std::move(msgQueue->front()); // Acquire ownership of queue front
         msgQueue->pop();
-
-        std::cout << "Cool message in gameloop: " << msg->name() << std::endl;
-        auto author = msg->getAuthor();
-        if (!author.has_value())
-            throw std::runtime_error("no author in queue message");
-
-        int idx = -1;
-        for (int j = 0; j < handlers.size(); j++) {
-            if (handlers[j]->GetClient() == author.value()) {
-                idx = j;
-                break;
-            }
-        }
-
-        if (idx == -1)
-            throw std::runtime_error("author not found in message");
-
-        std::cout << "The author of the message is " << idx << std::endl;
-
+        std::cout << "Cool message in gameloop: " << msg->message_type() << std::endl;
         msgQueueMtx->unlock();
     }
 }
@@ -51,13 +31,15 @@ void Room::JoinPlayer(int fd) {
     handlers.push_back(handler);
     clientCount++;
 
-    auto msg = GameJoin(Color::RED, "maciek", true);
-    handler->Write(&msg); // NOTE: We need to take a stack pointer because of object slicing
     std::cout << "Started a new read thread for user " << fd << std::endl;
+    auto bytes_sent = Channel::Send(fd, Builder::GameJoin("maciek", Color::RED, true));
+    if (!bytes_sent.has_value())
+        throw std::runtime_error("cannot send first message");
+    std::cout << "Sent the user " << bytes_sent.value() << " bytes!" << std::endl;
 }
 
 Room::Room(std::string roomName) {
     name = std::move(roomName);
-    msgQueue = std::make_shared<std::queue<std::unique_ptr<Message>>>();
+    msgQueue = std::make_shared<std::queue<std::unique_ptr<GameMessage>>>();
     msgQueueMtx = std::make_shared<std::mutex>();
 }
