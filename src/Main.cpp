@@ -1,7 +1,7 @@
 #include <thread>
 #include <iostream>
-#include "client/Client.h"
 #include "server/Server.h"
+#include "client/Client.h"
 
 const int screenWidth = 800;
 const int screenHeight = 450;

@@ -15,11 +15,23 @@ if (NOT raylib_FOUND)
     FetchContent_MakeAvailable(raylib)
 endif ()
 
-set(SOURCES src/Main.cpp src/server/Server.h src/server/Server.cpp src/client/Client.cpp src/client/Client.h src/server/Room.cpp src/server/Room.h src/server/ClientHandler.cpp src/server/ClientHandler.h src/shared/messages.pb.cc
-        src/shared/Channel.cpp
-        src/shared/Channel.h
+set(SOURCES
+	src/Main.cpp
+
+	src/shared/Channel.cpp
+	src/shared/Channel.h
+	src/shared/messages.pb.cc
+	src/shared/messages.pb.h
+
+	src/server/ClientHandler.cpp
+	src/server/ClientHandler.h
+	src/server/Room.cpp
+	src/server/Room.h
+	src/server/Server.cpp
+	src/server/Server.h
+        src/client/Client.cpp
 )
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS messages.proto)
-add_executable(${PROJECT_NAME} ${SOURCES} ${PROTO_SRCS} ${PROTO_HDRS})
+add_executable(${PROJECT_NAME} ${SOURCES})
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17)
 target_link_libraries(${PROJECT_NAME} PUBLIC raylib protobuf)
