@@ -39,7 +39,7 @@ message OtherBombPlaceMsg {
   float y = 4;
 }
 
-message GotHitMessageMsg {
+message GotHitMsg {
   string name = 1;
   int32 livesRemaining = 2;
 }
@@ -82,7 +82,7 @@ message GameMessage {
     GameJoinMsg game_join = 5;
     GameWaitMsg game_wait = 6;
     OtherBombPlaceMsg other_bomb_place = 7;
-    GotHitMessageMsg got_hit_message = 8;
+    GotHitMsg got_hit_message = 8;
     OtherMoveMsg other_move = 9;
     OtherLeaveMsg other_leave = 10;
     GameWonMsg game_won = 11;
