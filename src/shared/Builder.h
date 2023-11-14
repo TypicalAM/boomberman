@@ -8,6 +8,10 @@
 namespace Builder {
     std::unique_ptr <GameMessage> IPlaceBomb(float x, float y);
 
+    std::unique_ptr <GameMessage> IMove(float x, float y);
+
+    std::unique_ptr <GameMessage> ILeave();
+
     std::unique_ptr <GameMessage> GameJoin(const std::string &name, Color color, bool you);
 
     std::unique_ptr <GameMessage> GameWait(int32_t waitingFor);
@@ -17,6 +21,8 @@ namespace Builder {
     std::unique_ptr <GameMessage> GotHitMessage(const std::string &name, int32_t livesRemaining);
 
     std::unique_ptr <GameMessage> OtherMove(const std::string &name, float x, float y);
+
+    std::unique_ptr <GameMessage> OtherLeave(const std::string &name);
 
     std::unique_ptr <GameMessage> GameWon(const std::string &winner);
 
