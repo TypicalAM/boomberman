@@ -47,9 +47,9 @@ Requirements:
 
 Run:
 ```bash
-mkdir test-client/msg
+mkdir test-client/pb
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-protoc --proto_path=$PWD/proto --go_opt=paths=source_relative --go_out=$PWD/test-client/msg $PWD/proto/messages.proto
+protoc --proto_path=$PWD/proto --go_opt=paths=source_relative --go_out=$PWD/test-client/pb $PWD/proto/messages.proto
 cd test-client
 go run .
 ```

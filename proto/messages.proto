@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/TypicalAM/boomberman/test-client/msg";
+option go_package = "github.com/TypicalAM/boomberman/test-client/pb";
 
 // Enum for Color
 enum Color {
