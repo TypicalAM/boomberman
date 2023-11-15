@@ -9,7 +9,12 @@
 #include "entities/SPlayer.h"
 #include "entities/SBomb.h"
 
-#define MAX_PLAYERS 2
+#define MAX_PLAYERS 4
+
+struct AuthoredMessage {
+    std::unique_ptr<GameMessage> payload;
+    std::string author;
+};
 
 class Room {
 private:
@@ -20,7 +25,7 @@ private:
     int clientCount = 0;
 
     std::mutex msgQueueMtx;
-    std::queue<std::unique_ptr<GameMessage>> msgQueue;
+    std::queue<std::unique_ptr<AuthoredMessage>> msgQueue;
 
 public:
     void JoinPlayer(int fd);
@@ -35,7 +40,7 @@ public:
 
     void HandleQueue();
 
-    void HandleMessage(std::unique_ptr<GameMessage> msg);
+    void HandleMessage(std::unique_ptr<AuthoredMessage> msg);
 };
 
 #endif

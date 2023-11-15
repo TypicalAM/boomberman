@@ -26,8 +26,9 @@ void Room::HandleQueue() {
     }
 }
 
-void Room::HandleMessage(std::unique_ptr<GameMessage> msg) {
-    switch (msg->message_type()) {
+void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
+    std::cout << "Handling a message from user: " << msg->author << std::endl;
+    switch (msg->payload->message_type()) {
         case I_PLACE_BOMB: {
             break;
         }
@@ -51,7 +52,10 @@ void Room::ReadIntoQueue() {
         auto msg = Channel::Receive(player.sock);
         if (!msg.has_value()) continue;
         std::lock_guard<std::mutex> q_lock(msgQueueMtx);
-        msgQueue.push(std::move(msg.value()));
+        msgQueue.push(std::make_unique<AuthoredMessage>(AuthoredMessage{
+                .payload = std::move(msg.value()),
+                .author = player.username,
+        }));
     }
 }
 
@@ -71,5 +75,5 @@ void Room::JoinPlayer(int fd) {
 
 Room::Room(std::string roomName) {
     name = std::move(roomName);
-    msgQueue = std::queue<std::unique_ptr<GameMessage>>();
+    msgQueue = std::queue<std::unique_ptr<AuthoredMessage>>();
 }
