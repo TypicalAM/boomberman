@@ -33,7 +33,7 @@ set(SOURCES
 		src/shared/Builder.cpp
 		src/shared/Builder.h
 )
-protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS messages.proto)
+#protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS messages.proto)
 add_executable(${PROJECT_NAME} ${SOURCES})
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17)
 target_link_libraries(${PROJECT_NAME} PUBLIC raylib protobuf)
