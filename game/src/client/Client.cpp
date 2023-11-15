@@ -69,7 +69,7 @@ void Map::drawMap(Client *client) {
             DrawRectangle(x * offset + start_x, y * offset + start_y, this->size, this->size, color);
         }
     }
-    this->drawLocalBombs(offset, start_x+this->size/4, start_y+this->size/4); //TODO BOMBS ARE OFF CENTER
+    this->drawLocalBombs(offset, start_x+this->size/2, start_y+this->size/2);
 }
 void Map::addLocalBomb(int* pos) {
     Bomb newBomb(pos[0],pos[1],3,15,3.0);
@@ -77,7 +77,7 @@ void Map::addLocalBomb(int* pos) {
 }
 void Map::drawLocalBombs(int offset, float start_x, float start_y) {
     for(const auto& bomb: this->bombs){
-        DrawRectangle(bomb.pos_x*offset+start_x, bomb.pos_y*offset+start_y,bomb.size,bomb.size,BLACK);
+        DrawRectangle(bomb.pos_x*offset+start_x-bomb.size/2, bomb.pos_y*offset+start_y-bomb.size/2,bomb.size,bomb.size,BLACK);
     }
 }
 
