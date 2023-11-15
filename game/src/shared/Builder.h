@@ -25,8 +25,6 @@ namespace Builder {
     std::unique_ptr <GameMessage> OtherLeave(const std::string &name);
 
     std::unique_ptr <GameMessage> GameWon(const std::string &winner);
-
-    std::unique_ptr<GameMessage> GameJoin(const std::__cxx11::basic_string<char> &name, Color color, bool you);
 };
 
 #endif
