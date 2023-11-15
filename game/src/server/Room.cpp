@@ -51,7 +51,7 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
 
         case I_LEAVE: {
             // Notify others of the player leaving
-            // TODO: Delete the person
+            for (auto it = players.begin(); it != players.end(); ++it) if (&(*it) == msg->author) players.erase(it);
             to_broadcast = Builder::OtherLeave(msg->author->username);
             break;
         }
