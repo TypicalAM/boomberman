@@ -1,4 +1,5 @@
 # Additional 
+test-client/msg
 game/src/shared/messages.pb.h
 game/src/shared/messages.pb.cc
 build

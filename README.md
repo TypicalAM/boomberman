@@ -19,3 +19,37 @@ Considerations:
 - Networking: Appropriate use of sockets for client-server communication.
 - Game Logic: Implement Bomberman-style game rules on the server side.
 - Serialization: Use Protocol Buffers for efficient message serialization/deserialization. This is the choice because it enhances rapid iteration - we do not need to reimplement different encoders and decoders for message types.
+
+# Build & Run
+
+## Game
+
+Requirements:
+- `cmake`
+- `protobuf`
+- `protobuf` development headers
+- `C++` compiler
+
+Run:
+
+```bash
+protoc --proto_path=$PWD/proto --cpp_out=$PWD/game/src/shared $PWD/proto/messages.proto
+cd game && mkdir build && cd build
+cmake .. && make -j$(nproc)
+./boomberman server # (or client, depending on what you need)
+```
+
+## Test client
+
+Requirements:
+- `go`
+- `protobuf`
+
+Run:
+```bash
+mkdir test-client/msg
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+protoc --proto_path=$PWD/proto --go_opt=paths=source_relative --go_out=$PWD/test-client/msg $PWD/proto/messages.proto
+cd test-client
+go run .
+```

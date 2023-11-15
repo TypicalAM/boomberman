@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+option go_package = "github.com/TypicalAM/boomberman/test-client/msg";
+
 // Enum for Color
 enum Color {
   RED = 0;
@@ -28,9 +30,7 @@ message GameJoinMsg {
   bool You = 3;
 }
 
-message GameWaitMsg {
-  int32 waitingFor = 1;
-}
+message GameWaitMsg { int32 waitingFor = 1; }
 
 message OtherBombPlaceMsg {
   int64 timestamp = 1;
@@ -50,13 +50,9 @@ message OtherMoveMsg {
   float y = 3;
 }
 
-message OtherLeaveMsg {
-  string name = 1;
-}
+message OtherLeaveMsg { string name = 1; }
 
-message GameWonMsg {
-  string winner = 1;
-}
+message GameWonMsg { string winner = 1; }
 
 // Enum for Message Type
 enum MessageType {
