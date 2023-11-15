@@ -25,6 +25,8 @@ namespace Builder {
     std::unique_ptr <GameMessage> OtherLeave(const std::string &name);
 
     std::unique_ptr <GameMessage> GameWon(const std::string &winner);
+
+    int64_t Timestamp();
 };
 
 #endif

@@ -99,3 +99,8 @@ std::unique_ptr<GameMessage> Builder::GameJoin(const std::string &name, Color co
     msg.set_allocated_game_join(gj);
     return std::make_unique<GameMessage>(msg);
 }
+
+int64_t Builder::Timestamp() {
+    return static_cast<int64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());;
+}

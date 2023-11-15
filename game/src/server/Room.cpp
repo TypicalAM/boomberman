@@ -34,8 +34,7 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
         case I_PLACE_BOMB: {
             // Place the bomb at the specified location
             IPlaceBombMsg ipb = msg->payload->i_place_bomb();
-            int64_t timestamp = static_cast<int64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                    std::chrono::system_clock::now().time_since_epoch()).count()); // TODO: Put somewhere else
+            int64_t timestamp =  Builder::Timestamp();
             bombs.emplace_back(Coords{.x = ipb.x(), .y = ipb.y()}, timestamp);
             to_broadcast = Builder::OtherBombPlace(timestamp, msg->author->username, ipb.x(), ipb.y());
             break;
