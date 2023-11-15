@@ -1,6 +1,4 @@
 # Additional 
-src/shared/messages.pb.cc
-src/shared/messages.pb.h
 build
 test.md
 
