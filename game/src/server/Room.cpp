@@ -6,20 +6,53 @@
 #include "../shared/Builder.h"
 #include "../shared/Channel.h"
 
-void Room::GameLoop() {
+[[noreturn]] void Room::GameLoop() {
     while (true) {
-        std::this_thread::sleep_for(std::chrono::seconds(3));
-        if (msgQueue.empty()) continue;
-        auto msg = std::move(msgQueue.front()); // Acquire ownership of queue front
-        msgQueue.pop();
-        std::cout << "Cool message in gameloop: " << msg->message_type() << std::endl;
-        msgQueueMtx->unlock();
+        ReadIntoQueue();
+        HandleQueue();
     }
 }
 
 bool Room::CanJoin() {
     std::lock_guard<std::mutex> lock(handlerMtx);
     return MAX_PLAYERS - clientCount > 0;
+}
+
+void Room::HandleQueue() {
+    std::lock_guard<std::mutex> lock(msgQueueMtx);
+    while (!msgQueue.empty()) {
+        HandleMessage(std::move(msgQueue.front()));
+        msgQueue.pop();
+    }
+}
+
+void Room::HandleMessage(std::unique_ptr<GameMessage> msg) {
+    switch (msg->message_type()) {
+        case I_PLACE_BOMB: {
+            break;
+        }
+
+        case I_MOVE: {
+            break;
+        }
+
+        case I_LEAVE: {
+            break;
+        }
+
+        default:
+            throw std::runtime_error("server-side message from client");
+    }
+}
+
+void Room::ReadIntoQueue() {
+    std::lock_guard<std::mutex> lock(handlerMtx);
+    for (const auto &player: players) {
+        auto msg = Channel::Receive(player.sock);
+        if (!msg.has_value()) continue;
+        std::lock_guard<std::mutex> q_lock(msgQueueMtx);
+        msgQueue.push(std::move(msg.value()));
+    }
 }
 
 void Room::JoinPlayer(int fd) {
@@ -39,5 +72,4 @@ void Room::JoinPlayer(int fd) {
 Room::Room(std::string roomName) {
     name = std::move(roomName);
     msgQueue = std::queue<std::unique_ptr<GameMessage>>();
-    msgQueueMtx = std::make_shared<std::mutex>();
 }

@@ -19,7 +19,7 @@ private:
     std::mutex handlerMtx;
     int clientCount = 0;
 
-    std::shared_ptr<std::mutex> msgQueueMtx;
+    std::mutex msgQueueMtx;
     std::queue<std::unique_ptr<GameMessage>> msgQueue;
 
 public:
@@ -27,9 +27,15 @@ public:
 
     bool CanJoin();
 
-    void GameLoop();
+    [[noreturn]] void GameLoop();
 
     explicit Room(std::string name);
+
+    void ReadIntoQueue();
+
+    void HandleQueue();
+
+    void HandleMessage(std::unique_ptr<GameMessage> msg);
 };
 
 #endif
