@@ -13,7 +13,7 @@
 
 struct AuthoredMessage {
     std::unique_ptr<GameMessage> payload;
-    std::string author;
+    SPlayer *author;
 };
 
 class Room {
