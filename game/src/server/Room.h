@@ -5,19 +5,22 @@
 #include <mutex>
 #include <memory>
 #include <queue>
-#include "ClientHandler.h"
+#include "../shared/messages.pb.h"
+#include "entities/SPlayer.h"
+#include "entities/SBomb.h"
 
 #define MAX_PLAYERS 2
 
 class Room {
 private:
     std::string name;
-    std::vector<std::shared_ptr<ClientHandler>> handlers;
+    std::vector<SBomb> bombs;
+    std::vector<SPlayer> players;
     std::mutex handlerMtx;
     int clientCount = 0;
 
     std::shared_ptr<std::mutex> msgQueueMtx;
-    std::shared_ptr<std::queue<std::unique_ptr<GameMessage>>> msgQueue;
+    std::queue<std::unique_ptr<GameMessage>> msgQueue;
 
 public:
     void JoinPlayer(int fd);

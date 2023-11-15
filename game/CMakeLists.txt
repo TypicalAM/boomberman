@@ -23,15 +23,18 @@ set(SOURCES
 	src/shared/messages.pb.cc
 	src/shared/messages.pb.h
 
-	src/server/ClientHandler.cpp
-	src/server/ClientHandler.h
-	src/server/Room.cpp
+        src/server/Room.cpp
 	src/server/Room.h
 	src/server/Server.cpp
 	src/server/Server.h
         src/client/Client.cpp
 		src/shared/Builder.cpp
 		src/shared/Builder.h
+		src/server/entities/SPlayer.cpp
+		src/server/entities/SPlayer.h
+		src/server/entities/SBomb.cpp
+		src/server/entities/SBomb.h
+		src/server/entities/Primitives.h
 )
 #protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS messages.proto)
 add_executable(${PROJECT_NAME} ${SOURCES})
