@@ -25,7 +25,6 @@ std::optional<int> Server::setup() const {
     while (true) {
         std::cout << "Waiting for client" << std::endl;
         int clientSock = accept(serv.value(), nullptr, nullptr);
-        std::cout << "Got client!: " << clientSock << std::endl;
 
         bool foundRoom = false;
         for (const auto &pair: rooms) {

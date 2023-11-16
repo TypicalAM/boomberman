@@ -55,8 +55,8 @@ std::unique_ptr<GameMessage> Builder::GotHit(const std::string &name, int32_t li
     gh->set_name(name);
     gh->set_livesremaining(livesRemaining);
     GameMessage msg;
-    msg.set_message_type(GOT_HIT_MESSAGE);
-    msg.set_allocated_got_hit_message(gh); // TODO: WHy does that look like this
+    msg.set_message_type(GOT_HIT);
+    msg.set_allocated_got_hit(gh);
     return std::make_unique<GameMessage>(msg);
 }
 

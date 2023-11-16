@@ -62,7 +62,7 @@ enum MessageType {
   GAME_JOIN = 3;
   GAME_WAIT = 4;
   OTHER_BOMB_PLACE = 5;
-  GOT_HIT_MESSAGE = 6;
+  GOT_HIT = 6;
   OTHER_MOVE = 7;
   OTHER_LEAVE = 8;
   GAME_WON = 9;
@@ -78,7 +78,7 @@ message GameMessage {
     GameJoinMsg game_join = 5;
     GameWaitMsg game_wait = 6;
     OtherBombPlaceMsg other_bomb_place = 7;
-    GotHitMsg got_hit_message = 8;
+    GotHitMsg got_hit = 8;
     OtherMoveMsg other_move = 9;
     OtherLeaveMsg other_leave = 10;
     GameWonMsg game_won = 11;
