@@ -12,6 +12,7 @@
         ReadIntoQueue();
         CheckIfGameReady();
         HandleQueue();
+        HandleGameUpdates();
     }
 }
 
@@ -40,6 +41,26 @@ void Room::CheckIfGameReady() {
         auto bytes_sent = Channel::Send(player.sock, Builder::GameStart());
         if (!bytes_sent.has_value()) throw std::runtime_error("can't send game start msg");
     }
+}
+
+void Room::HandleGameUpdates() {
+    std::vector<int> explode_indices;
+
+    for (int i = 0; i < bombs.size(); i++) {
+        if (!bombs[i].ShouldExplode()) continue;
+        explode_indices.push_back(i);
+
+        // The bomb explodes
+        for (auto &player: players)
+            if (bombs[i].InBlastRadius(player)) {
+                player.livesRemaining--;
+                for (const auto &player2: players)
+                    Channel::Send(player2.sock, Builder::GotHit(player.username, player.livesRemaining));
+            }
+    }
+
+    for (const auto &index: explode_indices)
+        bombs.erase(bombs.begin() + index);
 }
 
 void Room::HandleQueue() {

@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"time"
+
+	"github.com/TypicalAM/boomberman/test-client/pb"
 )
 
 const serverAddr = "localhost:2137"
@@ -12,12 +14,21 @@ func main() {
 	log.Println("Creating a client")
 
 	for i := 0; i < 3; i++ {
-		if i == 2 {
-			time.Sleep(4 * time.Second)
-		}
 		client := createClient()
 		defer client.Close()
 		done[i] = client.Done()
+		if i != 2 {
+			client.Send(&pb.GameMessage{
+				MessageType: pb.MessageType_I_MOVE,
+				Message:     &pb.GameMessage_IMove{IMove: &pb.IMoveMsg{X: 4, Y: 4}}, // Just out of range ;)
+			})
+		} else {
+			time.Sleep(3 * time.Second)
+			client.Send(&pb.GameMessage{
+				MessageType: pb.MessageType_I_PLACE_BOMB,
+				Message:     &pb.GameMessage_IPlaceBomb{IPlaceBomb: &pb.IPlaceBombMsg{X: 0, Y: 0}}, // Just out of range ;)
+			})
+		}
 	}
 
 	for _, d := range done {

@@ -46,6 +46,8 @@ public:
     void HandleMessage(std::unique_ptr<AuthoredMessage> msg);
 
     void CheckIfGameReady();
+
+    void HandleGameUpdates();
 };
 
 #endif

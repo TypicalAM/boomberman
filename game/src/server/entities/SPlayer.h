@@ -6,9 +6,12 @@
 #include "Primitives.h"
 #include "../../shared/messages.pb.h"
 
+#define STARTER_LIVES 3
+
 class SPlayer {
 public:
     int sock;
+    int livesRemaining;
     Coords coords;
     std::string username;
     Color color;

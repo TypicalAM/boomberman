@@ -6,4 +6,5 @@ SPlayer::SPlayer(int fd, std::string username, Color color) {
     this->coords.y = 0.0F;
     this->username = std::move(username);
     this->color = color;
+    this->livesRemaining = STARTER_LIVES;
 }

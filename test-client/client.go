@@ -56,6 +56,10 @@ func (c *Client) ActLoop() {
 			gj := msg.GetGameWait()
 			log.Printf("[%s] Waiting for %d players to join\n", c.username, gj.WaitingFor)
 
+		case pb.MessageType_GOT_HIT:
+			gh := msg.GetGotHit()
+			log.Printf("[%s] Someone got hit: %s, they got %d lives left\n", c.username, gh.Name, gh.LivesRemaining)
+
 		default:
 			log.Printf("[%s] Unhandled type\n", c.username)
 		}
