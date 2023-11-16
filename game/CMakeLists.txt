@@ -35,6 +35,8 @@ set(SOURCES
         src/server/entities/SBomb.cpp
         src/server/entities/SBomb.h
         src/server/entities/Primitives.h
+        src/shared/Util.cpp
+        src/shared/Util.h
 )
 #protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS messages.proto)
 add_executable(${PROJECT_NAME} ${SOURCES})

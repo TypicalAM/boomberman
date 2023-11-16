@@ -5,6 +5,7 @@
 #include "Room.h"
 #include "../shared/Builder.h"
 #include "../shared/Channel.h"
+#include "../shared/Util.h"
 
 [[noreturn]] void Room::GameLoop() {
     while (true) {
@@ -34,7 +35,7 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
         case I_PLACE_BOMB: {
             // Place the bomb at the specified location
             IPlaceBombMsg ipb = msg->payload->i_place_bomb();
-            int64_t timestamp =  Builder::Timestamp();
+            int64_t timestamp = Util::TimestampMillis();
             bombs.emplace_back(Coords{.x = ipb.x(), .y = ipb.y()}, timestamp);
             to_broadcast = Builder::OtherBombPlace(timestamp, msg->author->username, ipb.x(), ipb.y());
             break;
@@ -84,15 +85,13 @@ void Room::ReadIntoQueue() {
 void Room::JoinPlayer(int fd) {
     std::lock_guard<std::mutex> lock(handlerMtx);
     clientCount++;
+    if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1) throw std::runtime_error("cannot set non-blocking mode");
 
-    if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1)
-        throw std::runtime_error("cannot set non-blocking mode");
-
-    players.emplace_back(fd, "maciek", Color::RED);
-    auto bytes_sent = Channel::Send(fd, Builder::GameJoin("maciek", Color::RED, true));
-    if (!bytes_sent.has_value())
-        throw std::runtime_error("cannot send first message");
-    std::cout << "Sent the user " << bytes_sent.value() << " bytes!" << std::endl;
+    auto color = static_cast<Color>(players.size());
+    auto username = Util::RandomString(5); // TODO: Check if there is a collision (or just increase length lol)
+    auto bytes_sent = Channel::Send(fd, Builder::GameJoin(username, color, true));
+    if (!bytes_sent.has_value()) throw std::runtime_error("cannot send first message");
+    players.emplace_back(fd, username, color);
 }
 
 Room::Room(std::string roomName) {

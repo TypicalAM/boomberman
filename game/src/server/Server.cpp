@@ -4,20 +4,9 @@
 #include <random>
 #include <thread>
 #include "Server.h"
+#include "../shared/Util.h"
 
-// Thanks https://stackoverflow.com/questions/440133/how-do-i-create-a-random-alpha-numeric-string-in-c
-std::string random_string(std::string::size_type length) {
-    static auto &chrs = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    thread_local static std::mt19937 rg{std::random_device{}()};
-    thread_local static std::uniform_int_distribution<std::string::size_type> pick(0, sizeof(chrs) - 2);
-
-    std::string result;
-    result.reserve(length);
-    while (length--) result += chrs[pick(rg)];
-    return result;
-}
-
-std::optional<int> Server::setup() {
+std::optional<int> Server::setup() const {
     sockaddr_in localAddress{AF_INET, htons(this->port), htonl(INADDR_ANY)};
     int servSock = socket(PF_INET, SOCK_STREAM, 0);
     int one = 1;
@@ -46,9 +35,8 @@ std::optional<int> Server::setup() {
             pair.second->JoinPlayer(clientSock);
         }
 
-        std::cout << foundRoom << std::endl;
         if (!foundRoom) {
-            std::string name = random_string(10);
+            std::string name = Util::RandomString(10);
             std::cout << "Assigning new room " << name << std::endl;
             std::shared_ptr<Room> room = std::make_shared<Room>(name);
             rooms[name] = room;

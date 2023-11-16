@@ -12,7 +12,7 @@ private:
     std::mutex roomsMtx;
     int port;
 
-    std::optional<int> setup();
+    std::optional<int> setup() const;
 
 public:
     [[noreturn]] void Run();

@@ -1,8 +1,8 @@
 #include "SBomb.h"
-#include "../../shared/Builder.h"
+#include "../../shared/Util.h"
 
 bool SBomb::ShouldExplode() const {
-    return Builder::Timestamp() > fuseStartTimestamp + FUSE_TIME_MILLIS;
+    return Util::TimestampMillis() > fuseStartTimestamp + FUSE_TIME_MILLIS;
 }
 
 bool SBomb::InBlastRadius(const SPlayer &player) const {
