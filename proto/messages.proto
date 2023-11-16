@@ -32,6 +32,8 @@ message GameJoinMsg {
 
 message GameWaitMsg { int32 waitingFor = 1; }
 
+message GameStartMsg {}
+
 message OtherBombPlaceMsg {
   int64 timestamp = 1;
   string name = 2;
@@ -66,6 +68,7 @@ enum MessageType {
   OTHER_MOVE = 7;
   OTHER_LEAVE = 8;
   GAME_WON = 9;
+  GAME_START = 10;
 }
 
 // Wrapper Message
@@ -82,5 +85,6 @@ message GameMessage {
     OtherMoveMsg other_move = 9;
     OtherLeaveMsg other_leave = 10;
     GameWonMsg game_won = 11;
+    GameStartMsg game_start = 12;
   }
 }

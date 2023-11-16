@@ -38,6 +38,14 @@ std::unique_ptr<GameMessage> Builder::GameWait(int32_t waitingFor) {
     return std::make_unique<GameMessage>(msg);
 }
 
+std::unique_ptr<GameMessage> Builder::GameStart() {
+    auto *gs = new GameStartMsg;
+    GameMessage msg;
+    msg.set_message_type(GAME_START);
+    msg.set_allocated_game_start(gs);
+    return std::make_unique<GameMessage>(msg);
+}
+
 std::unique_ptr<GameMessage> Builder::OtherBombPlace(int64_t timestamp, const std::string &name, float x, float y) {
     auto *obp = new OtherBombPlaceMsg;
     obp->set_timestamp(timestamp);
