@@ -57,7 +57,7 @@ func (c *Client) ActLoop() {
 			log.Printf("[%s] Waiting for %d players to join\n", c.username, gj.WaitingFor)
 
 		default:
-			log.Printf("[%s] message type: %s\n", c.username, msg.MessageType)
+			log.Printf("[%s] Unhandled type\n", c.username)
 		}
 	}
 }
@@ -100,6 +100,6 @@ func (c *Client) Close() error {
 	return c.conn.Close()
 }
 
-func (c *Client) Done() <-chan struct{} {
+func (c *Client) Done() chan struct{} {
 	return c.done
 }
