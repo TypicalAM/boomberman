@@ -2,7 +2,40 @@ syntax = "proto3";
 
 option go_package = "github.com/TypicalAM/boomberman/test-client/pb";
 
-// Enum for Color
+// General
+message ErrorMsg { string error = 1; }
+
+// Lobby messages
+message RoomMsg {
+	string name = 1;
+	int32 players = 2;
+	int32 maxPlayers = 3;
+}
+
+message GetRoomListMsg {}
+
+message RoomListMsg { repeated RoomMsg rooms = 1; }
+
+message JoinRoomMsg { optional RoomMsg room = 1; } // It is optional because we can create a new room
+
+enum LobbyMessageType {
+	GET_ROOM_LIST = 0;
+	ROOM_LIST = 1;
+	JOIN_ROOM = 2;
+	ERROR = 3;
+}
+
+message LobbyMessage {
+  LobbyMessageType message_type = 1;
+	oneof message {
+		GetRoomListMsg get_available_rooms = 2;
+		RoomListMsg available_rooms = 3;
+		JoinRoomMsg join_room = 4;
+		ErrorMsg error = 5;
+	}
+}
+
+// Game messages
 enum Color {
   RED = 0;
   GREEN = 1;
@@ -10,7 +43,6 @@ enum Color {
   YELLOW = 3;
 }
 
-// Client Messages
 message IPlaceBombMsg {
   float x = 1;
   float y = 2;
@@ -23,7 +55,6 @@ message IMoveMsg {
 
 message ILeaveMsg {}
 
-// Server Messages
 message GameJoinMsg {
   string name = 1;
   Color color = 2;
@@ -56,7 +87,6 @@ message OtherLeaveMsg { string name = 1; }
 
 message GameWonMsg { string winner = 1; }
 
-// Enum for Message Type
 enum MessageType {
   I_PLACE_BOMB = 0;
   I_MOVE = 1;
@@ -86,5 +116,6 @@ message GameMessage {
     OtherLeaveMsg other_leave = 10;
     GameWonMsg game_won = 11;
     GameStartMsg game_start = 12;
+		ErrorMsg error = 13;
   }
 }
