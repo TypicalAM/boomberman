@@ -2,8 +2,7 @@ package main
 
 import (
 	"log"
-
-	"github.com/TypicalAM/boomberman/test-client/pb"
+	"time"
 )
 
 const serverAddr = "localhost:2137"
@@ -13,15 +12,11 @@ func main() {
 	log.Println("Creating a client")
 
 	for i := 0; i < 3; i++ {
+		if i == 2 {
+			time.Sleep(4 * time.Second)
+		}
 		client := createClient()
 		defer client.Close()
-		if i == 2 {
-			// Just to demo for now
-			client.Send(&pb.GameMessage{
-				MessageType: pb.MessageType_I_MOVE,
-				Message:     &pb.GameMessage_IMove{IMove: &pb.IMoveMsg{X: 1, Y: 1}},
-			})
-		}
 		done[i] = client.Done()
 	}
 

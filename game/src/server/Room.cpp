@@ -10,6 +10,7 @@
 [[noreturn]] void Room::GameLoop() {
     while (true) {
         ReadIntoQueue();
+        CheckIfGameReady();
         HandleQueue();
     }
 }
@@ -17,6 +18,28 @@
 bool Room::CanJoin() {
     std::lock_guard<std::mutex> lock(handlerMtx);
     return MAX_PLAYERS - clientCount > 0;
+}
+
+void Room::CheckIfGameReady() {
+    if (gameStarted) return;
+    if (CanJoin()) {
+        if (Util::TimestampMillis() < lastGameWaitMessage + GAME_WAIT_MESSAGE_INTERVAL) return;
+        std::cout << "Sending game wait messages..." << std::endl;
+        for (const auto &player: players) {
+            auto bytes_sent = Channel::Send(player.sock, Builder::GameWait(MAX_PLAYERS - clientCount));
+            if (!bytes_sent.has_value()) throw std::runtime_error("can't send game wait msg");
+        }
+
+        lastGameWaitMessage = Util::TimestampMillis();
+        return;
+    }
+
+    std::cout << "Starting game" << std::endl;
+    gameStarted = true;
+    for (const auto &player: players) {
+        auto bytes_sent = Channel::Send(player.sock, Builder::GameStart());
+        if (!bytes_sent.has_value()) throw std::runtime_error("can't send game start msg");
+    }
 }
 
 void Room::HandleQueue() {
@@ -99,6 +122,8 @@ void Room::JoinPlayer(int fd) {
 }
 
 Room::Room(std::string roomName) {
+    gameStarted = false;
     name = std::move(roomName);
     msgQueue = std::queue<std::unique_ptr<AuthoredMessage>>();
+    lastGameWaitMessage = Util::TimestampMillis();
 }

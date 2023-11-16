@@ -9,7 +9,8 @@
 #include "entities/SPlayer.h"
 #include "entities/SBomb.h"
 
-#define MAX_PLAYERS 4
+#define MAX_PLAYERS 3
+#define GAME_WAIT_MESSAGE_INTERVAL 1000
 
 struct AuthoredMessage {
     std::unique_ptr<GameMessage> payload;
@@ -22,7 +23,9 @@ private:
     std::vector<SBomb> bombs;
     std::vector<SPlayer> players;
     std::mutex handlerMtx;
+    bool gameStarted;
     int clientCount = 0;
+    int64_t lastGameWaitMessage;
 
     std::mutex msgQueueMtx;
     std::queue<std::unique_ptr<AuthoredMessage>> msgQueue;
@@ -41,6 +44,8 @@ public:
     void HandleQueue();
 
     void HandleMessage(std::unique_ptr<AuthoredMessage> msg);
+
+    void CheckIfGameReady();
 };
 
 #endif
