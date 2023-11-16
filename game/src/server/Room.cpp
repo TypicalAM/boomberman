@@ -29,16 +29,19 @@ void Room::HandleQueue() {
 
 void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
     std::cout << "Handling a message from user: " << msg->author->username << std::endl;
-    std::unique_ptr<GameMessage> to_broadcast;
-
     switch (msg->payload->message_type()) {
         case I_PLACE_BOMB: {
             // Place the bomb at the specified location
             IPlaceBombMsg ipb = msg->payload->i_place_bomb();
             int64_t timestamp = Util::TimestampMillis();
             bombs.emplace_back(Coords{.x = ipb.x(), .y = ipb.y()}, timestamp);
-            to_broadcast = Builder::OtherBombPlace(timestamp, msg->author->username, ipb.x(), ipb.y());
-            break;
+            for (const auto &player: players) {
+                if (player.username == msg->author->username) continue;
+                auto new_msg = Builder::OtherBombPlace(timestamp, msg->author->username, ipb.x(), ipb.y());
+                auto bytes_sent = Channel::Send(player.sock, std::move(new_msg));
+                if (!bytes_sent.has_value()) throw std::runtime_error("can't broadcast message to clients");
+            }
+            return;
         }
 
         case I_MOVE: {
@@ -46,26 +49,27 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
             auto im = msg->payload->i_move();
             msg->author->coords.x = im.x();
             msg->author->coords.y = im.y();
-            to_broadcast = Builder::OtherMove(msg->author->username, im.x(), im.y());
-            break;
+            for (const auto &player: players) {
+                if (player.username == msg->author->username) continue;
+                auto bytes_sent = Channel::Send(player.sock, Builder::OtherMove(msg->author->username, im.x(), im.y()));
+                if (!bytes_sent.has_value()) throw std::runtime_error("can't broadcast message to clients");
+            }
+            return;
         }
 
         case I_LEAVE: {
             // Notify others of the player leaving
             for (auto it = players.begin(); it != players.end(); ++it) if (&(*it) == msg->author) players.erase(it);
-            to_broadcast = Builder::OtherLeave(msg->author->username);
-            break;
+            for (const auto &player: players) {
+                if (player.username == msg->author->username) continue;
+                auto bytes_sent = Channel::Send(player.sock, Builder::OtherLeave(msg->author->username));
+                if (!bytes_sent.has_value()) throw std::runtime_error("can't broadcast message to clients");
+            }
+            return;
         }
 
         default:
             throw std::runtime_error("server-side message from client");
-    }
-
-    // Broadcast the message to everyone except the sender
-    for (const auto &player: players) {
-        if (player.username == msg->author->username) continue;
-        auto bytes_sent = Channel::Send(player.sock, std::move(to_broadcast));
-        if (!bytes_sent.has_value()) throw std::runtime_error("can't broadcast message to clients");
     }
 }
 
