@@ -107,3 +107,60 @@ std::unique_ptr<GameMessage> Builder::GameJoin(const std::string &name, Color co
     msg.set_allocated_game_join(gj);
     return std::make_unique<GameMessage>(msg);
 }
+
+std::unique_ptr<GameMessage> Builder::GameError(const std::string &error) {
+    auto *e = new ErrorMsg;
+    e->set_error(error);
+    GameMessage msg;
+    msg.set_message_type(GAME_ERROR);
+    msg.set_allocated_error(e);
+    return std::make_unique<GameMessage>(msg);
+}
+
+std::unique_ptr<LobbyMessage> Builder::GetRoomList() {
+    auto *grl = new GetRoomListMsg;
+    LobbyMessage msg;
+    msg.set_message_type(GET_ROOM_LIST);
+    msg.set_allocated_get_available_rooms(grl);
+    return std::make_unique<LobbyMessage>(msg);
+}
+
+std::unique_ptr<LobbyMessage> Builder::RoomList(std::vector<Room> rooms) {
+    auto *rl = new RoomListMsg;
+    for (const auto &room: rooms) {
+        RoomMsg *r = rl->add_rooms();
+        r->set_name(room.name);
+        r->set_players(room.players);
+        r->set_maxplayers(room.maxPlayers);
+    }
+
+    LobbyMessage msg;
+    msg.set_message_type(ROOM_LIST);
+    msg.set_allocated_available_rooms(rl);
+    return std::make_unique<LobbyMessage>(msg);
+}
+
+std::unique_ptr<LobbyMessage> Builder::JoinRoom(const std::string &name, std::optional<Room> room) {
+    auto *jr = new JoinRoomMsg;
+    jr->set_username(name);
+    if (room.has_value()) {
+        auto *r = new RoomMsg;
+        r->set_name(room->name);
+        r->set_players(room->players);
+        r->set_maxplayers(room->maxPlayers);
+        jr->set_allocated_room(r);
+    }
+    LobbyMessage msg;
+    msg.set_message_type(JOIN_ROOM);
+    msg.set_allocated_join_room(jr);
+    return std::make_unique<LobbyMessage>(msg);
+}
+
+std::unique_ptr<LobbyMessage> Builder::LobbyError(const std::string &error) {
+    auto *e = new ErrorMsg;
+    e->set_error(error);
+    LobbyMessage msg;
+    msg.set_message_type(LOBBY_ERROR);
+    msg.set_allocated_error(e);
+    return std::make_unique<LobbyMessage>(msg);
+}

@@ -7,32 +7,35 @@ message ErrorMsg { string error = 1; }
 
 // Lobby messages
 message RoomMsg {
-	string name = 1;
-	int32 players = 2;
-	int32 maxPlayers = 3;
+  string name = 1;
+  int32 players = 2;
+  int32 maxPlayers = 3;
 }
 
 message GetRoomListMsg {}
 
 message RoomListMsg { repeated RoomMsg rooms = 1; }
 
-message JoinRoomMsg { optional RoomMsg room = 1; } // It is optional because we can create a new room
+message JoinRoomMsg {
+	string username = 1;
+  optional RoomMsg room = 2;
+} // It is optional because we can create a new room
 
 enum LobbyMessageType {
-	GET_ROOM_LIST = 0;
-	ROOM_LIST = 1;
-	JOIN_ROOM = 2;
-	ERROR = 3;
+  GET_ROOM_LIST = 0;
+  ROOM_LIST = 1;
+  JOIN_ROOM = 2;
+  LOBBY_ERROR = 3;
 }
 
 message LobbyMessage {
   LobbyMessageType message_type = 1;
-	oneof message {
-		GetRoomListMsg get_available_rooms = 2;
-		RoomListMsg available_rooms = 3;
-		JoinRoomMsg join_room = 4;
-		ErrorMsg error = 5;
-	}
+  oneof message {
+    GetRoomListMsg get_available_rooms = 2;
+    RoomListMsg available_rooms = 3;
+    JoinRoomMsg join_room = 4;
+    ErrorMsg error = 5;
+  }
 }
 
 // Game messages
@@ -99,6 +102,7 @@ enum MessageType {
   OTHER_LEAVE = 8;
   GAME_WON = 9;
   GAME_START = 10;
+  GAME_ERROR = 11;
 }
 
 // Wrapper Message
@@ -116,6 +120,6 @@ message GameMessage {
     OtherLeaveMsg other_leave = 10;
     GameWonMsg game_won = 11;
     GameStartMsg game_start = 12;
-		ErrorMsg error = 13;
+    ErrorMsg error = 13;
   }
 }
