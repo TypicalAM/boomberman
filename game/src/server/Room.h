@@ -30,8 +30,10 @@ private:
     std::mutex msgQueueMtx;
     std::queue<std::unique_ptr<AuthoredMessage>> msgQueue;
 
+    int epollSock;
+
 public:
-    void JoinPlayer(int fd, const std::string& username);
+    bool JoinPlayer(int sock, const std::string& username);
 
     int Players();
 
@@ -41,7 +43,7 @@ public:
 
     explicit Room(std::string name);
 
-    void ReadIntoQueue();
+    [[noreturn]] void ReadLoop();
 
     void HandleQueue();
 

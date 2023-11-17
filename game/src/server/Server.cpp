@@ -37,6 +37,7 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
                 auto new_room_name = Util::RandomString(10);
                 room = std::make_shared<Room>(new_room_name);
                 std::thread(&Room::GameLoop, room).detach();
+                std::thread(&Room::ReadLoop, room).detach();
                 rooms[new_room_name] = room;
             } else {
                 if (rooms.find(room_msg.room().name()) == rooms.end())
@@ -59,8 +60,8 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
                 }
 
             std::cout << "Joining player to game: " << room_msg.username() << std::endl;
-            room->JoinPlayer(sock, room_msg.username());
             epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
+            if (!room->JoinPlayer(sock, room_msg.username())) close(sock);
             return;
         }
 
@@ -146,7 +147,7 @@ Server::Server(int port) {
     epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.fd = srvSock}};
     if (epoll_ctl(epollSock, EPOLL_CTL_ADD, srvSock, &event) == -1) {
         close(srvSock); // Clean up on failure
-        close(srvSock); // Clean up on failure
+        close(epollSock); // Clean up on failure
         throw std::runtime_error("epoll control failed");
     }
 

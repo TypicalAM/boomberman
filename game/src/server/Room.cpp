@@ -1,7 +1,8 @@
 #include <iostream>
 #include <utility>
 #include <thread>
-#include <fcntl.h>
+#include <sys/epoll.h>
+#include <csignal>
 #include "Room.h"
 #include "../shared/Builder.h"
 #include "../shared/Channel.h"
@@ -9,7 +10,6 @@
 
 [[noreturn]] void Room::GameLoop() {
     while (true) {
-        ReadIntoQueue();
         CheckIfGameReady();
         HandleQueue();
         HandleGameUpdates();
@@ -119,27 +119,51 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
     }
 }
 
-void Room::ReadIntoQueue() {
-    std::lock_guard<std::mutex> lock(handlerMtx);
-    for (int i = 0; i < players.size(); ++i) {
-        auto msg = Channel::Receive(players[i].sock);
-        if (!msg.has_value()) continue;
-        std::lock_guard<std::mutex> q_lock(msgQueueMtx);
-        msgQueue.push(std::make_unique<AuthoredMessage>(AuthoredMessage{
-                .payload = std::move(msg.value()),
-                .author = &players[i],
-        }));
+[[noreturn]] void Room::ReadLoop() {
+    epoll_event events[10];
+    while (true) {
+        // Wait for events to occur
+        int event_num = epoll_wait(epollSock, events, 10, -1);
+        for (int i = 0; i < event_num; ++i) {
+            // If this isn't an in event, ignore it
+            if (!(events[i].events & EPOLLIN)) continue;
+
+            // We got a message from a client
+            std::lock_guard<std::mutex> lock(handlerMtx);
+            auto client_sock = events[i].data.fd;
+            auto msg = Channel::Receive(client_sock);
+            if (!msg.has_value()) {
+                std::cout << "Closing connection since we can't receive data: " << client_sock << std::endl;
+                epoll_ctl(epollSock, EPOLL_CTL_DEL, client_sock, nullptr);
+                close(client_sock);
+                continue;
+            }
+
+            // Find the player and associate it with the message
+            SPlayer *player;
+            for (auto &j: players) if (j.sock == client_sock) player = &j;
+            if (player == nullptr) {
+                std::cout << "Closing connection since there isn't a player like that: " << client_sock << std::endl;
+                epoll_ctl(epollSock, EPOLL_CTL_DEL, client_sock, nullptr);
+                close(client_sock);
+                continue;
+            }
+
+            std::lock_guard<std::mutex> queue_lock(msgQueueMtx);
+            msgQueue.push(std::make_unique<AuthoredMessage>(AuthoredMessage{std::move(msg.value()), player}));
+        }
     }
 }
 
-void Room::JoinPlayer(int fd, const std::string &username) {
+bool Room::JoinPlayer(int sock, const std::string &username) {
     std::lock_guard<std::mutex> lock(handlerMtx);
-    fcntl(fd, F_SETFL, O_NONBLOCK);
     clientCount++;
     auto color = static_cast<Color>(players.size());
-    auto bytes_sent = Channel::Send(fd, Builder::GameJoin(username, color, true));
-    if (!bytes_sent.has_value()) throw std::runtime_error("cannot send first message");
-    players.emplace_back(fd, username, color);
+    if (!Channel::Send(sock, Builder::GameJoin(username, color, true)).has_value()) return false;
+    epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.fd = sock}};
+    if (epoll_ctl(epollSock, EPOLL_CTL_ADD, sock, &event) == -1) throw std::runtime_error("cannot add to epoll");
+    players.emplace_back(sock, username, color);
+    return true;
 }
 
 Room::Room(std::string roomName) {
@@ -147,6 +171,12 @@ Room::Room(std::string roomName) {
     name = std::move(roomName);
     msgQueue = std::queue<std::unique_ptr<AuthoredMessage>>();
     lastGameWaitMessage = Util::TimestampMillis();
+
+    // Create epoll instance
+    if ((epollSock = epoll_create1(0)) == -1) {
+        close(epollSock); // Clean up on failure
+        throw std::runtime_error("epoll creation failed");
+    }
 }
 
 int Room::Players() {
