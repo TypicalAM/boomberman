@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <array>
+#include <string>
 
 #define MAP_WIDTH 18
 #define MAP_HEIGHT 10
@@ -32,6 +33,7 @@ public:
     void animateOrBoom();
 };
 
+
 class Map{
 private:
     int map[MAP_WIDTH][MAP_HEIGHT]{};
@@ -57,6 +59,7 @@ private:
     int* position;
     int health;
 public:
+    int id;
     Boomerman(int start_x, int start_y, int health);
     [[nodiscard]] int* getBoomermanPos() const;
     void setBoomermanPos(int new_x, int new_y);
@@ -64,4 +67,22 @@ public:
     void shitYourself(Map *map);
 
 };
+class Tile{
+private:
+    std::vector<Boomerman> players;
+    std::vector<Bomb> bombs;
+    bool isIndestructableWall, isWall, isExploaded;
+    int coord_x, coord_y;
+    float pos_x, pos_y, size;
+public:
+    Tile(int coord_x, int coord_y, float size);
+    void setPosition(float x, float y);
+    void addPlayer(Boomerman player);
+    void removePlayer(Boomerman player);
+    void addBomb(Bomb bomb);
+    void removeBomb(Bomb bomb);
+    void destroyWall();
+    void renderTile();
+};
+
 #endif

@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstring>
+#include <algorithm>
 #include "Client.h"
 #include "raylib.h"
 
@@ -108,6 +109,7 @@ Boomerman::Boomerman(int start_x, int start_y, int health) {
     this->position[0]=start_x;
     this->position[1]=start_y;
     this->health=health;
+    this->id=0;
 }
 int* Boomerman::getBoomermanPos() const{
     int* pos = new int[2];
@@ -168,4 +170,26 @@ void Bomb::animateOrBoom() {
         this->animation_start=now;
     }
     if(now-this->plant_time>=this->ttl) this->should_explode=true;
+}
+
+Tile::Tile(int coord_x, int coord_y, float size){
+    this->coord_x=coord_x;
+    this->coord_y=coord_y;
+    this->size=size;
+}
+
+void Tile::setPosition(float x, float y) {
+    this->pos_x=x;
+    this->pos_y=y;
+}
+
+void Tile::addPlayer(Boomerman player) {
+    this->players.push_back(player);
+}
+
+void Tile::removePlayer(Boomerman player) {
+    int to_be_removed = player.id;
+    auto it = std::find_if(this->players.begin(), this->players.end(), [to_be_removed](const Boomerman& obj) {
+        return obj.id == to_be_removed;});
+    if(it != this->players.end()) this->players.erase(it);
 }
