@@ -37,7 +37,8 @@ func joinFirstGame() {
 			MessageType: pb.MessageType_GET_ROOM_LIST,
 			Message:     &pb.GameMessage_GetRoomList{&pb.GetRoomListMsg{}},
 		})
-		time.Sleep(1 * time.Second)
+
+		time.Sleep(300 * time.Millisecond)
 	}
 
 	for _, client := range clients {

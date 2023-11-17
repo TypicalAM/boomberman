@@ -47,7 +47,7 @@ func (c *Client) GameLoop() {
 
 		switch msg.MessageType {
 		case pb.MessageType_ROOM_LIST:
-			// If the first room is empty join new room
+			// This is the list of the rooms, we can join the first free one
 			rooms := msg.GetRoomList_().GetRooms()
 			hasAvailableRoom := false
 			if len(rooms) == 0 {
@@ -55,7 +55,7 @@ func (c *Client) GameLoop() {
 					MessageType: pb.MessageType_JOIN_ROOM,
 					Message:     &pb.GameMessage_JoinRoom{JoinRoom: &pb.JoinRoomMsg{Username: c.username}},
 				})
-				log.Println("Told the server to create a new room")
+				log.Printf("[%s] Told the server to create a new room\n", c.username)
 				continue
 			}
 
@@ -73,6 +73,12 @@ func (c *Client) GameLoop() {
 					Message:     &pb.GameMessage_JoinRoom{JoinRoom: &pb.JoinRoomMsg{Username: c.username, Room: availableRoom}},
 				})
 				log.Printf("[%s] Told the server to join room %s\n", c.username, availableRoom.Name)
+			} else {
+				c.Send(&pb.GameMessage{
+					MessageType: pb.MessageType_JOIN_ROOM,
+					Message:     &pb.GameMessage_JoinRoom{JoinRoom: &pb.JoinRoomMsg{Username: c.username}},
+				})
+				log.Printf("[%s] Told the server to create a new room\n", c.username)
 			}
 
 		case pb.MessageType_ERROR:
