@@ -30,6 +30,9 @@ set(SOURCES
         src/client/Client.cpp
         src/shared/Builder.cpp
         src/shared/Builder.h
+        src/shared/Util.cpp
+        src/shared/Util.h
+
         src/server/entities/SPlayer.cpp
         src/server/entities/SPlayer.h
         src/server/entities/SBomb.cpp
