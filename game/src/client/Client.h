@@ -25,8 +25,11 @@ class Bomb{
 public:
     int pos_x, pos_y;
     int explosion, size;
-    float ttl;
+    double plant_time, animation_start, ttl;
+    int state;
+    bool should_explode=false;
     Bomb(int pos_x, int pos_y, int explosion, int size, float ttl);
+    void animateOrBoom();
 };
 
 class Map{
@@ -55,7 +58,7 @@ private:
     int health;
 public:
     Boomerman(int start_x, int start_y, int health);
-    int* getBoomermanPos() const;
+    [[nodiscard]] int* getBoomermanPos() const;
     void setBoomermanPos(int new_x, int new_y);
     void move(Map *map, int* current_position, int x, int y);
     void shitYourself(Map *map);
