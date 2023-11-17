@@ -42,3 +42,4 @@ set(SOURCES
 add_executable(${PROJECT_NAME} ${SOURCES})
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17)
 target_link_libraries(${PROJECT_NAME} PUBLIC raylib protobuf)
+target_link_options(${PROJECT_NAME} PUBLIC "-Wl,--copy-dt-needed-entries")
