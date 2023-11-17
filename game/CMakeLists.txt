@@ -16,29 +16,27 @@ if (NOT raylib_FOUND)
 endif ()
 
 set(SOURCES
-        src/Main.cpp
+	src/Main.cpp
 
-        src/shared/Channel.cpp
-        src/shared/Channel.h
-        src/shared/messages.pb.cc
-        src/shared/messages.pb.h
+	src/shared/Channel.cpp
+	src/shared/Channel.h
+	src/shared/messages.pb.cc
+	src/shared/messages.pb.h
 
         src/server/Room.cpp
-        src/server/Room.h
-        src/server/Server.cpp
-        src/server/Server.h
+	src/server/Room.h
+	src/server/Server.cpp
+	src/server/Server.h
         src/client/Client.cpp
-        src/shared/Builder.cpp
-        src/shared/Builder.h
-        src/server/entities/SPlayer.cpp
-        src/server/entities/SPlayer.h
-        src/server/entities/SBomb.cpp
-        src/server/entities/SBomb.h
-        src/server/entities/Primitives.h
-        src/shared/Util.cpp
-        src/shared/Util.h
+		src/shared/Builder.cpp
+		src/shared/Builder.h
+		src/server/entities/SPlayer.cpp
+		src/server/entities/SPlayer.h
+		src/server/entities/SBomb.cpp
+		src/server/entities/SBomb.h
+		src/server/entities/Primitives.h
 )
-#protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS messages.proto)
+protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS messages.proto)
 add_executable(${PROJECT_NAME} ${SOURCES})
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17)
 target_link_libraries(${PROJECT_NAME} PUBLIC raylib protobuf)
