@@ -31,9 +31,11 @@ private:
     std::queue<std::unique_ptr<AuthoredMessage>> msgQueue;
 
 public:
-    void JoinPlayer(int fd);
+    void JoinPlayer(int fd, const std::string& username);
 
-    bool CanJoin();
+    int Players();
+
+    bool CanJoin(const std::string& username);
 
     [[noreturn]] void GameLoop();
 

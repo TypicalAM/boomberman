@@ -16,16 +16,17 @@
     }
 }
 
-bool Room::CanJoin() {
+bool Room::CanJoin(const std::string &username) {
     std::lock_guard<std::mutex> lock(handlerMtx);
-    return MAX_PLAYERS - clientCount > 0;
+    bool already_exists;
+    for (const auto &player: players) if (player.username == username) already_exists = true;
+    return already_exists || MAX_PLAYERS - clientCount > 0;
 }
 
 void Room::CheckIfGameReady() {
     if (gameStarted) return;
-    if (CanJoin()) {
+    if (MAX_PLAYERS - clientCount > 0) {
         if (Util::TimestampMillis() < lastGameWaitMessage + GAME_WAIT_MESSAGE_INTERVAL) return;
-        std::cout << "Sending game wait messages..." << std::endl;
         for (const auto &player: players) {
             auto bytes_sent = Channel::Send(player.sock, Builder::GameWait(MAX_PLAYERS - clientCount));
             if (!bytes_sent.has_value()) throw std::runtime_error("can't send game wait msg");
@@ -130,13 +131,10 @@ void Room::ReadIntoQueue() {
     }
 }
 
-void Room::JoinPlayer(int fd) {
+void Room::JoinPlayer(int fd, const std::string &username) {
     std::lock_guard<std::mutex> lock(handlerMtx);
     clientCount++;
-    if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1) throw std::runtime_error("cannot set non-blocking mode");
-
     auto color = static_cast<Color>(players.size());
-    auto username = Util::RandomString(5); // TODO: Check if there is a collision (or just increase length lol)
     auto bytes_sent = Channel::Send(fd, Builder::GameJoin(username, color, true));
     if (!bytes_sent.has_value()) throw std::runtime_error("cannot send first message");
     players.emplace_back(fd, username, color);
@@ -147,4 +145,9 @@ Room::Room(std::string roomName) {
     name = std::move(roomName);
     msgQueue = std::queue<std::unique_ptr<AuthoredMessage>>();
     lastGameWaitMessage = Util::TimestampMillis();
+}
+
+int Room::Players() {
+    std::lock_guard<std::mutex> lock(handlerMtx);
+    return clientCount;
 }

@@ -108,24 +108,24 @@ std::unique_ptr<GameMessage> Builder::GameJoin(const std::string &name, Color co
     return std::make_unique<GameMessage>(msg);
 }
 
-std::unique_ptr<GameMessage> Builder::GameError(const std::string &error) {
+std::unique_ptr<GameMessage> Builder::Error(const std::string &error) {
     auto *e = new ErrorMsg;
     e->set_error(error);
     GameMessage msg;
-    msg.set_message_type(GAME_ERROR);
+    msg.set_message_type(ERROR);
     msg.set_allocated_error(e);
     return std::make_unique<GameMessage>(msg);
 }
 
-std::unique_ptr<LobbyMessage> Builder::GetRoomList() {
+std::unique_ptr<GameMessage> Builder::GetRoomList() {
     auto *grl = new GetRoomListMsg;
-    LobbyMessage msg;
+    GameMessage msg;
     msg.set_message_type(GET_ROOM_LIST);
-    msg.set_allocated_get_available_rooms(grl);
-    return std::make_unique<LobbyMessage>(msg);
+    msg.set_allocated_get_room_list(grl);
+    return std::make_unique<GameMessage>(msg);
 }
 
-std::unique_ptr<LobbyMessage> Builder::RoomList(std::vector<Room> rooms) {
+std::unique_ptr<GameMessage> Builder::RoomList(std::vector<Room> rooms) {
     auto *rl = new RoomListMsg;
     for (const auto &room: rooms) {
         RoomMsg *r = rl->add_rooms();
@@ -134,13 +134,13 @@ std::unique_ptr<LobbyMessage> Builder::RoomList(std::vector<Room> rooms) {
         r->set_maxplayers(room.maxPlayers);
     }
 
-    LobbyMessage msg;
+    GameMessage msg;
     msg.set_message_type(ROOM_LIST);
-    msg.set_allocated_available_rooms(rl);
-    return std::make_unique<LobbyMessage>(msg);
+    msg.set_allocated_room_list(rl);
+    return std::make_unique<GameMessage>(msg);
 }
 
-std::unique_ptr<LobbyMessage> Builder::JoinRoom(const std::string &name, std::optional<Room> room) {
+std::unique_ptr<GameMessage> Builder::JoinRoom(const std::string &name, std::optional<Room> room) {
     auto *jr = new JoinRoomMsg;
     jr->set_username(name);
     if (room.has_value()) {
@@ -150,17 +150,8 @@ std::unique_ptr<LobbyMessage> Builder::JoinRoom(const std::string &name, std::op
         r->set_maxplayers(room->maxPlayers);
         jr->set_allocated_room(r);
     }
-    LobbyMessage msg;
+    GameMessage msg;
     msg.set_message_type(JOIN_ROOM);
     msg.set_allocated_join_room(jr);
-    return std::make_unique<LobbyMessage>(msg);
-}
-
-std::unique_ptr<LobbyMessage> Builder::LobbyError(const std::string &error) {
-    auto *e = new ErrorMsg;
-    e->set_error(error);
-    LobbyMessage msg;
-    msg.set_message_type(LOBBY_ERROR);
-    msg.set_allocated_error(e);
-    return std::make_unique<LobbyMessage>(msg);
+    return std::make_unique<GameMessage>(msg);
 }

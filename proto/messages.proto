@@ -5,46 +5,26 @@ option go_package = "github.com/TypicalAM/boomberman/test-client/pb";
 // General
 message ErrorMsg { string error = 1; }
 
-// Lobby messages
 message RoomMsg {
   string name = 1;
   int32 players = 2;
   int32 maxPlayers = 3;
 }
 
-message GetRoomListMsg {}
-
-message RoomListMsg { repeated RoomMsg rooms = 1; }
-
-message JoinRoomMsg {
-	string username = 1;
-  optional RoomMsg room = 2;
-} // It is optional because we can create a new room
-
-enum LobbyMessageType {
-  GET_ROOM_LIST = 0;
-  ROOM_LIST = 1;
-  JOIN_ROOM = 2;
-  LOBBY_ERROR = 3;
-}
-
-message LobbyMessage {
-  LobbyMessageType message_type = 1;
-  oneof message {
-    GetRoomListMsg get_available_rooms = 2;
-    RoomListMsg available_rooms = 3;
-    JoinRoomMsg join_room = 4;
-    ErrorMsg error = 5;
-  }
-}
-
-// Game messages
 enum Color {
   RED = 0;
   GREEN = 1;
   BLUE = 2;
   YELLOW = 3;
 }
+
+// Client messages
+message GetRoomListMsg {}
+
+message JoinRoomMsg {
+  string username = 1;
+  optional RoomMsg room = 2;
+} // It is optional because we can create a new room
 
 message IPlaceBombMsg {
   float x = 1;
@@ -57,6 +37,9 @@ message IMoveMsg {
 }
 
 message ILeaveMsg {}
+
+// Server messages
+message RoomListMsg { repeated RoomMsg rooms = 1; }
 
 message GameJoinMsg {
   string name = 1;
@@ -102,7 +85,10 @@ enum MessageType {
   OTHER_LEAVE = 8;
   GAME_WON = 9;
   GAME_START = 10;
-  GAME_ERROR = 11;
+  ERROR = 11;
+  GET_ROOM_LIST = 12;
+  ROOM_LIST = 13;
+  JOIN_ROOM = 14;
 }
 
 // Wrapper Message
@@ -121,5 +107,8 @@ message GameMessage {
     GameWonMsg game_won = 11;
     GameStartMsg game_start = 12;
     ErrorMsg error = 13;
+    GetRoomListMsg get_room_list = 14;
+    RoomListMsg room_list = 15;
+    JoinRoomMsg join_room = 16;
   }
 }

@@ -35,15 +35,13 @@ namespace Builder {
 
     std::unique_ptr<GameMessage> GameWon(const std::string &winner);
 
-    std::unique_ptr<GameMessage> GameError(const std::string &error);
+    std::unique_ptr<GameMessage> Error(const std::string &error);
 
-    std::unique_ptr<LobbyMessage> GetRoomList();
+    std::unique_ptr<GameMessage> GetRoomList();
 
-    std::unique_ptr<LobbyMessage> RoomList(std::vector<Room> rooms);
+    std::unique_ptr<GameMessage> RoomList(std::vector<Room> rooms);
 
-    std::unique_ptr<LobbyMessage> JoinRoom(const std::string &name, std::optional<Room> room = std::nullopt);
-
-    std::unique_ptr<LobbyMessage> LobbyError(const std::string &error);
+    std::unique_ptr<GameMessage> JoinRoom(const std::string &name, std::optional<Room> room = std::nullopt);
 };
 
 #endif

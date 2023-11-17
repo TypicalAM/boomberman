@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"sync"
 
 	"github.com/TypicalAM/boomberman/test-client/pb"
 	"google.golang.org/protobuf/proto"
@@ -16,11 +17,14 @@ type Client struct {
 	msgs chan *pb.GameMessage
 	done chan struct{}
 
+	isInGame      bool
+	isInGameMutex sync.Mutex
+
 	username string
 	entities []Entity
 }
 
-func New(serverAddr string) (*Client, error) {
+func New(serverAddr string, name string) (*Client, error) {
 	conn, err := net.Dial("tcp", serverAddr)
 	if err != nil {
 		return nil, err
@@ -31,37 +35,48 @@ func New(serverAddr string) (*Client, error) {
 		msgs:     make(chan *pb.GameMessage),
 		done:     make(chan struct{}),
 		entities: make([]Entity, 0),
+		username: name,
 	}, nil
 }
 
-func (c *Client) ActLoop() {
+func (c *Client) GameLoop() {
 	for msg := range c.msgs {
 		if c.username != "" {
 			log.Printf("[%s] New message of type %s!\n", c.username, msg.MessageType)
 		}
 
 		switch msg.MessageType {
-		case pb.MessageType_GAME_JOIN:
-			gj := msg.GetGameJoin()
-			if gj.You {
-				// This is our player
-				log.Printf("[%s] We joined the game\n", gj.Name)
-				c.username = gj.Name
-			} else {
-				log.Printf("[%s] User %s has joined the game\n", c.username, gj.Name)
+		case pb.MessageType_ROOM_LIST:
+			// If the first room is empty join new room
+			rooms := msg.GetRoomList_().GetRooms()
+			hasAvailableRoom := false
+			if len(rooms) == 0 {
+				c.Send(&pb.GameMessage{
+					MessageType: pb.MessageType_JOIN_ROOM,
+					Message:     &pb.GameMessage_JoinRoom{JoinRoom: &pb.JoinRoomMsg{Username: c.username}},
+				})
+				log.Println("Told the server to create a new room")
+				continue
 			}
-			c.entities = append(c.entities, Player{gj.Name, Coord{0, 0}, gj.Color})
 
-		case pb.MessageType_GAME_WAIT:
-			gj := msg.GetGameWait()
-			log.Printf("[%s] Waiting for %d players to join\n", c.username, gj.WaitingFor)
+			availableRoom := rooms[0]
+			for _, room := range rooms {
+				log.Printf("[%s] Room %s has %d players\n", c.username, room.Name, room.Players)
+				if room.Players < room.MaxPlayers {
+					hasAvailableRoom = true
+				}
+			}
 
-		case pb.MessageType_GOT_HIT:
-			gh := msg.GetGotHit()
-			log.Printf("[%s] Someone got hit: %s, they got %d lives left\n", c.username, gh.Name, gh.LivesRemaining)
+			if hasAvailableRoom {
+				c.Send(&pb.GameMessage{
+					MessageType: pb.MessageType_JOIN_ROOM,
+					Message:     &pb.GameMessage_JoinRoom{JoinRoom: &pb.JoinRoomMsg{Username: c.username, Room: availableRoom}},
+				})
+				log.Printf("[%s] Told the server to join room %s\n", c.username, availableRoom.Name)
+			}
 
-		default:
-			log.Printf("[%s] Unhandled type\n", c.username)
+		case pb.MessageType_ERROR:
+			log.Printf("[%s] Error: %s\n", c.username, msg.GetError().Error)
 		}
 	}
 }
