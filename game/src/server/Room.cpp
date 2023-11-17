@@ -114,7 +114,8 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
         }
 
         default:
-            throw std::runtime_error("server-side message from client");
+            std::cout << "Unexpected message type: " << msg->payload->message_type() << std::endl;
+            Channel::Send(msg->author->sock, Builder::Error("Unexpected message"));
     }
 }
 

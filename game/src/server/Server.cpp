@@ -81,8 +81,8 @@ void Server::handleLobbyClients() {
             }
 
             default:
-                std::cout << msg.value()->message_type() << std::endl;
-                throw std::runtime_error("unexpected message from client");
+                std::cout << "Unexpected message type: " << msg.value()->message_type() << std::endl;
+                Channel::Send(lobbySock, Builder::Error("Unexpected message"));
         };
     }
 
