@@ -134,6 +134,7 @@ void Room::ReadIntoQueue() {
 
 void Room::JoinPlayer(int fd, const std::string &username) {
     std::lock_guard<std::mutex> lock(handlerMtx);
+    fcntl(fd, F_SETFL, O_NONBLOCK);
     clientCount++;
     auto color = static_cast<Color>(players.size());
     auto bytes_sent = Channel::Send(fd, Builder::GameJoin(username, color, true));

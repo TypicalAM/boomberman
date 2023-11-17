@@ -3,104 +3,152 @@
 #include <sys/socket.h>
 #include <random>
 #include <thread>
-#include <fcntl.h>
 #include "Server.h"
+#include <sys/epoll.h>
+#include <csignal>
 #include "../shared/Util.h"
 #include "../shared/Channel.h"
 #include "../shared/Builder.h"
 
-std::optional<int> Server::setup() const {
-    sockaddr_in localAddress{AF_INET, htons(this->port), htonl(INADDR_ANY)};
-    int servSock = socket(PF_INET, SOCK_STREAM, 0);
-    int one = 1;
-    setsockopt(servSock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-    if (bind(servSock, (sockaddr *) &localAddress, sizeof(localAddress))) return std::nullopt;
-    listen(servSock, 1);
-    return servSock;
-}
+void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
+    switch (msg->message_type()) {
+        case GET_ROOM_LIST: {
+            // Create a room list and send it to the user
+            std::lock_guard<std::mutex> lock(roomsMtx);
+            std::vector<Builder::Room> room_list;
+            for (const auto &pair: rooms)
+                room_list.push_back(Builder::Room{pair.first, pair.second->Players(), MAX_PLAYERS});
 
-void Server::acceptConnections() {
-    std::cout << "Serving on port: " << this->port << std::endl;
-    while (true) {
-        int clientSock = accept(sock, nullptr, nullptr);
-        if (clientSock == -1) throw std::runtime_error("cannot accept connections");
-        if (fcntl(clientSock, F_SETFL, O_NONBLOCK) == -1) throw std::runtime_error("cannot set non-blocking mode");
-        std::lock_guard<std::mutex> lock(roomsMtx);
-        lobbySockets.push_back(clientSock);
-    }
-};
-
-void Server::handleLobbyClients() {
-    std::vector<int> to_remove;
-    for (const auto &lobbySock: lobbySockets) {
-        auto msg = Channel::Receive(lobbySock);
-        if (!msg.has_value()) continue;
-        switch (msg.value()->message_type()) {
-            case GET_ROOM_LIST: {
-                std::vector<Builder::Room> room_list;
-                roomsMtx.lock();
-                for (const auto &pair: rooms)
-                    room_list.push_back(Builder::Room{
-                            .name = pair.first,
-                            .players = pair.second->Players(),
-                            .maxPlayers = MAX_PLAYERS,
-                    });
-                roomsMtx.unlock();
-                Channel::Send(lobbySock, Builder::RoomList(room_list));
-                break;
+            // Close the connection if we can't send the message
+            if (!Channel::Send(sock, Builder::RoomList(room_list)).has_value()) {
+                epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
+                close(sock);
             }
+            return;
+        }
 
-            case JOIN_ROOM: {
-                std::lock_guard<std::mutex> lock(roomsMtx);
-                auto room_msg = msg.value()->join_room();
+        case JOIN_ROOM: {
+            // Join a user to a room (if he specified the room) or create a new one
+            std::lock_guard<std::mutex> lock(roomsMtx);
+            auto room_msg = msg->join_room();
 
-                std::shared_ptr<Room> room;
-                if (!room_msg.has_room()) {
-                    auto new_room_name = Util::RandomString(10);
-                    room = std::make_shared<Room>(new_room_name);
-                    std::thread(&Room::GameLoop, room).detach();
-                    rooms[new_room_name] = room;
-                } else {
-                    if (rooms.find(room_msg.room().name()) == rooms.end()) {
-                        Channel::Send(lobbySock, Builder::Error("There is no room with that name man"));
+            std::shared_ptr<Room> room;
+            if (!room_msg.has_room()) {
+                auto new_room_name = Util::RandomString(10);
+                room = std::make_shared<Room>(new_room_name);
+                std::thread(&Room::GameLoop, room).detach();
+                rooms[new_room_name] = room;
+            } else {
+                if (rooms.find(room_msg.room().name()) == rooms.end())
+                    // Close the connection if we can't send the message
+                    if (!Channel::Send(sock, Builder::Error("There is no room with that name man")).has_value()) {
+                        epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
+                        close(sock);
                         return;
                     }
 
-                    room = rooms[room_msg.room().name()];
-                }
+                room = rooms[room_msg.room().name()];
+            }
 
-                if (!room->CanJoin(room_msg.username())) {
-                    Channel::Send(lobbySock, Builder::Error("Cannot join this game"));
+            if (!room->CanJoin(room_msg.username()))
+                // Close the connection if we can't send the message
+                if (!Channel::Send(sock, Builder::Error("Cannot join this game")).has_value()) {
+                    epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
+                    close(sock);
                     return;
                 }
 
-                std::cout << "Joining player to game: " << room_msg.username() << std::endl;
-                room->JoinPlayer(lobbySock, room_msg.username());
-                to_remove.push_back(lobbySock);
-                break;
+            std::cout << "Joining player to game: " << room_msg.username() << std::endl;
+            room->JoinPlayer(sock, room_msg.username());
+            epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
+            return;
+        }
+
+        default: {
+            // Close the connection if we can't send the message
+            std::cout << "Unexpected message type: " << msg->message_type() << std::endl;
+            if (!Channel::Send(sock, Builder::Error("Unexpected message")).has_value()) {
+                epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
+                close(sock);
             }
-
-            default:
-                std::cout << "Unexpected message type: " << msg.value()->message_type() << std::endl;
-                Channel::Send(lobbySock, Builder::Error("Unexpected message"));
-        };
+        }
     }
-
-    for (const auto &index: to_remove)
-        lobbySockets.erase(lobbySockets.begin() + index);
 }
 
 [[noreturn]] void Server::Run() {
-    std::optional<int> serv = setup();
-    if (!serv.has_value())
-        throw std::runtime_error("failed to set up the tcp server");
-    this->sock = serv.value();
+    std::cout << "Serving" << std::endl;
 
-    // Loop indefinitely
-    std::thread(&Server::acceptConnections, this).detach();
-    while (true) handleLobbyClients();
+    epoll_event events[10];
+    while (true) {
+        int event_num = epoll_wait(epollSock, events, 10, -1);
+        for (int i = 0; i < event_num; ++i) {
+            // If this isn't an in event, ignore it
+            if (!(events[i].events & EPOLLIN)) continue;
+
+            // Check if server event
+            if (events[i].data.fd == srvSock) {
+                int new_sock = accept(srvSock, nullptr, nullptr);
+                if (new_sock == -1) continue;
+                epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.fd = new_sock}};
+                if (epoll_ctl(epollSock, EPOLL_CTL_ADD, new_sock, &event) == -1) continue;
+                std::cout << "New connection accepted from: " << new_sock << std::endl;
+                continue;
+            }
+
+            // We got a message from a client
+            auto msg = Channel::Receive(events[i].data.fd);
+            if (!msg.has_value()) {
+                std::cout << "Closing connection since we can't receive data: " << events[i].data.fd << std::endl;
+                epoll_ctl(epollSock, EPOLL_CTL_DEL, events[i].data.fd, nullptr);
+                close(events[i].data.fd);
+                continue;
+            }
+
+            // Handle the message
+            handleClientMessage(events[i].data.fd, std::move(msg.value()));
+        }
+    }
 }
 
 Server::Server(int port) {
-    this->port = port;
+    sockaddr_in localAddress{AF_INET, htons(port), htonl(INADDR_ANY)};
+    int one = 1;
+    // Socket creation
+    if ((srvSock = socket(PF_INET, SOCK_STREAM, 0)) == -1) {
+        throw std::runtime_error("socket creation failed");
+    }
+
+    // Set socket options
+    if (setsockopt(srvSock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) == -1) {
+        close(srvSock); // Clean up on failure
+        throw std::runtime_error("setting socket options failed");
+    }
+
+    // Bind the socket
+    if (bind(srvSock, (sockaddr *) &localAddress, sizeof(localAddress)) == -1) {
+        close(srvSock); // Clean up on failure
+        throw std::runtime_error("bind failed");
+    }
+
+    // Listen for incoming connections
+    if (listen(srvSock, 1) == -1) {
+        close(srvSock);
+        throw std::runtime_error("listen failed");
+    }
+
+    // Create epoll instance
+    if ((epollSock = epoll_create1(0)) == -1) {
+        close(epollSock); // Clean up on failure
+        throw std::runtime_error("epoll creation failed");
+    }
+
+    // Add server socket to epoll
+    epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.fd = srvSock}};
+    if (epoll_ctl(epollSock, EPOLL_CTL_ADD, srvSock, &event) == -1) {
+        close(srvSock); // Clean up on failure
+        close(srvSock); // Clean up on failure
+        throw std::runtime_error("epoll control failed");
+    }
+
+    std::cout << "Listening on port 2137" << std::endl;
 }

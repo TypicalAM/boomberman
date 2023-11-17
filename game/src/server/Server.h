@@ -11,19 +11,15 @@ private:
     std::unordered_map<std::string, std::shared_ptr<Room>> rooms;
     std::vector<int> lobbySockets;
     std::mutex roomsMtx;
-    int port;
-    int sock;
-
-    std::optional<int> setup() const;
+    int srvSock;
+    int epollSock;
 
 public:
     [[noreturn]] void Run();
 
     explicit Server(int port);
 
-    void acceptConnections();
-
-    void handleLobbyClients();
+    void handleClientMessage(int sock, std::unique_ptr<GameMessage> msg);
 };
 
 #endif
