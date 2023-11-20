@@ -49,7 +49,7 @@ message GameJoinMsg {
 
 message GameWaitMsg { int32 waitingFor = 1; }
 
-message GameStartMsg {}
+message GameStartMsg { repeated string usernames = 1; }
 
 message OtherBombPlaceMsg {
   int64 timestamp = 1;

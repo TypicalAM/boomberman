@@ -38,8 +38,9 @@ std::unique_ptr<GameMessage> Builder::GameWait(int32_t waitingFor) {
     return std::make_unique<GameMessage>(msg);
 }
 
-std::unique_ptr<GameMessage> Builder::GameStart() {
+std::unique_ptr<GameMessage> Builder::GameStart(const std::vector<std::string>& usernames) {
     auto *gs = new GameStartMsg;
+    for (const auto &username: usernames) gs->add_usernames(username);
     GameMessage msg;
     msg.set_message_type(GAME_START);
     msg.set_allocated_game_start(gs);

@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/TypicalAM/boomberman/test-client/pb"
@@ -80,6 +81,18 @@ func (c *Client) GameLoop() {
 				})
 				log.Printf("[%s] Told the server to create a new room\n", c.username)
 			}
+
+		case pb.MessageType_GAME_START:
+			log.Printf("[%s] Game started!\n", c.username)
+			c.isInGameMutex.Lock()
+			c.isInGame = true
+			c.isInGameMutex.Unlock()
+			var b strings.Builder
+			for _, username := range msg.GetGameStart().GetUsernames() {
+				b.WriteString(username)
+				b.WriteString(" ")
+			}
+			log.Printf("[%s] Players in game: %s\n", c.username, b.String())
 
 		case pb.MessageType_ERROR:
 			log.Printf("[%s] Error: %s\n", c.username, msg.GetError().Error)

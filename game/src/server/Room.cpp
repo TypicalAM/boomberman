@@ -56,7 +56,9 @@ void Room::CheckIfGameReady() {
 
     std::cout << "Starting game" << std::endl;
     gameStarted = true;
-    SendBroadcast(Builder::GameStart);
+    std::vector<std::string> usernames;
+    for (const auto &player: players) usernames.push_back(player.username);
+    SendBroadcast(Builder::GameStart, usernames);
 }
 
 void Room::HandleGameUpdates() {

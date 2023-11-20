@@ -23,7 +23,7 @@ namespace Builder {
 
     std::unique_ptr<GameMessage> GameWait(int32_t waitingFor);
 
-    std::unique_ptr<GameMessage> GameStart();
+    std::unique_ptr<GameMessage> GameStart(const std::vector<std::string>& usernames);
 
     std::unique_ptr<GameMessage> OtherBombPlace(int64_t timestamp, const std::string &name, float x, float y);
 
