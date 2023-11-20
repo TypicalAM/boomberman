@@ -62,9 +62,10 @@ func (c *Client) GameLoop() {
 
 			availableRoom := rooms[0]
 			for _, room := range rooms {
-				log.Printf("[%s] Room %s has %d players\n", c.username, room.Name, room.Players)
+				log.Printf("[%s] Room %s has %d players out of %d\n", c.username, room.Name, room.Players, room.MaxPlayers)
 				if room.Players < room.MaxPlayers {
 					hasAvailableRoom = true
+					availableRoom = room
 				}
 			}
 
