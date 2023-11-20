@@ -60,6 +60,7 @@ void Room::CheckIfGameReady() {
 }
 
 void Room::HandleGameUpdates() {
+    std::lock_guard<std::mutex> lock(playerMtx);
     std::vector<int> explode_indices;
 
     for (int i = 0; i < bombs.size(); i++) {
@@ -70,8 +71,7 @@ void Room::HandleGameUpdates() {
         for (auto &player: players)
             if (bombs[i].InBlastRadius(player)) {
                 player.livesRemaining--;
-                for (const auto &player2: players)
-                    Channel::Send(player2.sock, Builder::GotHit(player.username, player.livesRemaining));
+                SendBroadcast(Builder::GotHit, player.username, player.livesRemaining);
             }
     }
 

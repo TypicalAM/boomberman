@@ -53,7 +53,7 @@ public:
 
     void HandleGameUpdates();
 
-    void SendSpecific(int playerSock, std::unique_ptr<GameMessage> msg);
+    static void SendSpecific(int playerSock, std::unique_ptr<GameMessage> msg);
 
     template<typename Function, typename ...Args>
     void SendExcept(int sock, Function &&builderFunc, Args &&... builderArgs);
