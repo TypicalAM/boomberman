@@ -16,8 +16,11 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
             // Create a room list and send it to the user
             std::lock_guard<std::mutex> lock(roomsMtx);
             std::vector<Builder::Room> room_list;
-            for (const auto &pair: rooms)
-                room_list.push_back(Builder::Room{pair.first, pair.second->Players(), MAX_PLAYERS});
+            for (const auto &pair: rooms) {
+                int player_count = pair.second->Players();
+                if (player_count != MAX_PLAYERS)
+                    room_list.push_back(Builder::Room{pair.first, player_count, MAX_PLAYERS});
+            }
 
             // Close the connection if we can't send the message
             if (!Channel::Send(sock, Builder::RoomList(room_list)).has_value()) {

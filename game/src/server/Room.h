@@ -9,7 +9,7 @@
 #include "entities/SPlayer.h"
 #include "entities/SBomb.h"
 
-#define MAX_PLAYERS 3
+#define MAX_PLAYERS 4
 #define GAME_WAIT_MESSAGE_INTERVAL 1000
 
 struct AuthoredMessage {
