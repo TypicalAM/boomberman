@@ -8,8 +8,8 @@
 #include "../shared/Channel.h"
 #include "../shared/Util.h"
 
-[[noreturn]] void Room::GameLoop() {
-    while (true) {
+void Room::GameLoop() {
+    while (!gameOver.load()) {
         CheckIfGameReady();
         HandleQueue();
         HandleGameUpdates();
@@ -62,6 +62,8 @@ void Room::CheckIfGameReady() {
 }
 
 void Room::HandleGameUpdates() {
+    if (!gameStarted) return;
+
     std::lock_guard<std::mutex> lock(playerMtx);
     std::vector<int> explode_indices;
 
@@ -79,6 +81,24 @@ void Room::HandleGameUpdates() {
 
     for (const auto &index: explode_indices)
         bombs.erase(bombs.begin() + index);
+
+    int people_alive = 0;
+    int last_alive_index = -1;
+    for (int i = 0; i < players.size(); ++i) {
+        if (players[i].livesRemaining != 0) {
+            people_alive++;
+            last_alive_index = i;
+        }
+    }
+
+    if (people_alive == 1 && !gameOver.load()) {
+        // This person has won the game, announce that and disconnect all clients
+        std::cout << "Player won: " << players[last_alive_index].username << std::endl;
+        SendBroadcast(Builder::GameWon, players[last_alive_index].username);
+        std::this_thread::sleep_for(std::chrono::seconds(3));
+        gameOver.store(true);
+        for (auto &player: players) close(player.sock);
+    }
 }
 
 void Room::HandleQueue() {
@@ -91,6 +111,12 @@ void Room::HandleQueue() {
 
 void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
     std::cout << "Handling a message from user: " << msg->author->username << std::endl;
+
+    // If the game started
+    if (!gameStarted) {
+        SendSpecific(msg->author->sock, Builder::Error("Game hasn't started yet"));
+        return;
+    }
 
     // Check if the player is playing tricks
     if (!msg->author->livesRemaining && msg->payload->message_type() != I_LEAVE) {
@@ -120,6 +146,18 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
 
         case I_LEAVE: {
             // Notify others of the player leaving
+            if (players.size() == 1) gameOver.store(true); // Close the game
+            if (players.size() == 2 && gameStarted && !gameOver.load()) {
+                // This player just won lol, let's notify the last one standing
+                auto winner_idx = (players[0].sock == msg->author->sock) ? 1 : 0;
+                std::cout << "Player won: " << players[winner_idx].username << std::endl;
+                SendBroadcast(Builder::GameWon, players[winner_idx].username);
+                std::this_thread::sleep_for(std::chrono::seconds(3));
+                gameOver.store(true);
+                for (auto &player: players) close(player.sock);
+                return;
+            }
+
             SendExcept(msg->author->sock, Builder::OtherLeave, msg->author->username);
             close(msg->author->sock);
             return;
@@ -131,9 +169,9 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
     }
 }
 
-[[noreturn]] void Room::ReadLoop() {
+void Room::ReadLoop() {
     epoll_event events[10];
-    while (true) {
+    while (!gameOver.load()) {
         // Wait for events to occur
         int event_num = epoll_wait(epollSock, events, 10, -1);
         for (int i = 0; i < event_num; ++i) {

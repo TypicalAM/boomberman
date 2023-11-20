@@ -40,11 +40,11 @@ public:
 
     bool CanJoin(const std::string &username);
 
-    [[noreturn]] void GameLoop();
+    void GameLoop();
 
     explicit Room(std::string name);
 
-    [[noreturn]] void ReadLoop();
+    void ReadLoop();
 
     void HandleQueue();
 
