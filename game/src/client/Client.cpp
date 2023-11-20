@@ -18,7 +18,7 @@ void Client::Run() {
     while (!WindowShouldClose()) {
         current_local_Boomerman_pos = local_boomberman.getBoomermanPos();
         if(IsKeyPressed(KEY_SPACE)){
-           entityHandler.destroyWall(0,0);
+           entityHandler.destroyWall(&map,0,1);
         }
         if (IsKeyPressed(KEY_RIGHT)) {
             local_boomberman.move(&map, current_local_Boomerman_pos, 1, 0);
@@ -168,7 +168,7 @@ Wall::Wall(int pos_x, int pos_y, bool is_destructible) {
     this->is_destructible=is_destructible;
 }
 
-int* Wall::getPosition() {
+int* Wall::getPosition() const {
     int* positions = new int[2];
     positions[0]=this->pos_x;
     positions[1] = this->pos_y;
@@ -189,12 +189,13 @@ void EntityHandler::placeWalls(Map *map) {
     delete[] colsNrows;
 }
 
-int EntityHandler::destroyWall(int x, int y) {
+int EntityHandler::destroyWall(Map* map, int x, int y) {
     auto it = std::find_if(this->walls.begin(), this->walls.end(), [x,y](Wall& wall) {
         return wall.getPosition()[0] == x && wall.getPosition()[1] == y;
     });
     if (it != this->walls.end()) {
         this->walls.erase(it);
+        map->setSquareState(x,y,0);
         return 0;
     }
     return 1;

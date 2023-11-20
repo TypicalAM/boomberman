@@ -72,7 +72,7 @@ private:
     bool is_destructible;
 public:
     Wall(int pos_x, int pos_y, bool is_descructible);
-    int* getPosition();
+    int* getPosition() const;
     int isDescructible();
     void drawWall(int x, int y, int size);
 };
@@ -84,7 +84,7 @@ public:
     std::vector<Wall> walls;
 
     void placeWalls(Map* map);
-    int destroyWall(int x, int y);
+    int destroyWall(Map* map, int x, int y);
 
     void drawWalls(Map* map);
     void drawPlayers(Map* map);
