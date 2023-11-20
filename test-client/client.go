@@ -92,7 +92,8 @@ func (c *Client) ReadLoop() error {
 	for {
 		n, err := c.conn.Read(bytes)
 		if err != nil && !errors.Is(err, io.EOF) {
-			log.Fatal(err)
+			log.Printf("[%s] Failed to read from connection: %s\n", c.username, err)
+			return fmt.Errorf("failed to read from connection: %w", err)
 		}
 
 		if n == 0 {

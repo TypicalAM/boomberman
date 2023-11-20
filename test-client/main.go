@@ -41,11 +41,16 @@ func joinFirstGame() {
 		time.Sleep(200 * time.Millisecond)
 	}
 
+	time.Sleep(5 * time.Second)
+	clients[0].Close()
+	time.Sleep(3 * time.Second)
+
 	time.Sleep(1 * time.Second)
 	clients[1].Send(&pb.GameMessage{
 		MessageType: pb.MessageType_I_MOVE,
 		Message:     &pb.GameMessage_IMove{&pb.IMoveMsg{X: 2, Y: 0}},
 	})
+	clients[1].Close()
 
 	for _, client := range clients {
 		<-client.Done()

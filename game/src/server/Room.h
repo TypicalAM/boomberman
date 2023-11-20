@@ -22,7 +22,7 @@ private:
     std::string name;
     std::vector<SBomb> bombs;
     std::vector<SPlayer> players;
-    std::mutex handlerMtx;
+    std::mutex playerMtx;
     bool gameStarted;
     int clientCount = 0;
     int64_t lastGameWaitMessage;
@@ -33,11 +33,11 @@ private:
     int epollSock;
 
 public:
-    bool JoinPlayer(int sock, const std::string& username);
+    bool JoinPlayer(int sock, const std::string &username);
 
     int Players();
 
-    bool CanJoin(const std::string& username);
+    bool CanJoin(const std::string &username);
 
     [[noreturn]] void GameLoop();
 
@@ -52,6 +52,14 @@ public:
     void CheckIfGameReady();
 
     void HandleGameUpdates();
+
+    void SendSpecific(int playerSock, std::unique_ptr<GameMessage> msg);
+
+    template<typename Function, typename ...Args>
+    void SendExcept(int sock, Function &&builderFunc, Args &&... builderArgs);
+
+    template<typename Function, typename ...Args>
+    void SendBroadcast(Function &&builderFunc, Args &&... builderArgs);
 };
 
 #endif
