@@ -40,24 +40,24 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
                 std::thread(&Room::ReadLoop, room).detach();
                 rooms[new_room_name] = room;
             } else {
-                if (rooms.find(room_msg.room().name()) == rooms.end())
+                if (rooms.find(room_msg.room().name()) == rooms.end()) {
                     // Close the connection if we can't send the message
-                    if (!Channel::Send(sock, Builder::Error("There is no room with that name man")).has_value()) {
-                        epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
-                        close(sock);
-                        return;
-                    }
-
-                room = rooms[room_msg.room().name()];
-            }
-
-            if (!room->CanJoin(room_msg.username()))
-                // Close the connection if we can't send the message
-                if (!Channel::Send(sock, Builder::Error("Cannot join this game")).has_value()) {
+                    if (Channel::Send(sock, Builder::Error("There is no room with that name man")).has_value()) return;
                     epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
                     close(sock);
                     return;
                 }
+
+                room = rooms[room_msg.room().name()];
+            }
+
+            if (!room->CanJoin(room_msg.username())) {
+                // Close the connection if we can't send the message
+                if (Channel::Send(sock, Builder::Error("Cannot join this game")).has_value()) return;
+                epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
+                close(sock);
+                return;
+            }
 
             std::cout << "Joining player to game: " << room_msg.username() << std::endl;
             epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
