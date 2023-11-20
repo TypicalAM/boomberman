@@ -8,6 +8,8 @@
 #define MAP_WIDTH 18
 #define MAP_HEIGHT 10
 
+;
+
 class Client {
 private:
     int width;
@@ -33,26 +35,22 @@ public:
     void animateOrBoom();
 };
 
-
 class Map{
 private:
     int map[MAP_WIDTH][MAP_HEIGHT]{};
     int cols = int(sizeof(map)/ sizeof(map[-1]));
     int rows= int(sizeof(map[-1])/ sizeof(int));
-    int size;
     std::vector<Bomb> bombs;
 public:
-    explicit Map(int size);
-
+    int offset{}, start_x{}, start_y{};
+    int size;
+    explicit Map(Client* client, int size);
+    int* getColsNrows();
     int getSquareState(int x, int y);
     void setSquareState(int x, int y, int state);
-
-    void localMapUpdate(const int *pos) ;
     void drawMap(Client *client);
-    void addLocalBomb(int* pos);
-    void drawLocalBombs(int offset, float start_x, float start_y);
+    void debug();
 };
-
 
 class Boomerman{
 private:
@@ -60,29 +58,37 @@ private:
     int health;
 public:
     int id;
-    Boomerman(int start_x, int start_y, int health);
+    Boomerman(int id, int start_x, int start_y, int health);
     [[nodiscard]] int* getBoomermanPos() const;
     void setBoomermanPos(int new_x, int new_y);
+    void drawPlayer(int x, int y, int size);
     void move(Map *map, int* current_position, int x, int y);
     void shitYourself(Map *map);
-
 };
-class Tile{
+
+class Wall{
 private:
+    int pos_x, pos_y;
+    bool is_destructible;
+public:
+    Wall(int pos_x, int pos_y, bool is_descructible);
+    int* getPosition();
+    int isDescructible();
+    void drawWall(int x, int y, int size);
+};
+
+class EntityHandler{
+public:
     std::vector<Boomerman> players;
     std::vector<Bomb> bombs;
-    bool isIndestructableWall, isWall, isExploaded;
-    int coord_x, coord_y;
-    float pos_x, pos_y, size;
-public:
-    Tile(int coord_x, int coord_y, float size);
-    void setPosition(float x, float y);
-    void addPlayer(Boomerman player);
-    void removePlayer(Boomerman player);
-    void addBomb(Bomb bomb);
-    void removeBomb(Bomb bomb);
-    void destroyWall();
-    void renderTile();
+    std::vector<Wall> walls;
+
+    void placeWalls(Map* map);
+    int destroyWall(int x, int y);
+
+    void drawWalls(Map* map);
+    void drawPlayers(Map* map);
 };
+
 
 #endif
