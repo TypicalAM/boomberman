@@ -31,6 +31,7 @@ private:
     std::queue<std::unique_ptr<AuthoredMessage>> msgQueue;
 
     int epollSock;
+    std::atomic<bool> gameOver;
 
 public:
     bool JoinPlayer(int sock, const std::string &username);
@@ -60,6 +61,8 @@ public:
 
     template<typename Function, typename ...Args>
     void SendBroadcast(Function &&builderFunc, Args &&... builderArgs);
+
+    bool IsGameOver();
 };
 
 #endif

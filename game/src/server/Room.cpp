@@ -91,6 +91,14 @@ void Room::HandleQueue() {
 
 void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
     std::cout << "Handling a message from user: " << msg->author->username << std::endl;
+
+    // Check if the player is playing tricks
+    if (!msg->author->livesRemaining && msg->payload->message_type() != I_LEAVE) {
+        SendSpecific(msg->author->sock, Builder::Error("You can't really do anything while dead, can you?"));
+        return;
+    }
+
+    // Handle message based on the type
     switch (msg->payload->message_type()) {
         case I_PLACE_BOMB: {
             // Place the bomb at the specified location
@@ -200,4 +208,8 @@ Room::Room(std::string roomName) {
 int Room::Players() {
     std::lock_guard<std::mutex> lock(playerMtx);
     return clientCount;
+}
+
+bool Room::IsGameOver() {
+    return gameOver;
 }

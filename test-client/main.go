@@ -41,16 +41,26 @@ func joinFirstGame() {
 		time.Sleep(200 * time.Millisecond)
 	}
 
-	time.Sleep(5 * time.Second)
-	clients[0].Close()
-	time.Sleep(3 * time.Second)
-
 	time.Sleep(1 * time.Second)
-	clients[1].Send(&pb.GameMessage{
-		MessageType: pb.MessageType_I_MOVE,
-		Message:     &pb.GameMessage_IMove{&pb.IMoveMsg{X: 2, Y: 0}},
-	})
-	clients[1].Close()
+
+	moveAway := &pb.GameMessage{MessageType: pb.MessageType_I_MOVE,
+		Message: &pb.GameMessage_IMove{&pb.IMoveMsg{X: 5, Y: 5}}}
+	clients[0].Send(moveAway)
+	clients[1].Send(moveAway)
+
+	time.Sleep(200 * time.Millisecond)
+
+	placeBomb := &pb.GameMessage{MessageType: pb.MessageType_I_PLACE_BOMB,
+		Message: &pb.GameMessage_IPlaceBomb{&pb.IPlaceBombMsg{X: 0, Y: 0}}}
+	clients[2].Send(placeBomb)
+	time.Sleep(500 * time.Millisecond)
+	clients[2].Send(placeBomb)
+	time.Sleep(500 * time.Millisecond)
+	clients[2].Send(placeBomb)
+
+	// Then let's try to move, we should be blocked
+	time.Sleep(5 * time.Second)
+	clients[2].Send(moveAway)
 
 	for _, client := range clients {
 		<-client.Done()

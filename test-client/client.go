@@ -94,6 +94,9 @@ func (c *Client) GameLoop() {
 			}
 			log.Printf("[%s] Players in game: %s\n", c.username, b.String())
 
+		case pb.MessageType_GOT_HIT:
+			log.Printf("[%s] Someone got hit: %s, lives remaning: %d\n", c.username, msg.GetGotHit().GetName(), msg.GetGotHit().GetLivesRemaining())
+
 		case pb.MessageType_ERROR:
 			log.Printf("[%s] Error: %s\n", c.username, msg.GetError().Error)
 		}
