@@ -16,9 +16,7 @@ public:
     Boomberman(int id, int start_x, int start_y, int health);
     [[nodiscard]] int* getBoombermanPos() const;
     void setBoombermanPos(int new_x, int new_y);
-    void drawPlayer(int x, int y, int size);
-    void move(Map *map, int* current_position, int x, int y);
-    void shitYourself(Map *map);
+    void move(Map *map, const int* current_position, int x, int y);
 };
 
 #endif //BOOMBERMAN_BOOMBERMAN_H

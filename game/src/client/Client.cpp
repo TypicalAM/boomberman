@@ -16,8 +16,14 @@ void Client::Run() {
 
     while (!WindowShouldClose()) {
         current_local_Boomberman_pos = local_boomberman.getBoombermanPos();
+
+        for(auto tile: entityHandler.theFloorIsLava){
+            if(current_local_Boomberman_pos[0]==tile.x && current_local_Boomberman_pos[1]==tile.y) printf("Local player got hit!\n");
+        }
+
         if(IsKeyPressed(KEY_SPACE)){
-           entityHandler.destroyWall(&map,0,1);
+            //entityHandler.destroyWall(&map,0,1);
+            entityHandler.placeBomb(local_boomberman.getBoombermanPos()[0],local_boomberman.getBoombermanPos()[1],3,25,3.0f);
         }
         if (IsKeyPressed(KEY_RIGHT)) {
             local_boomberman.move(&map, current_local_Boomberman_pos, 1, 0);
@@ -38,7 +44,9 @@ void Client::Run() {
         ClearBackground(LIGHTGRAY);
         map.drawMap(this);
         entityHandler.drawWalls(&map);
+        entityHandler.drawFire(&map);
         entityHandler.drawPlayers(&map);
+        entityHandler.drawBombs(&map);
         map.debug();
         DrawText("Use Arrow Keys to Move", 10, 10, 20, DARKGRAY);
 

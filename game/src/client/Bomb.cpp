@@ -1,3 +1,5 @@
+#include <cstdio>
+#include <iostream>
 #include "Bomb.h"
 Bomb::Bomb(int pos_x, int pos_y, int explosion, int size, float ttl) {
     this->pos_x=pos_x;
@@ -16,5 +18,8 @@ void Bomb::animateOrBoom() {
         this->state*=-1;
         this->animation_start=now;
     }
-    if(now-this->plant_time>=this->ttl) this->should_explode=true;
+    if(now-this->plant_time>=this->ttl) {
+        this->should_explode=true;
+        printf("Bomb at x:%d, y:%d exploded!\n",pos_x,pos_y);
+    }
 }
