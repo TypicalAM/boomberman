@@ -23,7 +23,7 @@ private:
     std::vector<SBomb> bombs;
     std::vector<SPlayer> players;
     std::mutex playerMtx;
-    bool gameStarted;
+    std::atomic<bool> gameStarted;
     int clientCount = 0;
     int64_t lastGameWaitMessage;
 

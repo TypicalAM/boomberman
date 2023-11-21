@@ -46,7 +46,7 @@ bool Room::CanJoin(const std::string &username) {
 
 void Room::CheckIfGameReady() {
     std::lock_guard<std::mutex> lock(playerMtx);
-    if (gameStarted) return;
+    if (gameStarted.load()) return;
     if (MAX_PLAYERS - clientCount > 0) {
         if (Util::TimestampMillis() < lastGameWaitMessage + GAME_WAIT_MESSAGE_INTERVAL) return;
         SendBroadcast(Builder::GameWait, MAX_PLAYERS - clientCount);
@@ -55,14 +55,14 @@ void Room::CheckIfGameReady() {
     }
 
     std::cout << "Starting game" << std::endl;
-    gameStarted = true;
+    gameStarted.store(true);
     std::vector<std::string> usernames;
     for (const auto &player: players) usernames.push_back(player.username);
     SendBroadcast(Builder::GameStart, usernames);
 }
 
 void Room::HandleGameUpdates() {
-    if (!gameStarted) return;
+    if (!gameStarted.load()) return;
 
     std::lock_guard<std::mutex> lock(playerMtx);
     std::vector<int> explode_indices;
@@ -113,7 +113,7 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
     std::cout << "Handling a message from user: " << msg->author->username << std::endl;
 
     // If the game started
-    if (!gameStarted) {
+    if (!gameStarted.load()) {
         SendSpecific(msg->author->sock, Builder::Error("Game hasn't started yet"));
         return;
     }
@@ -147,7 +147,7 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
         case I_LEAVE: {
             // Notify others of the player leaving
             if (players.size() == 1) gameOver.store(true); // Close the game
-            if (players.size() == 2 && gameStarted && !gameOver.load()) {
+            if (players.size() == 2 && gameStarted.load() && !gameOver.load()) {
                 // This player just won lol, let's notify the last one standing
                 auto winner_idx = (players[0].sock == msg->author->sock) ? 1 : 0;
                 std::cout << "Player won: " << players[winner_idx].username << std::endl;
@@ -231,7 +231,7 @@ bool Room::JoinPlayer(int sock, const std::string &username) {
 }
 
 Room::Room(std::string roomName) {
-    gameStarted = false;
+    gameStarted.store(false);
     name = std::move(roomName);
     msgQueue = std::queue<std::unique_ptr<AuthoredMessage>>();
     lastGameWaitMessage = Util::TimestampMillis();
