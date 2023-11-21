@@ -18,6 +18,7 @@ public:
     void setOnFire(Bomb* bomb, Map* map);
     int destroyWall(Map* map, int x, int y);
     int explodeBomb(Bomb* bomb, Map* map);
+    void tryExtinguish();
 
     void drawWalls(Map* map);
     void drawPlayers(Map* map);

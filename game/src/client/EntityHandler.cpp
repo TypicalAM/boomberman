@@ -69,8 +69,8 @@ int EntityHandler::explodeBomb(Bomb* bomb, Map* map) {
         return bomb.pos_x == x && bomb.pos_y == y && bomb.plant_time == fuze_time;
     });
     if (it != this->bombs.end()) {
-        this->bombs.erase(it);
         this->setOnFire(bomb, map);
+        this->bombs.erase(it);
         return 0;
     }
     return 1;
@@ -93,5 +93,11 @@ void EntityHandler::setOnFire(Bomb *bomb, Map* map) {
 void EntityHandler::drawFire(Map *map) {
     for (auto tile: this->theFloorIsLava) {
         DrawRectangle(tile.x * map->offset + map->start_x, tile.y * map->offset + map->start_y, map->size,map->size, RED);
+    }
+}
+
+void EntityHandler::tryExtinguish() {
+    for(size_t i=0; i<this->theFloorIsLava.size(); i++){
+        if(this->theFloorIsLava[i].shouldCalmDown()) this->theFloorIsLava.erase(this->theFloorIsLava.begin()+i);
     }
 }

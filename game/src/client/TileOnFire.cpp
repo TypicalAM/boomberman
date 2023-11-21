@@ -4,7 +4,7 @@ TileOnFire::TileOnFire(int x, int y) {
     this->x=x;
     this->y=y;
     this->on_fire_since=GetTime();
-    this->should_burn_for=1.0f;
+    this->should_burn_for=0.5f;
 }
 
 int TileOnFire::shouldCalmDown() {

@@ -48,6 +48,8 @@ set(SOURCES
         src/client/Wall.h
         src/client/EntityHandler.cpp
         src/client/EntityHandler.h
+        src/client/TileOnFire.cpp
+        src/client/TileOnFire.h
 )
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS messages.proto)
 add_executable(${PROJECT_NAME} ${SOURCES})

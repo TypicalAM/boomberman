@@ -20,6 +20,9 @@ void Client::Run() {
         for(auto tile: entityHandler.theFloorIsLava){
             if(current_local_Boomberman_pos[0]==tile.x && current_local_Boomberman_pos[1]==tile.y) printf("Local player got hit!\n");
         }
+        //TODO maybe put this ^^^ into a function somehow, right now there is some include issue
+
+        entityHandler.tryExtinguish();
 
         if(IsKeyPressed(KEY_SPACE)){
             //entityHandler.destroyWall(&map,0,1);
