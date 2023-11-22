@@ -32,7 +32,6 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
 
         case JOIN_ROOM: {
             // Join a user to a room (if he specified the room) or create a new one
-            std::lock_guard<std::mutex> lock(roomsMtx);
             auto room_msg = msg->join_room();
 
             std::shared_ptr<Room> room;
@@ -41,6 +40,7 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
                 room = std::make_shared<Room>(new_room_name);
                 std::thread(&Room::GameLoop, room).detach();
                 std::thread(&Room::ReadLoop, room).detach();
+                std::lock_guard<std::mutex> lock(roomsMtx);
                 rooms[new_room_name] = room;
             } else {
                 if (rooms.find(room_msg.room().name()) == rooms.end()) {
@@ -51,6 +51,7 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
                     return;
                 }
 
+                std::lock_guard<std::mutex> lock(roomsMtx);
                 room = rooms[room_msg.room().name()];
             }
 

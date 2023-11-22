@@ -39,14 +39,15 @@ void Room::SendBroadcast(Function &&builderFunc, Args &&... builderArgs) {
 
 bool Room::CanJoin(const std::string &username) {
     std::lock_guard<std::mutex> lock(playerMtx);
-    bool already_exists;
+    bool already_exists = false;
     for (const auto &player: players) if (player.username == username) already_exists = true;
     return !already_exists && MAX_PLAYERS - clientCount > 0;
 }
 
 void Room::CheckIfGameReady() {
-    std::lock_guard<std::mutex> lock(playerMtx);
     if (gameStarted.load()) return;
+
+    std::lock_guard<std::mutex> lock(playerMtx);
     if (MAX_PLAYERS - clientCount > 0) {
         if (Util::TimestampMillis() < lastGameWaitMessage + GAME_WAIT_MESSAGE_INTERVAL) return;
         SendBroadcast(Builder::GameWait, MAX_PLAYERS - clientCount);
@@ -232,6 +233,7 @@ bool Room::JoinPlayer(int sock, const std::string &username) {
 
 Room::Room(std::string roomName) {
     gameStarted.store(false);
+    gameOver.store(false);
     name = std::move(roomName);
     msgQueue = std::queue<std::unique_ptr<AuthoredMessage>>();
     lastGameWaitMessage = Util::TimestampMillis();
