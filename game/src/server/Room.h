@@ -12,6 +12,13 @@
 #define MAX_PLAYERS 4
 #define GAME_WAIT_MESSAGE_INTERVAL 1000
 
+enum GameState {
+    WAIT_FOR_START,
+    PLAY,
+    WAIT_FOR_END,
+    GAME_OVER,
+};
+
 struct AuthoredMessage {
     std::unique_ptr<GameMessage> payload;
     SPlayer *author;
@@ -21,30 +28,17 @@ class Room {
 private:
     std::string name;
     std::vector<SBomb> bombs;
-    std::vector<SPlayer> players;
-    std::mutex playerMtx;
-    std::atomic<bool> gameStarted;
-    int clientCount = 0;
+    std::atomic<GameState> state;
     int64_t lastGameWaitMessage;
+
+    std::mutex playerMtx;
+    std::vector<SPlayer> players;
+    int clientCount = 0;
 
     std::mutex msgQueueMtx;
     std::queue<std::unique_ptr<AuthoredMessage>> msgQueue;
 
     int epollSock;
-    std::atomic<bool> gameOver;
-
-public:
-    bool JoinPlayer(int sock, const std::string &username);
-
-    int Players();
-
-    bool CanJoin(const std::string &username);
-
-    void GameLoop();
-
-    explicit Room(std::string name);
-
-    void ReadLoop();
 
     void HandleQueue();
 
@@ -62,7 +56,20 @@ public:
     template<typename Function, typename ...Args>
     void SendBroadcast(Function &&builderFunc, Args &&... builderArgs);
 
+public:
+    int Players();
+
+    void ReadLoop();
+
+    bool CanJoin(const std::string &username);
+
+    void GameLoop();
+
+    bool JoinPlayer(int sock, const std::string &username);
+
     bool IsGameOver();
+
+    explicit Room(std::string name);
 };
 
 #endif

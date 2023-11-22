@@ -9,7 +9,7 @@
 #include "../shared/Util.h"
 
 void Room::GameLoop() {
-    while (!gameOver.load()) {
+    while (state.load() != GAME_OVER) {
         CheckIfGameReady();
         HandleQueue();
         HandleGameUpdates();
@@ -45,7 +45,7 @@ bool Room::CanJoin(const std::string &username) {
 }
 
 void Room::CheckIfGameReady() {
-    if (gameStarted.load()) return;
+    if (state.load() != WAIT_FOR_START) return;
 
     std::lock_guard<std::mutex> lock(playerMtx);
     if (MAX_PLAYERS - clientCount > 0) {
@@ -56,14 +56,14 @@ void Room::CheckIfGameReady() {
     }
 
     std::cout << "Starting game" << std::endl;
-    gameStarted.store(true);
+    state.store(PLAY);
     std::vector<std::string> usernames;
     for (const auto &player: players) usernames.push_back(player.username);
     SendBroadcast(Builder::GameStart, usernames);
 }
 
 void Room::HandleGameUpdates() {
-    if (!gameStarted.load()) return;
+    if (state.load() != PLAY) return;
 
     std::lock_guard<std::mutex> lock(playerMtx);
     std::vector<int> explode_indices;
@@ -92,12 +92,13 @@ void Room::HandleGameUpdates() {
         }
     }
 
-    if (people_alive == 1 && !gameOver.load()) {
+    if (people_alive == 1 && state.load() == PLAY) {
         // This person has won the game, announce that and disconnect all clients
-        std::cout << "Player won: " << players[last_alive_index].username << std::endl;
+        std::cout << "Player won by last person alive: " << players[last_alive_index].username << std::endl;
         SendBroadcast(Builder::GameWon, players[last_alive_index].username);
         std::this_thread::sleep_for(std::chrono::seconds(3));
-        gameOver.store(true);
+        state.store(WAIT_FOR_END);
+        std::cout << "Closing other connections and ending the game" << std::endl;
         for (auto &player: players) close(player.sock);
     }
 }
@@ -114,7 +115,7 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
     std::cout << "Handling a message from user: " << msg->author->username << std::endl;
 
     // If the game started
-    if (!gameStarted.load()) {
+    if (state.load() == WAIT_FOR_START) {
         SendSpecific(msg->author->sock, Builder::Error("Game hasn't started yet"));
         return;
     }
@@ -147,14 +148,21 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
 
         case I_LEAVE: {
             // Notify others of the player leaving
-            if (players.size() == 1) gameOver.store(true); // Close the game
-            if (players.size() == 2 && gameStarted.load() && !gameOver.load()) {
+            std::lock_guard<std::mutex> lock(playerMtx);
+            if (players.size() == 1) {
+                close(players[0].sock);
+                state.store(GAME_OVER); // Close the game
+                return;
+            }
+
+            if (players.size() == 2 && state.load() == PLAY) {
                 // This player just won lol, let's notify the last one standing
                 auto winner_idx = (players[0].sock == msg->author->sock) ? 1 : 0;
-                std::cout << "Player won: " << players[winner_idx].username << std::endl;
+                std::cout << "Player won by other disconnecting: " << players[winner_idx].username << std::endl;
                 SendBroadcast(Builder::GameWon, players[winner_idx].username);
                 std::this_thread::sleep_for(std::chrono::seconds(3));
-                gameOver.store(true);
+                std::cout << "Closing other connections and ending the game" << std::endl;
+                state.store(WAIT_FOR_END);
                 for (auto &player: players) close(player.sock);
                 return;
             }
@@ -172,7 +180,7 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
 
 void Room::ReadLoop() {
     epoll_event events[10];
-    while (!gameOver.load()) {
+    while (state.load() != GAME_OVER) {
         // Wait for events to occur
         int event_num = epoll_wait(epollSock, events, 10, -1);
         for (int i = 0; i < event_num; ++i) {
@@ -221,6 +229,7 @@ void Room::ReadLoop() {
 }
 
 bool Room::JoinPlayer(int sock, const std::string &username) {
+    if (state.load() != WAIT_FOR_START) return false;
     std::lock_guard<std::mutex> lock(playerMtx);
     clientCount++;
     auto color = static_cast<Color>(players.size());
@@ -232,9 +241,8 @@ bool Room::JoinPlayer(int sock, const std::string &username) {
 }
 
 Room::Room(std::string roomName) {
-    gameStarted.store(false);
-    gameOver.store(false);
     name = std::move(roomName);
+    state.store(WAIT_FOR_START);
     msgQueue = std::queue<std::unique_ptr<AuthoredMessage>>();
     lastGameWaitMessage = Util::TimestampMillis();
 
@@ -251,5 +259,5 @@ int Room::Players() {
 }
 
 bool Room::IsGameOver() {
-    return gameOver;
+    return state.load() == GAME_OVER;
 }

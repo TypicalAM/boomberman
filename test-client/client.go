@@ -83,6 +83,9 @@ func (c *Client) GameLoop() {
 				log.Printf("[%s] Told the server to create a new room\n", c.username)
 			}
 
+		case pb.MessageType_OTHER_LEAVE:
+			log.Printf("[%s] %s left the room\n", c.username, msg.GetOtherLeave().GetName())
+
 		case pb.MessageType_GAME_START:
 			log.Printf("[%s] Game started!\n", c.username)
 			c.isInGameMutex.Lock()
