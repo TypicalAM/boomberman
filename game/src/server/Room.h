@@ -21,7 +21,7 @@ enum GameState {
 
 struct AuthoredMessage {
     std::unique_ptr<GameMessage> payload;
-    SPlayer *author;
+    std::shared_ptr<SPlayer> author;
 };
 
 class Room {
@@ -32,7 +32,7 @@ private:
     int64_t lastGameWaitMessage;
 
     std::mutex playerMtx;
-    std::vector<SPlayer> players;
+    std::vector<std::shared_ptr<SPlayer>> players;
     int clientCount = 0;
 
     std::mutex msgQueueMtx;
@@ -56,10 +56,10 @@ private:
     template<typename Function, typename ...Args>
     void SendBroadcast(Function &&builderFunc, Args &&... builderArgs);
 
+    void ReadIntoQueue();
+
 public:
     int Players();
-
-    void ReadLoop();
 
     bool CanJoin(const std::string &username);
 

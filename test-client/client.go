@@ -134,6 +134,7 @@ func (c *Client) Send(msg *pb.GameMessage) error {
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 
+	log.Printf("[%s] Sending message of type %s\n", c.username, msg.MessageType)
 	n, err := c.conn.Write(data)
 	if err != nil || n != len(data) {
 		return fmt.Errorf("failed to send message: %w", err)

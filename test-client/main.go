@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"log"
+	"math/rand"
 	"os"
 	"time"
 
@@ -50,31 +51,38 @@ func joinFirstGame(names []string) {
 	clients := make([]*Client, count)
 
 	for i := 0; i < count; i++ {
-		clients[i] = createClient(names[i%len(names)])
+		log.Println("Client", i, "connecting")
+		random := rand.Intn(len(names))
+		clients[i] = createClient(names[random])
 		defer clients[i].Close()
 		clients[i].Send(&pb.GameMessage{
 			MessageType: pb.MessageType_GET_ROOM_LIST,
 			Message:     &pb.GameMessage_GetRoomList{&pb.GetRoomListMsg{}},
 		})
 
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(200 * time.Millisecond)
 	}
 
 	time.Sleep(1 * time.Second)
 
-	moveAway := &pb.GameMessage{MessageType: pb.MessageType_I_MOVE,
-		Message: &pb.GameMessage_IMove{&pb.IMoveMsg{X: 5, Y: 5}}}
-	clients[0].Send(moveAway)
-
+	leave := &pb.GameMessage{MessageType: pb.MessageType_I_LEAVE,
+		Message: &pb.GameMessage_ILeave{&pb.ILeaveMsg{}}}
+	clients[0].Send(leave)
+	time.Sleep(200 * time.Millisecond)
+	clients[1].Send(leave)
+	time.Sleep(200 * time.Millisecond)
+	clients[2].Send(leave)
 	time.Sleep(200 * time.Millisecond)
 
-	placeBomb := &pb.GameMessage{MessageType: pb.MessageType_I_PLACE_BOMB,
-		Message: &pb.GameMessage_IPlaceBomb{&pb.IPlaceBombMsg{X: 0, Y: 0}}}
-	clients[2].Send(placeBomb)
-	time.Sleep(500 * time.Millisecond)
-	clients[2].Send(placeBomb)
-	time.Sleep(500 * time.Millisecond)
-	clients[2].Send(placeBomb)
+	log.Println("Waiting for the game to end...")
+	time.Sleep(7 * time.Second)
+	random := rand.Intn(len(names))
+	clients[count-1] = createClient(names[random])
+	defer clients[count-1].Close()
+	clients[count-1].Send(&pb.GameMessage{
+		MessageType: pb.MessageType_GET_ROOM_LIST,
+		Message:     &pb.GameMessage_GetRoomList{&pb.GetRoomListMsg{}},
+	})
 
 	for _, client := range clients {
 		<-client.Done()

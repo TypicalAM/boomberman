@@ -5,8 +5,8 @@ bool SBomb::ShouldExplode() const {
     return Util::TimestampMillis() > fuseStartTimestamp + FUSE_TIME_MILLIS;
 }
 
-bool SBomb::InBlastRadius(const SPlayer &player) const {
-    Coords pcoords = player.coords;
+bool SBomb::InBlastRadius(std::shared_ptr<SPlayer> player) const {
+    Coords pcoords = player->coords;
     return ((this->coords.x - 3) <= pcoords.x && pcoords.x <= (this->coords.x + 3)) &&
            ((this->coords.y - 3) <= pcoords.y && pcoords.y <= (this->coords.y + 3));
 }
