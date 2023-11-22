@@ -12,33 +12,33 @@ void Client::Run() {
     Boomberman local_boomberman(0,1,1,3);
     entityHandler.players.push_back(local_boomberman);
 
-    int* current_local_Boomberman_pos;
 
+    std::shared_ptr<int[]> local_boomberman_position(new int[2]);
     while (!WindowShouldClose()) {
-        current_local_Boomberman_pos = local_boomberman.getBoombermanPos();
+        local_boomberman_position[0]=local_boomberman.getBoombermanPos()[0];
+        local_boomberman_position[1]=local_boomberman.getBoombermanPos()[1];
 
         for(auto tile: entityHandler.theFloorIsLava){
-            if(current_local_Boomberman_pos[0]==tile.x && current_local_Boomberman_pos[1]==tile.y) printf("Local player got hit!\n");
+            if(local_boomberman_position[0]==tile.x && local_boomberman_position[1]==tile.y) printf("Local player got hit!\n");
         }
         //TODO maybe put this ^^^ into a function somehow, right now there is some include issue
 
         entityHandler.tryExtinguish();
-
         if(IsKeyPressed(KEY_SPACE)){
             //entityHandler.destroyWall(&map,0,1);
-            entityHandler.placeBomb(local_boomberman.getBoombermanPos()[0],local_boomberman.getBoombermanPos()[1],3,25,3.0f);
+            entityHandler.placeBomb(local_boomberman_position[0],local_boomberman_position[1],3,25,3.0f);
         }
         if (IsKeyPressed(KEY_RIGHT)) {
-            local_boomberman.move(&map, current_local_Boomberman_pos, 1, 0);
+            local_boomberman.move(&map, local_boomberman_position,1, 0);
         }
         if (IsKeyPressed(KEY_LEFT)) {
-            local_boomberman.move(&map, current_local_Boomberman_pos, -1, 0);
+            local_boomberman.move(&map, local_boomberman_position, -1, 0);
         }
         if (IsKeyPressed(KEY_UP)) {
-            local_boomberman.move(&map, current_local_Boomberman_pos, 0, -1);
+            local_boomberman.move(&map,local_boomberman_position, 0, -1);
         }
         if (IsKeyPressed(KEY_DOWN)) {
-            local_boomberman.move(&map, current_local_Boomberman_pos, 0, 1);
+            local_boomberman.move(&map,local_boomberman_position, 0, 1);
         }
 
 
@@ -55,7 +55,7 @@ void Client::Run() {
 
         EndDrawing();
     }
-    delete[] current_local_Boomberman_pos;
+    local_boomberman.cleanUp();
 }
 
 

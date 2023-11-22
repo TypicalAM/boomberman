@@ -1,9 +1,7 @@
-//
-// Created by ignor on 11/21/23.
-//
-
 #ifndef BOOMBERMAN_WALL_H
 #define BOOMBERMAN_WALL_H
+
+#include <memory>
 
 class Wall{
 private:
@@ -11,9 +9,7 @@ private:
     bool is_destructible;
 public:
     Wall(int pos_x, int pos_y, bool is_descructible);
-    int* getPosition() const;
-    int isDescructible();
-    void drawWall(int x, int y, int size);
+    [[nodiscard]] std::unique_ptr<int[]> getPosition() const;
 };
 
 

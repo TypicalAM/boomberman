@@ -31,21 +31,15 @@ int EntityHandler::destroyWall(Map* map, int x, int y) {
 }
 
 void EntityHandler::drawWalls(Map* map) {
-    int* positions;
     for (auto wall: this->walls) {
-        positions = wall.getPosition();
-        DrawRectangle(positions[0] * map->offset + map->start_x, positions[1] * map->offset + map->start_y, map->size,map->size, BLACK);
+        DrawRectangle(wall.getPosition()[0] * map->offset + map->start_x,wall.getPosition()[1] * map->offset + map->start_y, map->size,map->size, BLACK);
     }
-    delete[] positions;
 }
 
 void EntityHandler::drawPlayers(Map *map) {
-    int* positions;
     for (auto player: this->players) {
-        positions = player.getBoombermanPos();
-        DrawRectangle(positions[0] * map->offset + map->start_x+3, positions[1] * map->offset + map->start_y+3, map->size-6,map->size-6, BLUE);
+        DrawRectangle(player.getBoombermanPos()[0] * map->offset + map->start_x+3, player.getBoombermanPos()[1] * map->offset + map->start_y+3, map->size-6,map->size-6, BLUE);
     }
-    delete[] positions;
 }
 
 void EntityHandler::drawBombs(Map* map) {
