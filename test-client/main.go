@@ -63,16 +63,23 @@ func joinFirstGame(names []string) {
 		time.Sleep(200 * time.Millisecond)
 	}
 
-	time.Sleep(1 * time.Second)
+	_ = &pb.GameMessage{MessageType: pb.MessageType_I_MOVE,
+		Message: &pb.GameMessage_IMove{&pb.IMoveMsg{X: 5.0, Y: 5.0}}}
 
-	leave := &pb.GameMessage{MessageType: pb.MessageType_I_LEAVE,
-		Message: &pb.GameMessage_ILeave{&pb.ILeaveMsg{}}}
-	clients[0].Send(leave)
-	time.Sleep(200 * time.Millisecond)
-	clients[1].Send(leave)
-	time.Sleep(200 * time.Millisecond)
-	clients[2].Send(leave)
-	time.Sleep(200 * time.Millisecond)
+	placeBombMsg := &pb.GameMessage{MessageType: pb.MessageType_I_PLACE_BOMB,
+		Message: &pb.GameMessage_IPlaceBomb{&pb.IPlaceBombMsg{X: 0.0, Y: 0.0}}}
+	log.Println("Placing a bomb")
+	clients[3].Send(placeBombMsg)
+	time.Sleep(1 * time.Second)
+	log.Println("Placing a bomb")
+	clients[3].Send(placeBombMsg)
+	time.Sleep(1 * time.Second)
+	log.Println("Placing a bomb")
+	clients[3].Send(placeBombMsg)
+	time.Sleep(1 * time.Second)
+	log.Println("Client 0 should win the game")
+
+	time.Sleep(1 * time.Second)
 
 	log.Println("Waiting for the game to end...")
 	time.Sleep(7 * time.Second)

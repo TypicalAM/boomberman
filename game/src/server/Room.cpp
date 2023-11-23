@@ -2,6 +2,7 @@
 #include <thread>
 #include <sys/epoll.h>
 #include <csignal>
+#include <random>
 #include "Room.h"
 #include "../shared/Builder.h"
 #include "../shared/Channel.h"
@@ -92,6 +93,26 @@ void Room::HandleGameUpdates() {
             people_alive++;
             last_alive_index = i;
         }
+    }
+
+    if (people_alive == 0 && state.load() == PLAY) {
+        // This can happen in the unfortunate event that the last two players die from the same bomb. In this case we select the
+        // winner randomly (I don't think the person who set the bomb deserves to win and also it would require a message rewrite
+        // so I ain't doin it.
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> distrib(0, explode_indices.size());
+        int winner_idx = distrib(gen);
+
+        // This person has won the game, announce that and disconnect all clients
+        LOG << "Player won by random mutual explosion: " << players[winner_idx]->username;
+        SendBroadcast(Builder::GameWon, players[winner_idx]->username);
+        state.store(WAIT_FOR_END);
+        std::this_thread::sleep_for(std::chrono::seconds(3));
+        LOG << "Closing other connections and ending the game";
+        for (auto &player: players) close(player->sock);
+        state.store(GAME_OVER);
+        close(epollSock);
     }
 
     if (people_alive == 1 && state.load() == PLAY) {
