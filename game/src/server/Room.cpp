@@ -1,4 +1,3 @@
-#include <iostream>
 #include <utility>
 #include <thread>
 #include <sys/epoll.h>
@@ -16,7 +15,7 @@ void Room::GameLoop() {
         HandleGameUpdates();
     }
 
-    std::cout << "Gameloop done on room: " << name << std::endl;
+    LOG << "Gameloop done";
 }
 
 void Room::SendSpecific(int sock, std::unique_ptr<GameMessage> msg) {
@@ -58,7 +57,7 @@ void Room::CheckIfGameReady() {
         return;
     }
 
-    std::cout << "Starting game" << std::endl;
+    LOG << "Starting game";
     state.store(PLAY);
     std::vector<std::string> usernames;
     for (const auto &player: players) usernames.push_back(player->username);
@@ -97,11 +96,11 @@ void Room::HandleGameUpdates() {
 
     if (people_alive == 1 && state.load() == PLAY) {
         // This person has won the game, announce that and disconnect all clients
-        std::cout << "Player won by last person alive: " << players[last_alive_index]->username << std::endl;
+        LOG << "Player won by last person alive: " << players[last_alive_index]->username;
         SendBroadcast(Builder::GameWon, players[last_alive_index]->username);
         state.store(WAIT_FOR_END);
         std::this_thread::sleep_for(std::chrono::seconds(3));
-        std::cout << "Closing other connections and ending the game" << std::endl;
+        LOG << "Closing other connections and ending the game";
         for (auto &player: players) close(player->sock);
         state.store(GAME_OVER);
         close(epollSock);
@@ -117,7 +116,7 @@ void Room::HandleQueue() {
 }
 
 void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
-    std::cout << "Handling a message from user: " << msg->author->username << std::endl;
+    LOG << "Handling a message from user: " << msg->author->username;
 
     // If the game started
     if (state.load() == WAIT_FOR_START) {
@@ -164,11 +163,11 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
             if (players.size() == 2 && state.load() == PLAY) {
                 // This player just won lol, let's notify the last one standing
                 auto winner_idx = (players[0]->sock == msg->author->sock) ? 1 : 0;
-                std::cout << "Player won by other disconnecting: " << players[winner_idx]->username << std::endl;
+                LOG << "Player won by other disconnecting: " << players[winner_idx]->username;
                 SendBroadcast(Builder::GameWon, players[winner_idx]->username);
                 state.store(WAIT_FOR_END);
                 std::this_thread::sleep_for(std::chrono::seconds(3));
-                std::cout << "Closing other connections and ending the game" << std::endl;
+                LOG << "Closing other connections and ending the game";
                 for (auto &player: players) close(player->sock);
                 state.store(GAME_OVER);
                 close(epollSock);
@@ -184,7 +183,7 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
         }
 
         default:
-            std::cout << "Unexpected message type: " << msg->payload->message_type() << std::endl;
+            LOG << "Unexpected message type: " << msg->payload->message_type();
             SendSpecific(msg->author->sock, Builder::Error("Unexpected message"));
     }
 }
@@ -197,7 +196,7 @@ void Room::ReadIntoQueue() {
     for (int i = 0; i < event_num; ++i) {
         // If this isn't an in event, ignore it
         if (!(events[i].events & EPOLLIN)) {
-            std::cout << "Ignoring event on socket: " << events[i].data.fd;
+            LOG << "Ignoring event on socket: " << events[i].data.fd;
             continue;
         }
 
@@ -206,7 +205,7 @@ void Room::ReadIntoQueue() {
         auto client_sock = events[i].data.fd;
         auto msg = Channel::Receive(client_sock);
         if (!msg.has_value()) {
-            std::cout << "Closing connection since we can't receive data: " << client_sock << std::endl;
+            LOG << "Closing connection since we can't receive data: " << client_sock;
             epoll_ctl(epollSock, EPOLL_CTL_DEL, client_sock, nullptr);
             close(client_sock);
 
@@ -226,7 +225,7 @@ void Room::ReadIntoQueue() {
             // This happens when a player has been disconnected from the game
             // (kicked out, idk) but they still somehow sent a message here. In that
             // case broadcasting of their leaving should've already been handled above.
-            std::cout << "Closing connection since there isn't a player like that: " << client_sock << std::endl;
+            LOG << "Closing connection since there isn't a player like that: " << client_sock;
             epoll_ctl(epollSock, EPOLL_CTL_DEL, client_sock, nullptr);
             close(client_sock);
             continue;
@@ -251,7 +250,8 @@ bool Room::JoinPlayer(int sock, const std::string &username) {
     return true;
 }
 
-Room::Room(std::string roomName) {
+Room::Room(boost::log::sources::logger logger, std::string roomName) {
+    this->logger = std::move(logger);
     name = std::move(roomName);
     state.store(WAIT_FOR_START);
     msgQueue = std::queue<std::unique_ptr<AuthoredMessage>>();

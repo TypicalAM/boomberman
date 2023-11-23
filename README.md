@@ -26,6 +26,7 @@ Considerations:
 
 Requirements:
 - `cmake`
+- `boost`, specifically `log` and `log_setup`
 - `protobuf`
 - `protobuf` development headers
 - `C++` compiler
