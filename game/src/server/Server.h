@@ -20,6 +20,8 @@ public:
     explicit Server(int port);
 
     void handleClientMessage(int sock, std::unique_ptr<GameMessage> msg);
+
+    static boost::log::sources::logger createRoomLogger(const std::string& name);
 };
 
 #endif

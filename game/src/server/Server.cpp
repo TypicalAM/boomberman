@@ -6,6 +6,9 @@
 #include "Server.h"
 #include <sys/epoll.h>
 #include <csignal>
+#include <boost/log/attributes/constant.hpp>
+#include <boost/log/utility/setup/console.hpp>
+#include <boost/log/trivial.hpp>
 #include "../shared/Util.h"
 #include "../shared/Channel.h"
 #include "../shared/Builder.h"
@@ -44,7 +47,7 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
             std::shared_ptr<Room> room;
             if (!room_msg.has_room()) {
                 auto new_room_name = Util::RandomString(10);
-                room = std::make_shared<Room>(new_room_name);
+                room = std::make_shared<Room>(createRoomLogger(new_room_name), new_room_name);
                 std::thread(&Room::GameLoop, room).detach();
                 std::lock_guard<std::mutex> lock(roomsMtx);
                 rooms[new_room_name] = room;
@@ -119,6 +122,12 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
             handleClientMessage(events[i].data.fd, std::move(msg.value()));
         }
     }
+}
+
+boost::log::sources::logger Server::createRoomLogger(const std::string &name) {
+    boost::log::sources::logger room_logger;
+    room_logger.add_attribute("Prefix", boost::log::attributes::constant<std::string>("[" + name + "] "));
+    return room_logger;
 }
 
 Server::Server(int port) {

@@ -8,9 +8,12 @@
 #include "../shared/messages.pb.h"
 #include "entities/SPlayer.h"
 #include "entities/SBomb.h"
+#include <boost/log/sources/logger.hpp>
+#include <boost/log/sources/record_ostream.hpp>
 
 #define MAX_PLAYERS 4
 #define GAME_WAIT_MESSAGE_INTERVAL 1000
+#define LOG BOOST_LOG(this->logger)
 
 enum GameState {
     WAIT_FOR_START,
@@ -37,6 +40,7 @@ private:
 
     std::mutex msgQueueMtx;
     std::queue<std::unique_ptr<AuthoredMessage>> msgQueue;
+    boost::log::sources::logger logger;
 
     int epollSock;
 
@@ -69,7 +73,7 @@ public:
 
     bool IsGameOver();
 
-    explicit Room(std::string name);
+    Room(boost::log::sources::logger logger, std::string name);
 };
 
 #endif

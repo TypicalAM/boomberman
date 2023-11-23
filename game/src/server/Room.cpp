@@ -251,7 +251,8 @@ bool Room::JoinPlayer(int sock, const std::string &username) {
     return true;
 }
 
-Room::Room(std::string roomName) {
+Room::Room(boost::log::sources::logger logger, std::string roomName) {
+    this->logger = std::move(logger);
     name = std::move(roomName);
     state.store(WAIT_FOR_START);
     msgQueue = std::queue<std::unique_ptr<AuthoredMessage>>();
