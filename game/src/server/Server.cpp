@@ -1,4 +1,3 @@
-#include <iostream>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <random>
@@ -28,7 +27,7 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
             }
 
             for (const auto &key: rooms_finished) {
-                std::cout << "Removed a finished room: " << key << std::endl;
+                LOG << "Destroyed a finished room: " << key;
                 rooms.erase(key);
             }
 
@@ -47,13 +46,14 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
             std::shared_ptr<Room> room;
             if (!room_msg.has_room()) {
                 auto new_room_name = Util::RandomString(10);
-                room = std::make_shared<Room>(createRoomLogger(new_room_name), new_room_name);
+                room = std::make_shared<Room>(createNamedLogger(new_room_name), new_room_name);
                 std::thread(&Room::GameLoop, room).detach();
                 std::lock_guard<std::mutex> lock(roomsMtx);
                 rooms[new_room_name] = room;
             } else {
                 if (rooms.find(room_msg.room().name()) == rooms.end()) {
                     // Close the connection if we can't send the message
+                    LOG << "Client requested a room which doesn't exist: " << room_msg.room().name();
                     if (Channel::Send(sock, Builder::Error("There is no room with that name man")).has_value()) return;
                     epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
                     close(sock);
@@ -72,7 +72,7 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
                 return;
             }
 
-            std::cout << "Joining player to game: " << room_msg.username() << std::endl;
+            LOG << "Joining player to game: " << room_msg.username();
             epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
             if (!room->JoinPlayer(sock, room_msg.username())) close(sock);
             return;
@@ -80,7 +80,7 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
 
         default: {
             // Close the connection if we can't send the message
-            std::cout << "Unexpected message type: " << msg->message_type() << std::endl;
+            LOG << "Unexpected message type: " << msg->message_type();
             if (!Channel::Send(sock, Builder::Error("Unexpected message")).has_value()) {
                 epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
                 close(sock);
@@ -90,7 +90,7 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
 }
 
 [[noreturn]] void Server::Run() {
-    std::cout << "Serving" << std::endl;
+    LOG << "Serving";
 
     epoll_event events[10];
     while (true) {
@@ -105,14 +105,14 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
                 if (new_sock == -1) continue;
                 epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.fd = new_sock}};
                 if (epoll_ctl(epollSock, EPOLL_CTL_ADD, new_sock, &event) == -1) continue;
-                std::cout << "New connection accepted from: " << new_sock << std::endl;
+                LOG << "New connection accepted from: " << new_sock;
                 continue;
             }
 
             // We got a message from a client
             auto msg = Channel::Receive(events[i].data.fd);
             if (!msg.has_value()) {
-                std::cout << "Closing connection since we can't receive data: " << events[i].data.fd << std::endl;
+                LOG << "Closing connection since we can't receive data: " << events[i].data.fd;
                 epoll_ctl(epollSock, EPOLL_CTL_DEL, events[i].data.fd, nullptr);
                 close(events[i].data.fd);
                 continue;
@@ -124,13 +124,14 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
     }
 }
 
-boost::log::sources::logger Server::createRoomLogger(const std::string &name) {
+boost::log::sources::logger Server::createNamedLogger(const std::string &name) {
     boost::log::sources::logger room_logger;
     room_logger.add_attribute("Prefix", boost::log::attributes::constant<std::string>("[" + name + "] "));
     return room_logger;
 }
 
 Server::Server(int port) {
+    logger = createNamedLogger("Server");
     sockaddr_in localAddress{AF_INET, htons(port), htonl(INADDR_ANY)};
     int one = 1;
     // Socket creation
@@ -170,5 +171,5 @@ Server::Server(int port) {
         throw std::runtime_error("epoll control failed");
     }
 
-    std::cout << "Listening on port 2137" << std::endl;
+    LOG << "Listening on port: " << port;
 }

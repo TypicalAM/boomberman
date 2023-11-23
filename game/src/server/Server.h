@@ -13,15 +13,16 @@ private:
     std::mutex roomsMtx;
     int srvSock;
     int epollSock;
+    boost::log::sources::logger logger;
+
+    void handleClientMessage(int sock, std::unique_ptr<GameMessage> msg);
 
 public:
     [[noreturn]] void Run();
 
+    static boost::log::sources::logger createNamedLogger(const std::string &name);
+
     explicit Server(int port);
-
-    void handleClientMessage(int sock, std::unique_ptr<GameMessage> msg);
-
-    static boost::log::sources::logger createRoomLogger(const std::string& name);
 };
 
 #endif
