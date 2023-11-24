@@ -34,6 +34,7 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
             // Close the connection if we can't send the message
             if (!Channel::Send(sock, Builder::RoomList(room_list)).has_value()) {
                 epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
+                shutdown(sock, SHUT_RDWR);
                 close(sock);
             }
             return;
@@ -56,6 +57,7 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
                     LOG << "Client requested a room which doesn't exist: " << room_msg.room().name();
                     if (Channel::Send(sock, Builder::Error("There is no room with that name man")).has_value()) return;
                     epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
+                    shutdown(sock, SHUT_RDWR);
                     close(sock);
                     return;
                 }
@@ -74,7 +76,10 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
 
             LOG << "Joining player to game: " << room_msg.username();
             epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
-            if (!room->JoinPlayer(sock, room_msg.username())) close(sock);
+            if (!room->JoinPlayer(sock, room_msg.username())) {
+                shutdown(sock, SHUT_RDWR);
+                close(sock);
+            }
             return;
         }
 
@@ -83,6 +88,7 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
             LOG << "Unexpected message type: " << msg->message_type();
             if (!Channel::Send(sock, Builder::Error("Unexpected message")).has_value()) {
                 epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
+                shutdown(sock, SHUT_RDWR);
                 close(sock);
             }
         }
@@ -114,6 +120,7 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
             if (!msg.has_value()) {
                 LOG << "Closing connection since we can't receive data: " << events[i].data.fd;
                 epoll_ctl(epollSock, EPOLL_CTL_DEL, events[i].data.fd, nullptr);
+                shutdown(events[i].data.fd, SHUT_RDWR);
                 close(events[i].data.fd);
                 continue;
             }

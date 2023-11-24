@@ -83,6 +83,7 @@ func joinFirstGame(names []string) {
 
 	log.Println("Waiting for the game to end...")
 	time.Sleep(7 * time.Second)
+
 	random := rand.Intn(len(names))
 	clients[count-1] = createClient(names[random])
 	defer clients[count-1].Close()

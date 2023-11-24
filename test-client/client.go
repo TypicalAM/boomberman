@@ -117,7 +117,8 @@ func (c *Client) ReadLoop() error {
 		}
 
 		if n == 0 {
-			continue
+			log.Printf("[%s] Connection has been closed gracefully \n", c.username)
+			return fmt.Errorf("connection closed")
 		}
 
 		var msg pb.GameMessage

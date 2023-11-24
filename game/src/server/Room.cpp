@@ -3,6 +3,7 @@
 #include <sys/epoll.h>
 #include <csignal>
 #include <random>
+#include <sys/socket.h>
 #include "Room.h"
 #include "../shared/Builder.h"
 #include "../shared/Channel.h"
@@ -20,7 +21,10 @@ void Room::GameLoop() {
 }
 
 void Room::SendSpecific(int sock, std::unique_ptr<GameMessage> msg) {
-    if (!Channel::Send(sock, std::move(msg)).has_value()) close(sock);
+    if (!Channel::Send(sock, std::move(msg)).has_value()) {
+        shutdown(sock, SHUT_RDWR);
+        close(sock);
+    }
 }
 
 template<typename Function, typename ...Args>
@@ -28,7 +32,10 @@ void Room::SendExcept(int sock, Function &&builderFunc, Args &&... builderArgs) 
     for (auto &player: players) {
         if (player->sock == sock) continue;
         auto msg = std::invoke(std::forward<Function>(builderFunc), std::forward<Args>(builderArgs)...);
-        if (!Channel::Send(player->sock, std::move(msg)).has_value()) close(player->sock);
+        if (!Channel::Send(player->sock, std::move(msg)).has_value()) {
+            shutdown(player->sock, SHUT_RDWR);
+            close(player->sock);
+        }
     }
 }
 
@@ -36,7 +43,10 @@ template<typename Function, typename ...Args>
 void Room::SendBroadcast(Function &&builderFunc, Args &&... builderArgs) {
     for (auto &player: players) {
         auto msg = std::invoke(std::forward<Function>(builderFunc), std::forward<Args>(builderArgs)...);
-        if (!Channel::Send(player->sock, std::move(msg)).has_value()) close(player->sock);
+        if (!Channel::Send(player->sock, std::move(msg)).has_value()) {
+            shutdown(player->sock, SHUT_RDWR);
+            close(player->sock);
+        }
     }
 }
 
@@ -110,7 +120,10 @@ void Room::HandleGameUpdates() {
         state.store(WAIT_FOR_END);
         std::this_thread::sleep_for(std::chrono::seconds(3));
         LOG << "Closing other connections and ending the game";
-        for (auto &player: players) close(player->sock);
+        for (auto &player: players) {
+            shutdown(player->sock, SHUT_RDWR);
+            close(player->sock);
+        }
         state.store(GAME_OVER);
         close(epollSock);
     }
@@ -122,7 +135,10 @@ void Room::HandleGameUpdates() {
         state.store(WAIT_FOR_END);
         std::this_thread::sleep_for(std::chrono::seconds(3));
         LOG << "Closing other connections and ending the game";
-        for (auto &player: players) close(player->sock);
+        for (auto &player: players) {
+            shutdown(player->sock, SHUT_RDWR);
+            close(player->sock);
+        }
         state.store(GAME_OVER);
         close(epollSock);
     }
@@ -175,6 +191,7 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
             // Notify others of the player leaving
             std::lock_guard<std::mutex> lock(playerMtx);
             if (players.size() == 1) {
+                shutdown(players[0]->sock, SHUT_RDWR);
                 close(players[0]->sock);
                 state.store(GAME_OVER); // Close the game
                 close(epollSock);
@@ -189,13 +206,17 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
                 state.store(WAIT_FOR_END);
                 std::this_thread::sleep_for(std::chrono::seconds(3));
                 LOG << "Closing other connections and ending the game";
-                for (auto &player: players) close(player->sock);
+                for (auto &player: players) {
+                    shutdown(player->sock, SHUT_RDWR);
+                    close(player->sock);
+                }
                 state.store(GAME_OVER);
                 close(epollSock);
                 return;
             }
 
             SendExcept(msg->author->sock, Builder::OtherLeave, msg->author->username);
+            shutdown(msg->author->sock, SHUT_RDWR);
             close(msg->author->sock);
             int author_idx = -1;
             for (int i = 0; i < players.size(); ++i) if (players[i]->sock == msg->author->sock) author_idx = i;
@@ -228,6 +249,7 @@ void Room::ReadIntoQueue() {
         if (!msg.has_value()) {
             LOG << "Closing connection since we can't receive data: " << client_sock;
             epoll_ctl(epollSock, EPOLL_CTL_DEL, client_sock, nullptr);
+            shutdown(client_sock, SHUT_RDWR);
             close(client_sock);
 
             int author_idx = -1;
@@ -248,6 +270,7 @@ void Room::ReadIntoQueue() {
             // case broadcasting of their leaving should've already been handled above.
             LOG << "Closing connection since there isn't a player like that: " << client_sock;
             epoll_ctl(epollSock, EPOLL_CTL_DEL, client_sock, nullptr);
+            shutdown(client_sock, SHUT_RDWR);
             close(client_sock);
             continue;
         }
