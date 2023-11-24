@@ -9,8 +9,8 @@
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/trivial.hpp>
 #include "../shared/Util.h"
-#include "../shared/Channel.h"
-#include "../shared/Builder.h"
+#include "../shared/msg/Channel.h"
+#include "../shared/msg/Builder.h"
 
 void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
     switch (msg->message_type()) {

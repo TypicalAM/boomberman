@@ -2,8 +2,8 @@
 #define BOOMBERMAN_MAP_H
 
 #include <vector>
-#include <raylib.h>
-#include "../client/Client.h"
+#include "raylib.h"
+#include "../../client/Client.h"
 
 #define MAP_WIDTH 17
 #define MAP_HEIGHT 11

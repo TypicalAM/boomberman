@@ -1,5 +1,5 @@
 #include "Builder.h"
-#include "messages.pb.h"
+#include "../messages.pb.h"
 
 std::unique_ptr<GameMessage> Builder::IPlaceBomb(float x, float y) {
     auto *ipb = new IPlaceBombMsg;

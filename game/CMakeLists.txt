@@ -19,8 +19,8 @@ endif ()
 set(SOURCES
         src/Main.cpp
 
-        src/shared/Channel.cpp
-        src/shared/Channel.h
+        src/shared/msg/Channel.cpp
+        src/shared/msg/Channel.h
         src/shared/messages.pb.cc
         src/shared/messages.pb.h
 
@@ -29,8 +29,8 @@ set(SOURCES
         src/server/Server.cpp
         src/server/Server.h
         src/client/Client.cpp
-        src/shared/Builder.cpp
-        src/shared/Builder.h
+        src/shared/msg/Builder.cpp
+        src/shared/msg/Builder.h
         src/shared/Util.cpp
         src/shared/Util.h
 
@@ -39,16 +39,16 @@ set(SOURCES
         src/server/entities/SBomb.cpp
         src/server/entities/SBomb.h
         src/server/entities/Primitives.h
-        src/shared/Map.cpp
-        src/shared/Map.h
+        src/shared/game/Map.cpp
+        src/shared/game/Map.h
         src/client/Boomberman.cpp
         src/client/Boomberman.h
-        src/shared/Bomb.cpp
-        src/shared/Bomb.h
+        src/shared/game/Bomb.cpp
+        src/shared/game/Bomb.h
         src/client/EntityHandler.cpp
         src/client/EntityHandler.h
-        src/shared/TileOnFire.cpp
-        src/shared/TileOnFire.h
+        src/shared/game/TileOnFire.cpp
+        src/shared/game/TileOnFire.h
 )
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS messages.proto)
 add_executable(${PROJECT_NAME} ${SOURCES})

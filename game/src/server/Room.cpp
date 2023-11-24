@@ -5,8 +5,8 @@
 #include <random>
 #include <sys/socket.h>
 #include "Room.h"
-#include "../shared/Builder.h"
-#include "../shared/Channel.h"
+#include "../shared/msg/Builder.h"
+#include "../shared/msg/Channel.h"
 #include "../shared/Util.h"
 
 void Room::GameLoop() {

@@ -1,7 +1,7 @@
 #ifndef BOOMBERMAN_BOOMBERMAN_H
 #define BOOMBERMAN_BOOMBERMAN_H
 
-#include "../shared/Map.h"
+#include "../shared/game/Map.h"
 #include <memory>
 
 class Boomberman{

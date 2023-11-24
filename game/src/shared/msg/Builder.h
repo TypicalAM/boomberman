@@ -4,7 +4,7 @@
 // Methods for building various messages
 #include <memory>
 #include <optional>
-#include "messages.pb.h"
+#include "../messages.pb.h"
 
 namespace Builder {
     struct Room {

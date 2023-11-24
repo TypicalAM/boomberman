@@ -2,7 +2,7 @@
 #define BOOMBERMAN_ENTITYHANDLER_H
 
 #include "Boomberman.h"
-#include "../shared/Bomb.h"
+#include "../shared/game/Bomb.h"
 
 class EntityHandler{
 public:
