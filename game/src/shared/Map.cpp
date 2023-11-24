@@ -3,14 +3,6 @@
 
 Map::Map(Client* client, int size){
     this->size = size;
-    memset( this->map, 0, sizeof(this->map) );
-
-    for (int x = 0; x < this->cols; x++) {
-        for (int y = 0; y < this->rows; y++) {
-            if(x==0 || x==this->cols-1 || y==0 || y==this->rows-1) this->map[x][y]=1;
-        }
-    }
-
     this->offset = int((this->size * 4) / 3);
     this->start_x = int(client->getDimension("width") / 2 - (cols / 2) * offset);
     this->start_y = int(client->getDimension("height") / 2 - (rows / 2) * offset);
@@ -24,12 +16,13 @@ void Map::setSquareState(int x, int y, int state) {
 }
 
 void Map::drawMap(Client *client) {
-
+    Color c;
     for (int x = 0; x < this->cols; x++) {
         for (int y = 0; y < this->rows; y++) {
-            DrawRectangle(x * this->offset + this->start_x, y * this->offset + this->start_y, this->size, this->size, GRAY);
-            const char *info = std::to_string(this->map[x][y]).c_str();
-            DrawText(info, x * this->offset + this->start_x, y * this->offset + this->start_y, 10, YELLOW);
+            if(this->map[x][y]==0) c = WHITE;
+            else if(this->map[x][y]==1) c = BLACK;
+            else if(this->map[x][y]==2) c = DARKGRAY;
+            DrawRectangle(x * this->offset + this->start_x, y * this->offset + this->start_y, this->size, this->size, c);
         }
     }
 
@@ -42,11 +35,4 @@ void Map::debug() {
             DrawText(info, x * this->offset + this->start_x, y * this->offset + this->start_y, 10, YELLOW);
         }
     }
-}
-
-int *Map::getColsNrows() {
-    int* colsNrows = new int[2];
-    colsNrows[0]=this->cols;
-    colsNrows[1]=this->rows;
-    return colsNrows;
 }

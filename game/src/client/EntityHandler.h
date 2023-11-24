@@ -2,25 +2,19 @@
 #define BOOMBERMAN_ENTITYHANDLER_H
 
 #include "Boomberman.h"
-#include "Bomb.h"
-#include "Wall.h"
-#include "TileOnFire.h"
+#include "../shared/Bomb.h"
 
 class EntityHandler{
 public:
     std::vector<Boomberman> players;
     std::vector<Bomb> bombs;
-    std::vector<Wall> walls;
     std::vector<TileOnFire> theFloorIsLava;
 
-    void placeWalls(Map* map);
-    void placeBomb(int x, int y, int explostion, int size, int ttl);
-    void setOnFire(Bomb* bomb, Map* map);
-    int destroyWall(Map* map, int x, int y);
+    void placeBomb(int x, int y, int explostion, int size, int ttl, bool is_atomic);
+    //static std::vector<TileOnFire> setOnFire(Bomb* bomb, Map* map);
     int explodeBomb(Bomb* bomb, Map* map);
     void tryExtinguish();
 
-    void drawWalls(Map* map);
     void drawPlayers(Map* map);
     void drawBombs(Map* map);
     void drawFire(Map* map);

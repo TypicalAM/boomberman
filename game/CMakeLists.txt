@@ -39,18 +39,16 @@ set(SOURCES
         src/server/entities/SBomb.cpp
         src/server/entities/SBomb.h
         src/server/entities/Primitives.h
-        src/client/Map.cpp
-        src/client/Map.h
+        src/shared/Map.cpp
+        src/shared/Map.h
         src/client/Boomberman.cpp
         src/client/Boomberman.h
-        src/client/Bomb.cpp
-        src/client/Bomb.h
-        src/client/Wall.cpp
-        src/client/Wall.h
+        src/shared/Bomb.cpp
+        src/shared/Bomb.h
         src/client/EntityHandler.cpp
         src/client/EntityHandler.h
-        src/client/TileOnFire.cpp
-        src/client/TileOnFire.h
+        src/shared/TileOnFire.cpp
+        src/shared/TileOnFire.h
 )
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS messages.proto)
 add_executable(${PROJECT_NAME} ${SOURCES})

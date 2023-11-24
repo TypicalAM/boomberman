@@ -3,9 +3,6 @@
 
 #include <string>
 
-#define MAP_WIDTH 18
-#define MAP_HEIGHT 10
-
 class Client {
 private:
     int width;
