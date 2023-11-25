@@ -2,6 +2,7 @@
 #define BOOMBERMAN_CLIENT_H
 
 #include <string>
+#include "../shared/game/Map.h"
 
 class Client {
 private:
@@ -11,7 +12,8 @@ private:
 public:
     Client(int width, int height);
 
-    void Run();
+    static void drawMap(Map* map);
+    void Run() const;
     int getDimension(const std::string& dimension) const;
 
     ~Client();

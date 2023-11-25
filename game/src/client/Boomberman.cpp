@@ -41,15 +41,15 @@ void Boomberman::decrementIframes() {
 void Boomberman::gotHit() {
     this->health--;
     if(this->health<=0) printf("YOU DIED\n");
-    this->animation_start=GetTime();
+    this->animation_start=Util::TimestampMillis();
     printf("Local player got hit!\n");
-    this->iframes=120;
+    this->iframes=90;
 }
 
 void Boomberman::animateHit() {
-    double now = GetTime();
+    double long now = Util::TimestampMillis();
     if(this->iframes == 0) return;
-    if (now - this->animation_start >= 0.15f) {
+    if (now - this->animation_start >= 150.0f) {
         this->state *= -1;
         this->animation_start = now;
     }

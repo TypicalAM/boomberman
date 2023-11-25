@@ -4,10 +4,10 @@
 #include "EntityHandler.h"
 #include <iostream>
 
-void Client::Run() {
+void Client::Run() const {
     EntityHandler entityHandler;
 
-    Map map(this,25);
+    Map map(25,this->width,this->height);
 
     Boomberman local_boomberman("ارهابي",1,1,3);
     entityHandler.players.push_back(local_boomberman);
@@ -46,7 +46,7 @@ void Client::Run() {
         BeginDrawing();
 
         ClearBackground(LIGHTGRAY);
-        map.drawMap(this);
+        Client::drawMap(&map);
         entityHandler.drawFire(&map);
         entityHandler.drawPlayers(&map);
         entityHandler.drawBombs(&map);
@@ -74,6 +74,19 @@ int Client::getDimension(const std::string& dimension) const {
 Client::~Client() {
     std::cout << "Closing window..." << std::endl;
     CloseWindow();
+}
+
+void Client::drawMap(Map* map) {
+    Color c;
+    for (int x = 0; x < map->cols; x++) {
+        for (int y = 0; y < map->rows; y++) {
+            int squareState = map->getSquareState(x,y);
+            if(squareState==0) c = WHITE;
+            else if(squareState==1) c = BLACK;
+            else if(squareState==2) c = DARKGRAY;
+            DrawRectangle(x * map->offset + map->start_x, y * map->offset + map->start_y, map->size, map->size, c);
+        }
+    }
 }
 
 

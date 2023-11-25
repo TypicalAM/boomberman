@@ -16,7 +16,7 @@ void EntityHandler::drawPlayers(Map *map) {
 void EntityHandler::drawBombs(Map* map) {
     Color c;
     for (auto &bomb: this->bombs) {
-        if(!bomb.should_explode) {
+        if(!bomb.ShouldExplode()) {
             bomb.animateOrBoom();
             if (bomb.state == -1) c = BLACK;
             else{
@@ -33,7 +33,7 @@ void EntityHandler::drawBombs(Map* map) {
 int EntityHandler::explodeBomb(Bomb* bomb, Map* map) {
     std::vector<TileOnFire> tilesExploded;
     int x=bomb->pos_x, y=bomb->pos_y;
-    double fuze_time=bomb->plant_time;
+    double long fuze_time=bomb->plant_time;
     auto it = std::find_if(this->bombs.begin(), this->bombs.end(), [x,y,fuze_time](Bomb& bomb) {
         return bomb.pos_x == x && bomb.pos_y == y && bomb.plant_time == fuze_time;
     });
@@ -41,6 +41,7 @@ int EntityHandler::explodeBomb(Bomb* bomb, Map* map) {
         tilesExploded = bomb->boom(map);
         this->theFloorIsLava.insert(this->theFloorIsLava.begin(),tilesExploded.begin(), tilesExploded.end());
         this->bombs.erase(it);
+        printf("Bomb at x:%d y:%d exploded!\n",bomb->pos_x,bomb->pos_y);
         return 0;
     }
     return 1;

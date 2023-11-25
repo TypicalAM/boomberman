@@ -7,21 +7,21 @@ Bomb::Bomb(int pos_x, int pos_y, int explosion, int size, float ttl, bool is_ato
     this->explosion=explosion;
     this->size=size;
     this->ttl=ttl;
-    this->animation_start=GetTime();
+    this->animation_start=Util::TimestampMillis();
     this->plant_time=this->animation_start;
     this->state=-1;
     this->is_atomic=is_atomic;
 }
 
+bool Bomb::ShouldExplode() const {
+    return Util::TimestampMillis() > this->plant_time + this->ttl*1000;
+}
+
 void Bomb::animateOrBoom() {
-    double now=GetTime();
-    if(now-this->animation_start>=0.5f){
+    double long now=Util::TimestampMillis();
+    if(now-this->animation_start>=500.0f){
         this->state*=-1;
         this->animation_start=now;
-    }
-    if(now-this->plant_time>=this->ttl) {
-        this->should_explode=true;
-        printf("Bomb at x:%d, y:%d exploded!\n",pos_x,pos_y);
     }
 }
 std::vector<TileOnFire> Bomb::boom(Map* map) {

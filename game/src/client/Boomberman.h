@@ -2,13 +2,15 @@
 #define BOOMBERMAN_BOOMBERMAN_H
 
 #include "../shared/game/Map.h"
+#include "../shared/Util.h"
 #include <memory>
+#include <string>
 
 class Boomberman{
 private:
     int* position;
     int health, state;
-    double animation_start;
+    double long animation_start{};
 public:
     int iframes;
     std::string pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy;

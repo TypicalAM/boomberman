@@ -4,16 +4,17 @@
 #include "TileOnFire.h"
 #include "Map.h"
 #include <vector>
+#include "../Util.h"
 
 class Bomb{
 public:
     int pos_x, pos_y;
     int explosion, size;
-    double plant_time, animation_start, ttl;
+    double long plant_time, animation_start, ttl;
     int state;
-    bool should_explode=false;
     bool is_atomic;
     Bomb(int pos_x, int pos_y, int explosion, int size, float ttl, bool is_atomic);
+    [[nodiscard]] bool ShouldExplode() const;
     void animateOrBoom();
     std::vector<TileOnFire> boom(Map *map);
 };
