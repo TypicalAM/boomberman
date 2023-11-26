@@ -186,8 +186,17 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
         }
 
         case I_MOVE: {
-            // Move the players character
+            // Check if the movement is valid and move the players character
             auto im = msg->payload->i_move();
+            int tile_state = map->getSquareState(std::floor(im.x() + 1),
+                                                 std::floor(im.y() + 1)); // TODO: Because of the unbreakable wall
+            LOG << "Square state at" << im.x() << im.y() << "\t   " << tile_state;
+            if (tile_state != NOTHIN) {
+                SendSpecific(msg->author->sock, Builder::Error("Invalid movement"));
+                return;
+            }
+
+            // The movement was valid, let's roll
             msg->author->coords.x = im.x();
             msg->author->coords.y = im.y();
             SendExcept(msg->author->sock, Builder::OtherMove, msg->author->username, im.x(), im.y());

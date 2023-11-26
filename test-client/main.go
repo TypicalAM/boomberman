@@ -63,34 +63,12 @@ func joinFirstGame(names []string) {
 		time.Sleep(200 * time.Millisecond)
 	}
 
-	_ = &pb.GameMessage{MessageType: pb.MessageType_I_MOVE,
-		Message: &pb.GameMessage_IMove{&pb.IMoveMsg{X: 5.0, Y: 5.0}}}
+	moveMsg := &pb.GameMessage{MessageType: pb.MessageType_I_MOVE,
+		Message: &pb.GameMessage_IMove{&pb.IMoveMsg{X: 1.0, Y: 0}}}
 
-	placeBombMsg := &pb.GameMessage{MessageType: pb.MessageType_I_PLACE_BOMB,
-		Message: &pb.GameMessage_IPlaceBomb{&pb.IPlaceBombMsg{X: 0.0, Y: 0.0}}}
-	log.Println("Placing a bomb")
-	clients[3].Send(placeBombMsg)
+	log.Println("Moving client 0")
+	clients[0].Send(moveMsg)
 	time.Sleep(1 * time.Second)
-	log.Println("Placing a bomb")
-	clients[3].Send(placeBombMsg)
-	time.Sleep(1 * time.Second)
-	log.Println("Placing a bomb")
-	clients[3].Send(placeBombMsg)
-	time.Sleep(1 * time.Second)
-	log.Println("Client 0 should win the game")
-
-	time.Sleep(1 * time.Second)
-
-	log.Println("Waiting for the game to end...")
-	time.Sleep(7 * time.Second)
-
-	random := rand.Intn(len(names))
-	clients[count-1] = createClient(names[random])
-	defer clients[count-1].Close()
-	clients[count-1].Send(&pb.GameMessage{
-		MessageType: pb.MessageType_GET_ROOM_LIST,
-		Message:     &pb.GameMessage_GetRoomList{&pb.GetRoomListMsg{}},
-	})
 
 	for _, client := range clients {
 		<-client.Done()
