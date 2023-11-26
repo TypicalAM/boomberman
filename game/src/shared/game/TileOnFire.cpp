@@ -1,5 +1,7 @@
 #include "TileOnFire.h"
 
+#include "raylib.h"
+
 TileOnFire::TileOnFire(int x, int y) {
     this->x=x;
     this->y=y;

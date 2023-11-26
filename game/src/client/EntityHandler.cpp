@@ -1,5 +1,6 @@
 #include <algorithm>
 #include "EntityHandler.h"
+#include "raylib.h"
 
 void EntityHandler::placeBomb(int x, int y, int explostion, int size, int ttl, bool is_atomic) {
     this->bombs.emplace_back(x,y,explostion,size,ttl,is_atomic);

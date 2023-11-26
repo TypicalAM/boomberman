@@ -7,7 +7,8 @@
 #include <queue>
 #include "../shared/messages.pb.h"
 #include "entities/SPlayer.h"
-#include "entities/SBomb.h"
+#include "../shared/game/Map.h"
+#include "../shared/game/Bomb.h"
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/sources/record_ostream.hpp>
 
@@ -30,7 +31,7 @@ struct AuthoredMessage {
 class Room {
 private:
     std::string name;
-    std::vector<SBomb> bombs;
+    std::vector<Bomb> bombs;
     std::atomic<GameState> state;
     int64_t lastGameWaitMessage;
 
@@ -41,6 +42,8 @@ private:
     std::mutex msgQueueMtx;
     std::queue<std::unique_ptr<AuthoredMessage>> msgQueue;
     boost::log::sources::logger logger;
+
+    std::unique_ptr<Map> map;
 
     int epollSock;
 

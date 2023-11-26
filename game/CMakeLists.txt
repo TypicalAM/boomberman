@@ -36,8 +36,6 @@ set(SOURCES
 
         src/server/entities/SPlayer.cpp
         src/server/entities/SPlayer.h
-        src/server/entities/SBomb.cpp
-        src/server/entities/SBomb.h
         src/server/entities/Primitives.h
         src/shared/game/Map.cpp
         src/shared/game/Map.h

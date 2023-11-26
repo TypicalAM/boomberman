@@ -1,8 +1,6 @@
 #ifndef BOOMBERMAN_TILEONFIRE_H
 #define BOOMBERMAN_TILEONFIRE_H
 
-#include "raylib.h"
-
 class TileOnFire {
 public:
     int x, y;

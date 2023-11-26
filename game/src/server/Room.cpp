@@ -7,7 +7,6 @@
 #include "Room.h"
 #include "../shared/msg/Builder.h"
 #include "../shared/msg/Channel.h"
-#include "../shared/Util.h"
 
 void Room::GameLoop() {
     while (state.load() != GAME_OVER) {
@@ -86,11 +85,19 @@ void Room::HandleGameUpdates() {
         explode_indices.push_back(i);
 
         // The bomb explodes
-        for (auto &player: players)
-            if (bombs[i].InBlastRadius(player)) {
-                player->livesRemaining--;
-                SendBroadcast(Builder::GotHit, player->username, player->livesRemaining);
+        std::vector<TileOnFire> result = bombs[i].boom(map.get());
+        for (auto &player: players) {
+            // Let's check if the player was in radius of the bomb
+            int adjusted_x = std::floor(player->coords.x);
+            int adjusted_y = std::floor(player->coords.y);
+            for (const auto &tile: result) {
+                if (adjusted_x == tile.x && adjusted_y == tile.y) {
+                    // The person was hit by the bomb, cool
+                    player->livesRemaining--;
+                    SendBroadcast(Builder::GotHit, player->username, player->livesRemaining);
+                }
             }
+        }
     }
 
     for (const auto &index: explode_indices)
@@ -173,7 +180,7 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
             // Place the bomb at the specified location
             IPlaceBombMsg ipb = msg->payload->i_place_bomb();
             int64_t timestamp = Util::TimestampMillis();
-            bombs.emplace_back(Coords{ipb.x(), ipb.y()}, timestamp);
+            bombs.emplace_back(std::floor(ipb.x()), std::floor(ipb.y()), 3, 25, 3.0f, false);
             SendExcept(msg->author->sock, Builder::OtherBombPlace, timestamp, msg->author->username, ipb.x(), ipb.y());
             return;
         }
@@ -297,6 +304,7 @@ bool Room::JoinPlayer(int sock, const std::string &username) {
 Room::Room(boost::log::sources::logger logger, std::string roomName) {
     this->logger = std::move(logger);
     name = std::move(roomName);
+    map = std::make_unique<Map>(25, MAP_WIDTH, MAP_HEIGHT); // TODO: This should just be constant???
     state.store(WAIT_FOR_START);
     msgQueue = std::queue<std::unique_ptr<AuthoredMessage>>();
     lastGameWaitMessage = Util::TimestampMillis();

@@ -2,7 +2,7 @@
 #include <algorithm>
 #include "Client.h"
 #include "EntityHandler.h"
-#include <iostream>
+#include "raylib.h"
 
 void Client::Run() const {
     EntityHandler entityHandler;
