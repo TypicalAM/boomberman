@@ -11,7 +11,7 @@ SPlayer::SPlayer(int fd, std::string username, Color color) {
         case GREEN:
         case BLUE:
         case YELLOW:
-            this->coords = Coords{0.0f, 0.0f};
+            this->coords = Coords{1.0f, 1.0f};
             break;
         default:
             throw std::runtime_error("unhandled color starting position");
