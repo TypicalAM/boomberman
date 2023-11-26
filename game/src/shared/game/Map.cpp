@@ -1,5 +1,3 @@
-#include <cstring>
-#include <string>
 #include "Map.h"
 
 Map::Map(int size, int width, int height){

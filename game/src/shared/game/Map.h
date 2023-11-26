@@ -37,6 +37,5 @@ public:
     explicit Map(int size, int width, int height);
     int getSquareState(int x, int y);
     void setSquareState(int x, int y, int state);
-    void debug();
 };
 #endif //BOOMBERMAN_MAP_H

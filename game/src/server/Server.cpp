@@ -47,7 +47,7 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
             std::shared_ptr<Room> room;
             if (!room_msg.has_room()) {
                 auto new_room_name = Util::RandomString(10);
-                room = std::make_shared<Room>(createNamedLogger(new_room_name), new_room_name);
+                room = std::make_shared<Room>(createNamedLogger(new_room_name));
                 std::thread(&Room::GameLoop, room).detach();
                 std::lock_guard<std::mutex> lock(roomsMtx);
                 rooms[new_room_name] = room;

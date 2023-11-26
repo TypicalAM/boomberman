@@ -301,11 +301,18 @@ bool Room::JoinPlayer(int sock, const std::string &username) {
     return true;
 }
 
-Room::Room(boost::log::sources::logger logger, std::string roomName) {
-    this->logger = std::move(logger);
-    name = std::move(roomName);
+int Room::Players() {
+    std::lock_guard<std::mutex> lock(playerMtx);
+    return clientCount;
+}
+
+bool Room::IsGameOver() {
+    return state.load() == GAME_OVER;
+}
+
+Room::Room(boost::log::sources::logger roomLoggger) {
+    logger = std::move(roomLoggger);
     map = std::make_unique<Map>(25, MAP_WIDTH, MAP_HEIGHT); // TODO: This should just be constant???
-    state.store(WAIT_FOR_START);
     msgQueue = std::queue<std::unique_ptr<AuthoredMessage>>();
     lastGameWaitMessage = Util::TimestampMillis();
 
@@ -314,13 +321,4 @@ Room::Room(boost::log::sources::logger logger, std::string roomName) {
         close(epollSock); // Clean up on failure
         throw std::runtime_error("epoll creation failed");
     }
-}
-
-int Room::Players() {
-    std::lock_guard<std::mutex> lock(playerMtx);
-    return clientCount;
-}
-
-bool Room::IsGameOver() {
-    return state.load() == GAME_OVER;
 }

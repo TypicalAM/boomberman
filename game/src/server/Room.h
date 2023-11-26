@@ -30,9 +30,8 @@ struct AuthoredMessage {
 
 class Room {
 private:
-    std::string name;
     std::vector<Bomb> bombs;
-    std::atomic<GameState> state;
+    std::atomic<GameState> state = WAIT_FOR_START;
     int64_t lastGameWaitMessage;
 
     std::mutex playerMtx;
@@ -76,7 +75,7 @@ public:
 
     bool IsGameOver();
 
-    Room(boost::log::sources::logger logger, std::string name);
+    explicit Room(boost::log::sources::logger roomLoggger);
 };
 
 #endif
