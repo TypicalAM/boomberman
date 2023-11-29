@@ -2,15 +2,21 @@ syntax = "proto3";
 
 option go_package = "github.com/TypicalAM/boomberman/test-client/pb";
 
-// General
-message ErrorMsg { string error = 1; }
+// Error is sent as a response to a message when an error occurs. For example,
+// if the client tries to join a room that does not exist, the server will send
+// an Error message with the error field set to "Room does not exist".
+message Error { string error = 1; }
 
-message RoomMsg {
+// GameRoom is a room that players can join. It contains the name of the room, the
+// number of players in the room and the maximum number of players that can be
+// in the room.
+message GameRoom {
   string name = 1;
-  int32 players = 2;
-  int32 maxPlayers = 3;
+  int32 playerCount = 2;
+  int32 maxPlayerCount = 3;
 }
 
+// PlayerColor is the color of a player.
 enum PlayerColor {
   PLAYER_RED = 0;
   PLAYER_GREEN = 1;
@@ -18,97 +24,132 @@ enum PlayerColor {
   PLAYER_YELLOW = 3;
 }
 
-// Client messages
-message GetRoomListMsg {}
+// Player is a player in the game. It contains the player's name and color.
+message GamePlayer {
+	string username = 1;
+	PlayerColor color = 2;
+}
 
-message JoinRoomMsg {
+// Client-side messages
+
+// GetRoomList is sent when the client wants to get the list of rooms
+// available. RoomList should be sent back in response.
+message GetRoomList {}
+
+// JoinRoom is sent when the client wants to join a room, the room name is
+// optional, if it is not provided, the server will create a new room if there
+// is space.
+message JoinRoom {
   string username = 1;
-  optional RoomMsg room = 2;
-} // It is optional because we can create a new room
+  optional string roomName = 2;
+}
 
-message IPlaceBombMsg {
+// IPlaceBomb is sent when the client wants to place a bomb at the given
+// coordinates. The server will check if the player is allowed to place a bomb
+// at the given coordinates and will send an error if not.
+message IPlaceBomb {
   float x = 1;
   float y = 2;
 }
 
-message IMoveMsg {
+// IMove is sent when the client wants to move to the given coordinates. The
+// server will check if the player is allowed to move to the given coordinates
+// and will send an error if not.
+message IMove {
   float x = 1;
   float y = 2;
 }
 
-message ILeaveMsg {}
+// ILeave is sent when the client wants to leave the room.
+message ILeave {}
 
-// Server messages
-message RoomListMsg { repeated RoomMsg rooms = 1; }
+// Server-side messages
 
-message GameJoinMsg {
-  string name = 1;
-  PlayerColor color = 2;
-  bool You = 3;
-}
+// RoomList is sent in response to GetRoomList and contains a list of
+// rooms available.
+message RoomList { repeated GameRoom rooms = 1; }
 
-message GameWaitMsg { int32 waitingFor = 1; }
+// WelcomeToRoom is sent when a player joins a room, it contains the list of
+// players in the room, with you at the first index (!).
+message WelcomeToRoom { repeated GamePlayer players = 1; }
 
-message GameStartMsg { repeated string usernames = 1; }
+// GameJoin is sent when a player joins the game, it contains the player's
+// name, color and whether the player is the client.
+message GameJoin { GamePlayer player = 1; }
 
-message OtherBombPlaceMsg {
-  int64 timestamp = 1;
-  string name = 2;
+// GameWait is sent to the client when the game is waiting for more players
+// to join.
+message GameWait { int32 waitingFor = 1; }
+
+// GameStart is sent to all players when the game starts.
+message GameStart {}
+
+// OtherBombPlace is sent to all players when a player places a bomb.
+message OtherBombPlace {
+  string username = 1;
+  int64 timestamp = 2;
   float x = 3;
   float y = 4;
 }
 
-message GotHitMsg {
-  string name = 1;
+// GotHit is sent to all players when a player gets hit by a bomb.
+message GotHit {
+  string username = 1;
   int32 livesRemaining = 2;
 }
 
-message OtherMoveMsg {
-  string name = 1;
+// OtherMove is sent to all players when a player moves.
+message OtherMove {
+  string username = 1;
   float x = 2;
   float y = 3;
 }
 
-message OtherLeaveMsg { string name = 1; }
+// OtherLeave is sent to all players when a player leaves the game.
+message OtherLeave { string username = 1; }
 
-message GameWonMsg { string winner = 1; }
+// GameWon is sent to all players when a player wins the game.
+message GameWon { string winnerUsername = 1; }
 
+// Message types
 enum MessageType {
-  I_PLACE_BOMB = 0;
-  I_MOVE = 1;
-  I_LEAVE = 2;
-  GAME_JOIN = 3;
-  GAME_WAIT = 4;
-  OTHER_BOMB_PLACE = 5;
-  GOT_HIT = 6;
-  OTHER_MOVE = 7;
-  OTHER_LEAVE = 8;
-  GAME_WON = 9;
-  GAME_START = 10;
-  ERROR = 11;
-  GET_ROOM_LIST = 12;
-  ROOM_LIST = 13;
-  JOIN_ROOM = 14;
+	ERROR = 0;
+	GET_ROOM_LIST = 1;
+	JOIN_ROOM = 2;
+	I_PLACE_BOMB = 3;
+	I_MOVE = 4;
+	I_LEAVE = 5;
+	ROOM_LIST = 6;
+	WELCOME_TO_ROOM = 7;
+	GAME_JOIN = 8;
+	GAME_WAIT = 9;
+	GAME_START = 10;
+	OTHER_BOMB_PLACE = 11;
+	GOT_HIT = 12;
+	OTHER_MOVE = 13;
+	OTHER_LEAVE = 14;
+	GAME_WON = 15;
 }
 
 // Wrapper Message
 message GameMessage {
-  MessageType message_type = 1;
+  MessageType type = 1;
   oneof message {
-    IPlaceBombMsg i_place_bomb = 2;
-    IMoveMsg i_move = 3;
-    ILeaveMsg i_leave = 4;
-    GameJoinMsg game_join = 5;
-    GameWaitMsg game_wait = 6;
-    OtherBombPlaceMsg other_bomb_place = 7;
-    GotHitMsg got_hit = 8;
-    OtherMoveMsg other_move = 9;
-    OtherLeaveMsg other_leave = 10;
-    GameWonMsg game_won = 11;
-    GameStartMsg game_start = 12;
-    ErrorMsg error = 13;
-    GetRoomListMsg get_room_list = 14;
-    RoomListMsg room_list = 15;
-    JoinRoomMsg join_room = 16;
+		Error error = 2;
+		GetRoomList getRoomList = 3;
+		JoinRoom joinRoom = 4;
+		IPlaceBomb iPlaceBomb = 5;
+		IMove iMove = 6;
+		ILeave iLeave = 7;
+		RoomList roomList = 8;
+		WelcomeToRoom welcomeToRoom = 9;
+		GameJoin gameJoin = 10;
+		GameWait gameWait = 11;
+		GameStart gameStart = 12;
+		OtherBombPlace otherBombPlace = 13;
+		GotHit gotHit = 14;
+		OtherMove otherMove = 15;
+		OtherLeave otherLeave = 16;
+		GameWon gameWon = 17;
   }
 }

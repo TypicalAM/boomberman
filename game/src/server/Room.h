@@ -5,10 +5,11 @@
 #include <mutex>
 #include <memory>
 #include <queue>
-#include "../shared/messages.pb.h"
+#include "../shared/proto/messages.pb.h"
 #include "entities/SPlayer.h"
 #include "../shared/game/Map.h"
 #include "../shared/game/Bomb.h"
+#include "../shared/proto/messages.pb.h"
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/sources/record_ostream.hpp>
 

@@ -69,9 +69,7 @@ void Room::CheckIfGameReady() {
 
     LOG << "Starting game";
     state.store(PLAY);
-    std::vector<std::string> usernames;
-    for (const auto &player: players) usernames.push_back(player->username);
-    SendBroadcast(Builder::GameStart, usernames);
+    SendBroadcast(Builder::GameStart);
 }
 
 void Room::HandleGameUpdates() {
@@ -169,27 +167,26 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
     }
 
     // Check if the player is playing tricks
-    if (!msg->author->livesRemaining && msg->payload->message_type() != I_LEAVE) {
+    if (!msg->author->livesRemaining && msg->payload->type() != I_LEAVE) {
         SendSpecific(msg->author->sock, Builder::Error("You can't really do anything while dead, can you?"));
         return;
     }
 
     // Handle message based on the type
-    switch (msg->payload->message_type()) {
+    switch (msg->payload->type()) {
         case I_PLACE_BOMB: {
             // Place the bomb at the specified location
-            IPlaceBombMsg ipb = msg->payload->i_place_bomb();
+            IPlaceBomb ipb = msg->payload->iplacebomb();
             int64_t timestamp = Util::TimestampMillis();
             bombs.emplace_back(std::floor(ipb.x()), std::floor(ipb.y()), 3, 25, 3.0f, false);
-            SendExcept(msg->author->sock, Builder::OtherBombPlace, timestamp, msg->author->username, ipb.x(), ipb.y());
+            SendExcept(msg->author->sock, Builder::OtherBombPlace, msg->author->username, timestamp, ipb.x(), ipb.y());
             return;
         }
 
         case I_MOVE: {
             // Check if the movement is valid and move the players character
-            auto im = msg->payload->i_move();
+            IMove im = msg->payload->imove();
             int tile_state = map->getSquareState(std::floor(im.x()), std::floor(im.y()));
-            LOG << "Square state at" << im.x() << im.y() << "\t   " << tile_state;
             if (tile_state != NOTHIN) {
                 SendSpecific(msg->author->sock, Builder::Error("Invalid movement"));
                 return;
@@ -240,7 +237,7 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
         }
 
         default:
-            LOG << "Unexpected message type: " << msg->payload->message_type();
+            LOG << "Unexpected message type: " << msg->payload->type();
             SendSpecific(msg->author->sock, Builder::Error("Unexpected message"));
     }
 }
@@ -300,15 +297,25 @@ void Room::ReadIntoQueue() {
 bool Room::JoinPlayer(int sock, const std::string &username) {
     if (state.load() != WAIT_FOR_START) return false;
     std::lock_guard<std::mutex> lock(playerMtx);
-    clientCount++;
-    auto color = static_cast<PlayerColor>(players.size());
-    LOG<<"Gave color "<<color;
-    if (!Channel::Send(sock, Builder::GameJoin(username, color, true)).has_value()) return false;
     epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.fd = sock}};
     if (epoll_ctl(epollSock, EPOLL_CTL_ADD, sock, &event) == -1) throw std::runtime_error("cannot add to epoll");
-    players.emplace_back(std::make_unique<SPlayer>(sock, username, color));
-    SendSpecific(sock, Builder::GameJoin(username, color, true));
-    SendExcept(sock, Builder::GameJoin, username, color, false);
+    clientCount++;
+
+    // Insert the player at the first pos
+    // TODO: Igorze, dlaczego muszę popychać całą tablicę do tyłu...
+    auto color = static_cast<PlayerColor>(players.size());
+    players.insert(players.begin(), std::make_unique<SPlayer>(sock, username, color));
+
+    // Send the current connected player list to the new player
+    std::vector<Builder::Player> player_list;
+    for (const auto &player: players) player_list.emplace_back(Builder::Player{player->username, player->color});
+    SendSpecific(sock, Builder::WelcomeToRoom(player_list));
+
+    // Tell everyone a new player is here
+    Builder::Player new_player = Builder::Player{username, color};
+    SendExcept(sock, Builder::GameJoin, new_player);
+
+    // Add the player to the player list
     return true;
 }
 
@@ -321,8 +328,8 @@ bool Room::IsGameOver() {
     return state.load() == GAME_OVER;
 }
 
-Room::Room(boost::log::sources::logger roomLoggger) {
-    logger = std::move(roomLoggger);
+Room::Room(boost::log::sources::logger roomLogger) {
+    logger = std::move(roomLogger);
     map = std::make_unique<Map>(25, MAP_WIDTH, MAP_HEIGHT); // TODO: This should just be constant???
     msgQueue = std::queue<std::unique_ptr<AuthoredMessage>>();
     lastGameWaitMessage = Util::TimestampMillis();

@@ -21,8 +21,6 @@ set(SOURCES
 
         src/shared/msg/Channel.cpp
         src/shared/msg/Channel.h
-        src/shared/messages.pb.cc
-        src/shared/messages.pb.h
 
         src/server/Room.cpp
         src/server/Room.h
@@ -33,6 +31,7 @@ set(SOURCES
         src/shared/msg/Builder.h
         src/shared/Util.cpp
         src/shared/Util.h
+        src/shared/proto/messages.pb.cc
 
         src/server/entities/SPlayer.cpp
         src/server/entities/SPlayer.h
@@ -47,6 +46,7 @@ set(SOURCES
         src/client/EntityHandler.h
         src/shared/game/TileOnFire.cpp
         src/shared/game/TileOnFire.h
+        src/shared/proto/messages.pb.h
 )
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS messages.proto)
 add_executable(${PROJECT_NAME} ${SOURCES})

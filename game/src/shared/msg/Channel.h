@@ -3,7 +3,7 @@
 
 #include <optional>
 #include <memory>
-#include "../messages.pb.h"
+#include "../proto/messages.pb.h"
 
 // Send and receive messages from sockets
 namespace Channel {

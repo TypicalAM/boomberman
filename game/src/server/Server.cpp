@@ -13,7 +13,7 @@
 #include "../shared/msg/Builder.h"
 
 void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
-    switch (msg->message_type()) {
+    switch (msg->type()) {
         case GET_ROOM_LIST: {
             // Create a room list and send it to the user
             std::lock_guard<std::mutex> lock(roomsMtx);
@@ -42,19 +42,19 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
 
         case JOIN_ROOM: {
             // Join a user to a room (if he specified the room) or create a new one
-            auto room_msg = msg->join_room();
+            auto room_msg = msg->joinroom();
 
             std::shared_ptr<Room> room;
-            if (!room_msg.has_room()) {
+            if (!room_msg.has_roomname()) {
                 auto new_room_name = Util::RandomString(10);
                 room = std::make_shared<Room>(createNamedLogger(new_room_name));
                 std::thread(&Room::GameLoop, room).detach();
                 std::lock_guard<std::mutex> lock(roomsMtx);
                 rooms[new_room_name] = room;
             } else {
-                if (rooms.find(room_msg.room().name()) == rooms.end()) {
+                if (rooms.find(room_msg.roomname()) == rooms.end()) {
                     // Close the connection if we can't send the message
-                    LOG << "Client requested a room which doesn't exist: " << room_msg.room().name();
+                    LOG << "Client requested a room which doesn't exist: " << room_msg.roomname();
                     if (Channel::Send(sock, Builder::Error("There is no room with that name man")).has_value()) return;
                     epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
                     shutdown(sock, SHUT_RDWR);
@@ -63,7 +63,7 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
                 }
 
                 std::lock_guard<std::mutex> lock(roomsMtx);
-                room = rooms[room_msg.room().name()];
+                room = rooms[room_msg.roomname()];
             }
 
             if (!room->CanJoin(room_msg.username())) {
@@ -85,7 +85,7 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
 
         default: {
             // Close the connection if we can't send the message
-            LOG << "Unexpected message type: " << msg->message_type();
+            LOG << "Unexpected message type: " << msg->type();
             if (!Channel::Send(sock, Builder::Error("Unexpected message")).has_value()) {
                 epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
                 shutdown(sock, SHUT_RDWR);

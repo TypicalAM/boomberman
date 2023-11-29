@@ -4,7 +4,7 @@
 #include <string>
 #include <utility>
 #include "Primitives.h"
-#include "../../shared/messages.pb.h"
+#include "../../shared/proto/messages.pb.h"
 
 #define STARTER_LIVES 3
 

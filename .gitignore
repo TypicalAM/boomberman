@@ -1,7 +1,6 @@
 # Additional 
 test-client/pb
-game/src/shared/messages.pb.h
-game/src/shared/messages.pb.cc
+game/src/shared/proto/
 build
 test.md
 
