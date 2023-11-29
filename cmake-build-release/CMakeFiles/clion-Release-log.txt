@@ -1,2 +1,0 @@
-Cannot generate 'Release' into /home/ignor/Studia/V_semestr/Sieci_Komputerowe_2/boomberman/cmake-build-release
-Only in-source generation will be performed.
