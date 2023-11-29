@@ -14,9 +14,9 @@ public:
     int livesRemaining;
     Coords coords;
     std::string username;
-    Color color;
+    PlayerColor color;
 
-    SPlayer(int fd, std::string username, Color color);
+    SPlayer(int fd, std::string username, PlayerColor color);
 };
 
 #endif

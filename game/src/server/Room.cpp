@@ -301,7 +301,9 @@ bool Room::JoinPlayer(int sock, const std::string &username) {
     if (state.load() != WAIT_FOR_START) return false;
     std::lock_guard<std::mutex> lock(playerMtx);
     clientCount++;
-    auto color = static_cast<Color>(players.size());
+    auto color = static_cast<PlayerColor>(players.size());
+    LOG<<"Gave color "<<color;
+    if (!Channel::Send(sock, Builder::GameJoin(username, color, true)).has_value()) return false;
     epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.fd = sock}};
     if (epoll_ctl(epollSock, EPOLL_CTL_ADD, sock, &event) == -1) throw std::runtime_error("cannot add to epoll");
     players.emplace_back(std::make_unique<SPlayer>(sock, username, color));

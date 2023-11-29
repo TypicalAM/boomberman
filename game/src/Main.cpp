@@ -19,21 +19,17 @@ int main(int argc, char *argv[]) {
     init_logging();
     BOOST_LOG_TRIVIAL(info) << "Starting boomberman";
 
-    if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " client/server" << std::endl;
-        return 1;
-    }
-
     std::string target(argv[1]);
 
     if (target != "client" && target != "server") {
         std::cerr << "Expected one of: server, client" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " client [username]/server" << std::endl;
         return 1;
     }
 
     if (target == "client") {
         Client client(screenWidth, screenHeight);
-        client.Run();
+        client.Run(argv[2]);
     } else {
         Server server(2137);
         server.Run();

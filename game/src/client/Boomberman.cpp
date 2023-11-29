@@ -1,6 +1,6 @@
 #include "Boomberman.h"
 
-Boomberman::Boomberman(const std::string& pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy, int start_x, int start_y, int health) {
+Boomberman::Boomberman(const std::string& pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy, Color color, int start_x, int start_y, int health) {
     this->position=new int[2];
     this->position[0]=start_x;
     this->position[1]=start_y;
@@ -8,6 +8,7 @@ Boomberman::Boomberman(const std::string& pseudonim_artystyczny_według_którego
     this->pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy=pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy;
     this->state=1;
     this->iframes=0;
+    this->color=color;
 }
 
 std::unique_ptr<int[]> Boomberman::getBoombermanPos() {

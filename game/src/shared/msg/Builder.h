@@ -19,7 +19,7 @@ namespace Builder {
 
     std::unique_ptr<GameMessage> ILeave();
 
-    std::unique_ptr<GameMessage> GameJoin(const std::string &name, Color color, bool you);
+    std::unique_ptr<GameMessage> GameJoin(const std::string &name, PlayerColor color, bool you);
 
     std::unique_ptr<GameMessage> GameWait(int32_t waitingFor);
 

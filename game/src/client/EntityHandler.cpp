@@ -10,7 +10,7 @@ void EntityHandler::placeBomb(int x, int y, int explostion, int size, int ttl, b
 void EntityHandler::drawPlayers(Map *map) {
     for (auto &player: this->players) {
         player.animateHit();
-        if(player.getState() == 1) DrawRectangle(player.getBoombermanPos()[0] * map->offset + map->start_x+3, player.getBoombermanPos()[1] * map->offset + map->start_y+3, map->size-6,map->size-6, BLUE);
+        if(player.getState() == 1) DrawRectangle(player.getBoombermanPos()[0] * map->offset + map->start_x+3, player.getBoombermanPos()[1] * map->offset + map->start_y+3, map->size-6,map->size-6, player.color);
     }
 }
 

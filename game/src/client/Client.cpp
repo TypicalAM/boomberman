@@ -1,18 +1,97 @@
 #include <iostream>
 #include <algorithm>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <iostream>
+
 #include "Client.h"
 #include "EntityHandler.h"
 #include "raylib.h"
+#include "../shared/msg/Channel.h"
+#include "../shared/msg/Builder.h"
 
-void Client::Run() const {
+void Client::Run(const std::string& player_name) const {
     EntityHandler entityHandler;
 
     Map map(25,this->width,this->height);
 
-    Boomberman local_boomberman("ارهابي",1,1,3);
+    std::shared_ptr<int[]> local_boomberman_position(new int[2]);
+
+   int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+   sockaddr_in addr{
+       .sin_family = PF_INET,
+       .sin_port = htons(2137),
+       .sin_addr = {inet_addr("192.168.0.155")}};
+
+    int fail = connect(sock,(sockaddr*)&addr,sizeof(addr));
+
+    if(fail){
+        perror("Dupa while connecting");
+        exit(1);
+    }
+
+    std::optional<int> bytes_sent =
+            Channel::Send(sock,Builder::GetRoomList());
+
+    std::unique_ptr<GameMessage> message;
+    while(true){
+        message = Channel::Receive(sock).value();
+        if(message->message_type()==ROOM_LIST) break;
+    }
+
+    auto rl = message->room_list();
+    if (rl.rooms_size() == 0) {
+        Channel::Send(sock, Builder::JoinRoom(player_name));
+        printf("WE AHRE THE FIRST ROOM THAT HAS EVER EXISTd BATMAN!\n");
+    } else {
+        auto room_name = rl.rooms(0).name();
+        Channel::Send(sock, Builder::JoinRoom(player_name, Builder::Room{room_name}));
+        printf("WE ARE JOINGING THE FISRT ROOM THAT HAS EVER BEEN SESEN: %s\n",room_name.c_str());
+    };
+
+    int start_x,start_y;
+    Color start_color;
+    while(true){
+        message = Channel::Receive(sock).value();
+        printf("%d\n",message->message_type());
+        if(message->message_type()==GAME_START) break;
+        else if(message->message_type()==GAME_JOIN){
+            printf("%s\n",message->game_join().name().c_str());
+            switch (message->game_join().color()) {
+                case PLAYER_RED:
+                    start_x=1;
+                    start_y=1;
+                    start_color = RED;
+                    break;
+                case PLAYER_GREEN:
+                    start_x=9;
+                    start_y=15;
+                    start_color = GREEN;
+                    break;
+                case PLAYER_BLUE:
+                    start_x=1;
+                    start_y=15;
+                    start_color = BLUE;
+                    break;
+                case PLAYER_YELLOW:
+                    start_x=9;
+                    start_y=1;
+                    start_color = YELLOW;
+                    break;
+            }
+            if(!entityHandler.players.empty()) {
+                printf("Player vector not empty!\n");
+                entityHandler.players.emplace_back(message->game_join().name().c_str(),start_color,start_x,start_y,3);
+            }
+        }
+    }
+    Boomberman local_boomberman(player_name,start_color,start_x,start_y,3);
+    printf("Player at x:%d y:%d \n",start_x, start_y);
     entityHandler.players.push_back(local_boomberman);
 
-    std::shared_ptr<int[]> local_boomberman_position(new int[2]);
+    printf("YOUPIIIIII\n");
+
     while (!WindowShouldClose()) {
         local_boomberman_position[0]=local_boomberman.getBoombermanPos()[0];
         local_boomberman_position[1]=local_boomberman.getBoombermanPos()[1];
@@ -56,8 +135,6 @@ void Client::Run() const {
     }
     local_boomberman.cleanUp();
 }
-
-
 
 Client::Client(int width, int height) {
     this->width = width;

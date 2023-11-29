@@ -98,7 +98,7 @@ std::unique_ptr<GameMessage> Builder::GameWon(const std::string &winner) {
     return std::make_unique<GameMessage>(msg);
 }
 
-std::unique_ptr<GameMessage> Builder::GameJoin(const std::string &name, Color color, bool you) {
+std::unique_ptr<GameMessage> Builder::GameJoin(const std::string &name, PlayerColor color, bool you) {
     auto *gj = new GameJoinMsg;
     gj->set_name(name);
     gj->set_color(color);

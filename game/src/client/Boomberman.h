@@ -5,6 +5,7 @@
 #include "../shared/Util.h"
 #include <memory>
 #include <string>
+#include <raylib.h>
 
 class Boomberman{
 private:
@@ -13,8 +14,9 @@ private:
     double long animation_start{};
 public:
     int iframes;
+    Color color{};
     std::string pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy;
-    Boomberman(const std::string& pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy, int start_x, int start_y, int health);
+    Boomberman(const std::string& pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy, Color color, int start_x, int start_y, int health);
     std::unique_ptr<int[]> getBoombermanPos();
     void setBoombermanPos(int new_x, int new_y);
     void move(Map *map,std::shared_ptr<int[]> curr_pos, int x, int y);

@@ -1,0 +1,13 @@
+/usr/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=/opt/clion/bin/ninja/linux/x64/ninja -G Ninja -S /home/ignor/Studia/V_semestr/Sieci_Komputerowe_2/boomberman -B /home/ignor/Studia/V_semestr/Sieci_Komputerowe_2/boomberman
+-- Configuring done (0.0s)
+CMake Error at CMakeLists.txt:40 (add_executable):
+  Cannot find source file:
+
+    src/Main.cpp
+
+
+CMake Error at CMakeLists.txt:40 (add_executable):
+  No SOURCES given to target: boomberman
+
+
+CMake Generate step failed.  Build files cannot be regenerated correctly.
