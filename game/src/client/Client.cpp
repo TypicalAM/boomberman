@@ -61,6 +61,7 @@ void Client::Run(const std::string &player_name) const {
             // TODO: Look at the welcome_to_room comment in .proto
             auto wtr = message->welcometoroom();
             for (const auto &player: wtr.players()) {
+                printf("The color is %d\n",player.color());
                 switch (player.color()) {
                     case PLAYER_RED:
                         start_x = 1;
@@ -68,38 +69,57 @@ void Client::Run(const std::string &player_name) const {
                         start_color = RED;
                         break;
                     case PLAYER_GREEN:
-                        start_x = 9;
-                        start_y = 15;
+                        start_x = 15;
+                        start_y = 1;
                         start_color = GREEN;
                         break;
                     case PLAYER_BLUE:
                         start_x = 1;
-                        start_y = 15;
+                        start_y = 9;
                         start_color = BLUE;
                         break;
                     case PLAYER_YELLOW:
-                        start_x = 9;
-                        start_y = 1;
+                        start_x = 15;
+                        start_y = 9;
                         start_color = YELLOW;
                 }
-
-                printf("%s\n", player.username().c_str());
-                if (!entityHandler.players.empty()) {
-                    printf("Player vector not empty!\n");
-                    entityHandler.players.emplace_back(player.username().c_str(), start_color, start_x, start_y, 3);
-                }
+                entityHandler.players.emplace_back(player.username(),start_color,start_x,start_y,3);
+                std::cout<<"Added player to local vector: "<<player.username()<<" with start pos (x,y): ("<<start_x<<","<<start_y<<")"<<std::endl;
             }
         }
+        else if (message->type() == GAME_JOIN){
+            switch (message->gamejoin().player().color()) {
+                case PLAYER_RED:
+                    start_x = 1;
+                    start_y = 1;
+                    start_color = RED;
+                    break;
+                case PLAYER_GREEN:
+                    start_x = 15;
+                    start_y = 1;
+                    start_color = GREEN;
+                    break;
+                case PLAYER_BLUE:
+                    start_x = 1;
+                    start_y = 9;
+                    start_color = BLUE;
+                    break;
+                case PLAYER_YELLOW:
+                    start_x = 15;
+                    start_y = 9;
+                    start_color = YELLOW;
+            }
+            entityHandler.players.emplace_back(message->gamejoin().player().username(),start_color,start_x,start_y,3);
+            std::cout<<"Added player to local vector: "<<message->gamejoin().player().username()<<" with start pos (x,y): ("<<start_x<<","<<start_y<<")"<<std::endl;
+        }
     }
-    Boomberman local_boomberman(player_name, start_color, start_x, start_y, 3);
-    printf("Player at x:%d y:%d \n", start_x, start_y);
-    entityHandler.players.push_back(local_boomberman);
 
+    Boomberman* local_boomberman = &entityHandler.players[0];
     printf("YOUPIIIIII\n");
 
     while (!WindowShouldClose()) {
-        local_boomberman_position[0] = local_boomberman.getBoombermanPos()[0];
-        local_boomberman_position[1] = local_boomberman.getBoombermanPos()[1];
+        local_boomberman_position[0] = local_boomberman->getBoombermanPos()[0];
+        local_boomberman_position[1] = local_boomberman->getBoombermanPos()[1];
 
         for (auto tile: entityHandler.theFloorIsLava) {
             if (local_boomberman_position[0] == tile.x && local_boomberman_position[1] == tile.y &&
@@ -116,30 +136,31 @@ void Client::Run(const std::string &player_name) const {
             entityHandler.placeBomb(local_boomberman_position[0], local_boomberman_position[1], 3, 25, 3.0f, false);
         }
         if (IsKeyPressed(KEY_RIGHT)) {
-            local_boomberman.move(&map, local_boomberman_position, 1, 0);
+            local_boomberman->move(&map, local_boomberman_position, 1, 0);
         }
         if (IsKeyPressed(KEY_LEFT)) {
-            local_boomberman.move(&map, local_boomberman_position, -1, 0);
+            local_boomberman->move(&map, local_boomberman_position, -1, 0);
         }
         if (IsKeyPressed(KEY_UP)) {
-            local_boomberman.move(&map, local_boomberman_position, 0, -1);
+            local_boomberman->move(&map, local_boomberman_position, 0, -1);
         }
         if (IsKeyPressed(KEY_DOWN)) {
-            local_boomberman.move(&map, local_boomberman_position, 0, 1);
+            local_boomberman->move(&map, local_boomberman_position, 0, 1);
         }
 
         BeginDrawing();
 
-        ClearBackground(LIGHTGRAY);
+        ClearBackground(DARKGRAY);
         Client::drawMap(&map);
         entityHandler.drawFire(&map);
         entityHandler.drawPlayers(&map);
         entityHandler.drawBombs(&map);
-        DrawText("Use Arrow Keys to Move", 10, 10, 20, DARKGRAY);
+        DrawText("Use Arrow Keys to ", 10, 10, 20, LIGHTGRAY);
+        DrawText("MOVE", 213, 10, 20, local_boomberman->color);
 
         EndDrawing();
     }
-    local_boomberman.cleanUp();
+    local_boomberman->cleanUp();
 }
 
 Client::Client(int width, int height) {
@@ -168,7 +189,7 @@ void Client::drawMap(Map *map) {
             int squareState = map->getSquareState(x, y);
             if (squareState == 0) c = WHITE;
             else if (squareState == 1) c = BLACK;
-            else if (squareState == 2) c = DARKGRAY;
+            else if (squareState == 2) c = GRAY;
             DrawRectangle(x * map->offset + map->start_x, y * map->offset + map->start_y, map->size, map->size, c);
         }
     }
