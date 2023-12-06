@@ -1,7 +1,7 @@
 #include <iostream>
 #include <algorithm>
-
 #include <iostream>
+#include <thread>
 
 #include "Client.h"
 #include "ServerHandler.h"
@@ -9,7 +9,7 @@
 
 void Client::Run(const char* player_name) const {
     EntityHandler entityHandler;
-    ServerHandler serverHandler{};
+    ServerHandler serverHandler;
     Map map(25, this->width, this->height);
 
     std::shared_ptr<int[]> local_boomberman_position(new int[2]);
@@ -19,7 +19,12 @@ void Client::Run(const char* player_name) const {
     serverHandler.wait4Game(entityHandler);
 
     Boomberman* local_boomberman = &entityHandler.players[0];
+    std::unique_ptr<GameMessage> msg;
     printf("YOUPIIIIII\n");
+
+    std::thread socketReaderThread([&entityHandler, &serverHandler](){
+        serverHandler.receiveLoop(entityHandler);
+    });
 
     while (!WindowShouldClose()) {
         local_boomberman_position[0] = local_boomberman->getBoombermanPos()[0];
@@ -27,8 +32,8 @@ void Client::Run(const char* player_name) const {
 
         for (auto tile: entityHandler.theFloorIsLava) {
             if (local_boomberman_position[0] == tile.x && local_boomberman_position[1] == tile.y &&
-                entityHandler.players[0].iframes == 0) {
-                entityHandler.players[0].gotHit();
+                local_boomberman->iframes == 0) {
+                local_boomberman->gotHit();
             }
         }
         //TODO maybe put this ^^^ into a function somehow, right now there is some include issue
@@ -41,15 +46,19 @@ void Client::Run(const char* player_name) const {
         }
         if (IsKeyPressed(KEY_RIGHT)) {
             local_boomberman->move(&map, local_boomberman_position, 1, 0);
+            Channel::Send(serverHandler.sock,Builder::IMove(local_boomberman_position[0],local_boomberman_position[1]));
         }
         if (IsKeyPressed(KEY_LEFT)) {
             local_boomberman->move(&map, local_boomberman_position, -1, 0);
+            Channel::Send(serverHandler.sock,Builder::IMove(local_boomberman_position[0],local_boomberman_position[1]));
         }
         if (IsKeyPressed(KEY_UP)) {
             local_boomberman->move(&map, local_boomberman_position, 0, -1);
+            Channel::Send(serverHandler.sock,Builder::IMove(local_boomberman_position[0],local_boomberman_position[1]));
         }
         if (IsKeyPressed(KEY_DOWN)) {
             local_boomberman->move(&map, local_boomberman_position, 0, 1);
+            Channel::Send(serverHandler.sock,Builder::IMove(local_boomberman_position[0],local_boomberman_position[1]));
         }
 
         BeginDrawing();
@@ -65,6 +74,7 @@ void Client::Run(const char* player_name) const {
         EndDrawing();
     }
     local_boomberman->cleanUp();
+    delete[] local_boomberman;
 }
 
 Client::Client(int width, int height) {

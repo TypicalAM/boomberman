@@ -4,6 +4,10 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <fcntl.h>
+#include <sys/poll.h>
+#include <error.h>
 
 #include "EntityHandler.h"
 #include "../shared/msg/Channel.h"
@@ -12,17 +16,20 @@
 
 class ServerHandler {
 private:
-    int sock, start_x, start_y;
-    Color start_color;
+    int start_x{}, start_y{};
+    pollfd polling[1]{};
+    Color start_color{};
     std::unique_ptr<GameMessage> msg;
 public:
-    void connect2Server(const char* ip, int port);
+    int sock;
+    ServerHandler();
+    void connect2Server(const char* ip, int port) const;
     void getRoomList(const char* player_name);
     void setPlayerParams(const GamePlayer& player);
     void wait4Game(EntityHandler &eh);
-    void addPlayer(GamePlayer player, EntityHandler &eh);
+    void addPlayer(const GamePlayer& player, EntityHandler &eh);
     void joinRoom(EntityHandler &eh);
-    void otherJoinRoom(EntityHandler &eh);
+    void receiveLoop(EntityHandler &eh);
 };
 
 #endif //BOOMBERMAN_SERVERHANDLER_H
