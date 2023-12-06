@@ -1,118 +1,22 @@
 #include <iostream>
 #include <algorithm>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
+
 #include <iostream>
 
 #include "Client.h"
-#include "EntityHandler.h"
-#include "raylib.h"
-#include "../shared/msg/Channel.h"
-#include "../shared/msg/Builder.h"
+#include "ServerHandler.h"
 
-void Client::Run(const std::string &player_name) const {
+
+void Client::Run(const char* player_name) const {
     EntityHandler entityHandler;
+    ServerHandler serverHandler{};
     Map map(25, this->width, this->height);
 
     std::shared_ptr<int[]> local_boomberman_position(new int[2]);
 
-    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    sockaddr_in addr{
-            .sin_family = PF_INET,
-            .sin_port = htons(2137),
-            .sin_addr = {inet_addr("127.0.0.1")}};
-
-    int fail = connect(sock, (sockaddr *) &addr, sizeof(addr));
-
-    if (fail) {
-        perror("Dupa while connecting");
-        exit(1);
-    }
-
-    std::optional<int> bytes_sent =
-            Channel::Send(sock, Builder::GetRoomList());
-
-    std::unique_ptr<GameMessage> message;
-    while (true) {
-        message = Channel::Receive(sock).value();
-        if (message->type() == ROOM_LIST) break;
-    }
-
-    auto rl = message->roomlist();
-    if (rl.rooms_size() == 0) {
-        Channel::Send(sock, Builder::JoinRoom(player_name));
-        printf("WE AHRE THE FIRST ROOM THAT HAS EVER EXISTd BATMAN!\n");
-    } else {
-        auto room_name = rl.rooms(0).name();
-        Channel::Send(sock, Builder::JoinRoom(player_name, room_name));
-        printf("WE ARE JOINGING THE FISRT ROOM THAT HAS EVER BEEN SESEN: %s\n", room_name.c_str());
-    };
-
-    int start_x, start_y;
-    Color start_color;
-    while (true) {
-        message = Channel::Receive(sock).value();
-        printf("%d\n", message->type());
-        if (message->type() == GAME_START) break;
-        else if (message->type() == WELCOME_TO_ROOM) {
-            // We joined the game! YAY!
-
-            // TODO: Look at the welcome_to_room comment in .proto
-            auto wtr = message->welcometoroom();
-            for (const auto &player: wtr.players()) {
-                printf("The color is %d\n",player.color());
-                switch (player.color()) {
-                    case PLAYER_RED:
-                        start_x = 1;
-                        start_y = 1;
-                        start_color = RED;
-                        break;
-                    case PLAYER_GREEN:
-                        start_x = 15;
-                        start_y = 1;
-                        start_color = GREEN;
-                        break;
-                    case PLAYER_BLUE:
-                        start_x = 1;
-                        start_y = 9;
-                        start_color = BLUE;
-                        break;
-                    case PLAYER_YELLOW:
-                        start_x = 15;
-                        start_y = 9;
-                        start_color = YELLOW;
-                }
-                entityHandler.players.emplace_back(player.username(),start_color,start_x,start_y,3);
-                std::cout<<"Added player to local vector: "<<player.username()<<" with start pos (x,y): ("<<start_x<<","<<start_y<<")"<<std::endl;
-            }
-        }
-        else if (message->type() == GAME_JOIN){
-            switch (message->gamejoin().player().color()) {
-                case PLAYER_RED:
-                    start_x = 1;
-                    start_y = 1;
-                    start_color = RED;
-                    break;
-                case PLAYER_GREEN:
-                    start_x = 15;
-                    start_y = 1;
-                    start_color = GREEN;
-                    break;
-                case PLAYER_BLUE:
-                    start_x = 1;
-                    start_y = 9;
-                    start_color = BLUE;
-                    break;
-                case PLAYER_YELLOW:
-                    start_x = 15;
-                    start_y = 9;
-                    start_color = YELLOW;
-            }
-            entityHandler.players.emplace_back(message->gamejoin().player().username(),start_color,start_x,start_y,3);
-            std::cout<<"Added player to local vector: "<<message->gamejoin().player().username()<<" with start pos (x,y): ("<<start_x<<","<<start_y<<")"<<std::endl;
-        }
-    }
+    serverHandler.connect2Server("127.0.0.1",2137);
+    serverHandler.getRoomList(player_name);
+    serverHandler.wait4Game(entityHandler);
 
     Boomberman* local_boomberman = &entityHandler.players[0];
     printf("YOUPIIIIII\n");

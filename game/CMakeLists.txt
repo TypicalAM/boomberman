@@ -47,6 +47,8 @@ set(SOURCES
         src/shared/game/TileOnFire.cpp
         src/shared/game/TileOnFire.h
         src/shared/proto/messages.pb.h
+        src/client/ServerHandler.cpp
+        src/client/ServerHandler.h
 )
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS messages.proto)
 add_executable(${PROJECT_NAME} ${SOURCES})
