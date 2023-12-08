@@ -19,13 +19,13 @@ void Client::Run(const char* player_name) const {
     serverHandler.wait4Game(entityHandler);
 
     Boomberman* local_boomberman = &entityHandler.players[0];
-    std::unique_ptr<GameMessage> msg;
-    printf("YOUPIIIIII\n");
 
+    std::unique_ptr<GameMessage> msg;
+    /*
     std::thread socketReaderThread([&entityHandler, &serverHandler](){
         serverHandler.receiveLoop(entityHandler);
     });
-
+*/
     while (!WindowShouldClose()) {
         local_boomberman_position[0] = local_boomberman->getBoombermanPos()[0];
         local_boomberman_position[1] = local_boomberman->getBoombermanPos()[1];
