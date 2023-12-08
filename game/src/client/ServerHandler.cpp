@@ -21,7 +21,8 @@ void ServerHandler::connect2Server(const char *ip, int port) const {
 }
 
 void ServerHandler::receiveLoop(EntityHandler &eh) {
-    if (fcntl(this->sock, F_SETFL, O_NONBLOCK)) perror("fcntl");
+    printf("Receive loop running\n");
+    //if (fcntl(this->sock, F_SETFL, O_NONBLOCK)) perror("fcntl");
     while(1){
         int ready = poll(this->polling, 1, -1);
         if(ready == -1){

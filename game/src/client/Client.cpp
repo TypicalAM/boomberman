@@ -25,7 +25,9 @@ void Client::Run(const char* player_name) const {
     std::thread socketReaderThread([&entityHandler, &serverHandler](){
         serverHandler.receiveLoop(entityHandler);
     });
-*/
+    socketReaderThread.detach();
+     */
+
     while (!WindowShouldClose()) {
         local_boomberman_position[0] = local_boomberman->getBoombermanPos()[0];
         local_boomberman_position[1] = local_boomberman->getBoombermanPos()[1];
@@ -45,20 +47,31 @@ void Client::Run(const char* player_name) const {
             entityHandler.placeBomb(local_boomberman_position[0], local_boomberman_position[1], 3, 25, 3.0f, false);
         }
         if (IsKeyPressed(KEY_RIGHT)) {
-            local_boomberman->move(&map, local_boomberman_position, 1, 0);
-            Channel::Send(serverHandler.sock,Builder::IMove(local_boomberman_position[0],local_boomberman_position[1]));
+            if(local_boomberman->move(&map, local_boomberman_position, 1, 0)){
+                printf("%d, %d\n", local_boomberman_position[0], local_boomberman_position[1]);
+                Channel::Send(serverHandler.sock,Builder::IMove(local_boomberman_position[0],local_boomberman_position[1]));
+            }
         }
         if (IsKeyPressed(KEY_LEFT)) {
-            local_boomberman->move(&map, local_boomberman_position, -1, 0);
-            Channel::Send(serverHandler.sock,Builder::IMove(local_boomberman_position[0],local_boomberman_position[1]));
+            if(local_boomberman->move(&map, local_boomberman_position, -1, 0)) {
+                printf("%d, %d\n", local_boomberman_position[0], local_boomberman_position[1]);
+                Channel::Send(serverHandler.sock,
+                              Builder::IMove(local_boomberman_position[0], local_boomberman_position[1]));
+            }
         }
         if (IsKeyPressed(KEY_UP)) {
-            local_boomberman->move(&map, local_boomberman_position, 0, -1);
-            Channel::Send(serverHandler.sock,Builder::IMove(local_boomberman_position[0],local_boomberman_position[1]));
+            if(local_boomberman->move(&map, local_boomberman_position, 0, -1)) {
+                printf("%d, %d\n", local_boomberman_position[0], local_boomberman_position[1]);
+                Channel::Send(serverHandler.sock,
+                              Builder::IMove(local_boomberman_position[0], local_boomberman_position[1]));
+            }
         }
         if (IsKeyPressed(KEY_DOWN)) {
-            local_boomberman->move(&map, local_boomberman_position, 0, 1);
-            Channel::Send(serverHandler.sock,Builder::IMove(local_boomberman_position[0],local_boomberman_position[1]));
+            if(local_boomberman->move(&map, local_boomberman_position, 0, 1)) {
+                printf("%d, %d\n", local_boomberman_position[0], local_boomberman_position[1]);
+                Channel::Send(serverHandler.sock,
+                              Builder::IMove(local_boomberman_position[0], local_boomberman_position[1]));
+            }
         }
 
         BeginDrawing();

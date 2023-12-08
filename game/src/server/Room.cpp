@@ -158,7 +158,7 @@ void Room::HandleQueue() {
 }
 
 void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
-    LOG << "Handling a message from user: " << msg->author->username;
+    LOG << "Handling a message from user: " << msg->author->username<< msg->payload->type();
 
     // If the game started
     if (state.load() == WAIT_FOR_START) {
@@ -188,10 +188,11 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
             IMove im = msg->payload->imove();
             int tile_state = map->getSquareState(std::floor(im.x()), std::floor(im.y()));
             if (tile_state != NOTHIN) {
+                LOG << "DUPA "<<im.x()<<", "<<im.y();
                 SendSpecific(msg->author->sock, Builder::Error("Invalid movement"));
                 return;
             }
-
+            LOG << "Player moved to: "<<im.x()<<", "<<im.y();
             // The movement was valid, let's roll
             msg->author->coords.x = im.x();
             msg->author->coords.y = im.y();

@@ -13,7 +13,7 @@
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/sources/record_ostream.hpp>
 
-#define MAX_PLAYERS 4
+#define MAX_PLAYERS 2
 #define GAME_WAIT_MESSAGE_INTERVAL 1000
 #define LOG BOOST_LOG(this->logger)
 

@@ -19,7 +19,7 @@ public:
     Boomberman(const std::string& pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy, Color color, int start_x, int start_y, int health);
     std::unique_ptr<int[]> getBoombermanPos();
     void setBoombermanPos(int new_x, int new_y);
-    void move(Map *map,std::shared_ptr<int[]> curr_pos, int x, int y);
+    bool move(Map *map,std::shared_ptr<int[]> curr_pos, int x, int y);
     void cleanUp();
     void gotHit();
     void decrementIframes();
