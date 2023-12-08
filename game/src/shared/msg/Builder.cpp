@@ -42,8 +42,7 @@ std::unique_ptr<GameMessage> Builder::IPlaceBomb(float x, float y) {
 std::unique_ptr<GameMessage> Builder::IMove(float x, float y) {
     auto *im = new class IMove;
     im->set_x(x);
-    im->set_x(y);
-    printf("%f, %f\n", x, y);
+    im->set_y(y);
 
     GameMessage msg;
     msg.set_type(I_MOVE);

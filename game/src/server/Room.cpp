@@ -188,7 +188,6 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
             IMove im = msg->payload->imove();
             int tile_state = map->getSquareState(std::floor(im.x()), std::floor(im.y()));
             if (tile_state != NOTHIN) {
-                LOG << "DUPA "<<im.x()<<", "<<im.y();
                 SendSpecific(msg->author->sock, Builder::Error("Invalid movement"));
                 return;
             }
