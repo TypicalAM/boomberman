@@ -128,10 +128,11 @@ std::unique_ptr<GameMessage> Builder::OtherBombPlace(const std::string &username
     return std::make_unique<GameMessage>(msg);
 }
 
-std::unique_ptr<GameMessage> Builder::GotHit(const std::string &username, int32_t livesRemaining) {
+std::unique_ptr<GameMessage> Builder::GotHit(const std::string &username, int32_t livesRemaining, int64_t timestamp) {
     auto *gh = new class GotHit;
     gh->set_username(username);
     gh->set_livesremaining(livesRemaining);
+    gh->set_timestamp(timestamp);
 
     GameMessage msg;
     msg.set_type(GOT_HIT);

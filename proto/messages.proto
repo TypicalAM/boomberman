@@ -7,9 +7,9 @@ option go_package = "github.com/TypicalAM/boomberman/test-client/pb";
 // an Error message with the error field set to "Room does not exist".
 message Error { string error = 1; }
 
-// GameRoom is a room that players can join. It contains the name of the room, the
-// number of players in the room and the maximum number of players that can be
-// in the room.
+// GameRoom is a room that players can join. It contains the name of the room,
+// the number of players in the room and the maximum number of players that can
+// be in the room.
 message GameRoom {
   string name = 1;
   int32 playerCount = 2;
@@ -26,8 +26,8 @@ enum PlayerColor {
 
 // Player is a player in the game. It contains the player's name and color.
 message GamePlayer {
-	string username = 1;
-	PlayerColor color = 2;
+  string username = 1;
+  PlayerColor color = 2;
 }
 
 // Client-side messages
@@ -96,6 +96,7 @@ message OtherBombPlace {
 message GotHit {
   string username = 1;
   int32 livesRemaining = 2;
+  int64 timestamp = 3;
 }
 
 // OtherMove is sent to all players when a player moves.
@@ -113,43 +114,43 @@ message GameWon { string winnerUsername = 1; }
 
 // Message types
 enum MessageType {
-	ERROR = 0;
-	GET_ROOM_LIST = 1;
-	JOIN_ROOM = 2;
-	I_PLACE_BOMB = 3;
-	I_MOVE = 4;
-	I_LEAVE = 5;
-	ROOM_LIST = 6;
-	WELCOME_TO_ROOM = 7;
-	GAME_JOIN = 8;
-	GAME_WAIT = 9;
-	GAME_START = 10;
-	OTHER_BOMB_PLACE = 11;
-	GOT_HIT = 12;
-	OTHER_MOVE = 13;
-	OTHER_LEAVE = 14;
-	GAME_WON = 15;
+  ERROR = 0;
+  GET_ROOM_LIST = 1;
+  JOIN_ROOM = 2;
+  I_PLACE_BOMB = 3;
+  I_MOVE = 4;
+  I_LEAVE = 5;
+  ROOM_LIST = 6;
+  WELCOME_TO_ROOM = 7;
+  GAME_JOIN = 8;
+  GAME_WAIT = 9;
+  GAME_START = 10;
+  OTHER_BOMB_PLACE = 11;
+  GOT_HIT = 12;
+  OTHER_MOVE = 13;
+  OTHER_LEAVE = 14;
+  GAME_WON = 15;
 }
 
 // Wrapper Message
 message GameMessage {
   MessageType type = 1;
   oneof message {
-		Error error = 2;
-		GetRoomList getRoomList = 3;
-		JoinRoom joinRoom = 4;
-		IPlaceBomb iPlaceBomb = 5;
-		IMove iMove = 6;
-		ILeave iLeave = 7;
-		RoomList roomList = 8;
-		WelcomeToRoom welcomeToRoom = 9;
-		GameJoin gameJoin = 10;
-		GameWait gameWait = 11;
-		GameStart gameStart = 12;
-		OtherBombPlace otherBombPlace = 13;
-		GotHit gotHit = 14;
-		OtherMove otherMove = 15;
-		OtherLeave otherLeave = 16;
-		GameWon gameWon = 17;
+    Error error = 2;
+    GetRoomList getRoomList = 3;
+    JoinRoom joinRoom = 4;
+    IPlaceBomb iPlaceBomb = 5;
+    IMove iMove = 6;
+    ILeave iLeave = 7;
+    RoomList roomList = 8;
+    WelcomeToRoom welcomeToRoom = 9;
+    GameJoin gameJoin = 10;
+    GameWait gameWait = 11;
+    GameStart gameStart = 12;
+    OtherBombPlace otherBombPlace = 13;
+    GotHit gotHit = 14;
+    OtherMove otherMove = 15;
+    OtherLeave otherLeave = 16;
+    GameWon gameWon = 17;
   }
 }

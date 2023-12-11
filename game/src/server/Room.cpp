@@ -92,8 +92,9 @@ void Room::HandleGameUpdates() {
                 if (adjusted_x == tile.x && adjusted_y == tile.y) {
                     // The person was hit by the bomb, cool
                     player->livesRemaining--;
-                    SendBroadcast(Builder::GotHit, player->username, player->livesRemaining);
-                    std::cout<<"Player: %s"<<player->username<<" got hit. Lives remaining: "<<player->livesRemaining<<std::endl;
+                    SendBroadcast(Builder::GotHit, player->username, player->livesRemaining, Util::TimestampMillis());
+                    std::cout << "Player: " << player->username << " got hit. Lives remaining: "
+                              << player->livesRemaining << std::endl;
                 }
             }
         }
@@ -179,7 +180,7 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
             // Place the bomb at the specified location
             IPlaceBomb ipb = msg->payload->iplacebomb();
             int64_t timestamp = Util::TimestampMillis();
-            bombs.emplace_back(std::floor(ipb.x()), std::floor(ipb.y()), 3, 25, Util::TimestampMillis(),3.0f, false);
+            bombs.emplace_back(std::floor(ipb.x()), std::floor(ipb.y()), 3, 25, Util::TimestampMillis(), 3.0f, false);
             SendExcept(msg->author->sock, Builder::OtherBombPlace, msg->author->username, timestamp, ipb.x(), ipb.y());
             return;
         }
@@ -192,7 +193,7 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
                 SendSpecific(msg->author->sock, Builder::Error("Invalid movement"));
                 return;
             }
-            LOG << "Player moved to: "<<im.x()<<", "<<im.y();
+            LOG << "Player moved to: " << im.x() << ", " << im.y();
             // The movement was valid, let's roll
             msg->author->coords.x = im.x();
             msg->author->coords.y = im.y();
@@ -229,6 +230,13 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
             }
 
             SendExcept(msg->author->sock, Builder::OtherLeave, msg->author->username);
+            if (state.load() == PLAY) {
+                auto coords = msg->author->coords;
+                SendExcept(msg->author->sock, Builder::OtherBombPlace, "Server", Util::TimestampMillis(), coords.x,
+                           coords.y);
+                bombs.emplace_back(std::floor(coords.x), std::floor(coords.y), 7, 25, Util::TimestampMillis(), 3.0f,
+                                   true);
+            }
             shutdown(msg->author->sock, SHUT_RDWR);
             close(msg->author->sock);
             int author_idx = -1;
@@ -270,6 +278,13 @@ void Room::ReadIntoQueue() {
             if (author_idx == -1) continue; // Look below
 
             SendExcept(players[author_idx]->sock, Builder::OtherLeave, players[author_idx]->username);
+            if (state.load() == PLAY) {
+                auto coords = players[author_idx]->coords;
+                SendExcept(players[author_idx]->sock, Builder::OtherBombPlace, "Server", Util::TimestampMillis(),
+                           coords.x, coords.y);
+                bombs.emplace_back(std::floor(coords.x), std::floor(coords.y), 7, 25, Util::TimestampMillis(), 3.0f,
+                                   true);
+            }
             players.erase(players.begin() + author_idx);
             continue;
         }

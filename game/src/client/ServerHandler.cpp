@@ -1,4 +1,5 @@
 #include "ServerHandler.h"
+#include <csignal>
 
 ServerHandler::ServerHandler() {
     this->sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -7,13 +8,12 @@ ServerHandler::ServerHandler() {
 }
 
 void ServerHandler::connect2Server(const char *ip, int port) const {
-    sockaddr_in addr{
-            .sin_family = PF_INET,
+    sockaddr_in addr{.sin_family = PF_INET,
             .sin_port = htons(port),
             .sin_addr = {inet_addr(ip)}};
 
     if (connect(this->sock, (sockaddr *) &addr, sizeof(addr))) {
-        if(errno!=EINPROGRESS) {
+        if (errno != EINPROGRESS) {
             perror("Connection to the server failed!");
             exit(1);
         }
@@ -22,31 +22,44 @@ void ServerHandler::connect2Server(const char *ip, int port) const {
 
 void ServerHandler::receiveLoop(EntityHandler &eh) {
     printf("Receive loop running\n");
-    //if (fcntl(this->sock, F_SETFL, O_NONBLOCK)) perror("fcntl");
-    while(1){
+    // if (fcntl(this->sock, F_SETFL, O_NONBLOCK)) perror("fcntl");
+    while (1) {
         int ready = poll(this->polling, 1, -1);
-        if(ready == -1){
+        if (ready == -1) {
             shutdown(this->sock, SHUT_RDWR);
             close(this->sock);
-            error(1,errno,"poll failed");
+            error(1, errno, "poll failed");
         }
 
-        if(polling[0].revents & POLLIN){
+        if (polling[0].revents & POLLIN) {
             this->msg = Channel::Receive(this->sock).value();
-            printf("%d\n",msg->type());
+            printf("%d\n", msg->type());
             switch (this->msg->type()) {
-                case OTHER_MOVE:{
+                case OTHER_MOVE: {
                     std::string username = this->msg->othermove().username();
-                    auto it = std::find_if(eh.players.begin(), eh.players.end(), [username](Boomberman& player) {
-                        return player.pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy == username;
-                    });
+                    auto it = std::find_if(
+                            eh.players.begin(), eh.players.end(),
+                            [username](Boomberman &player) {
+                                return player
+                                               .pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy ==
+                                       username;
+                            });
                     if (it != eh.players.end()) {
-                        it->setBoombermanPos(int(this->msg->othermove().x()), int(this->msg->othermove().y()));
+                        it->setBoombermanPos(int(this->msg->othermove().x()),
+                                             int(this->msg->othermove().y()));
                     }
                     break;
                 }
                 case OTHER_BOMB_PLACE: {
-                    eh.bombs.emplace_back(this->msg->otherbombplace().x(),this->msg->otherbombplace().y(),3,25,this->msg->otherbombplace().timestamp(),3,false);
+                    if (msg->otherbombplace().username() == "Server") {
+                        eh.bombs.emplace_back(
+                                this->msg->otherbombplace().x(), this->msg->otherbombplace().y(), 7,
+                                25, this->msg->otherbombplace().timestamp(), 3, true);
+                    } else {
+                        eh.bombs.emplace_back(
+                                this->msg->otherbombplace().x(), this->msg->otherbombplace().y(), 3,
+                                25, this->msg->otherbombplace().timestamp(), 3, false);
+                    }
                     break;
                 }
             }
@@ -54,11 +67,14 @@ void ServerHandler::receiveLoop(EntityHandler &eh) {
     }
 }
 
-void ServerHandler::getRoomList(const char* player_name) { //TODO: ACTUALLY HANDLE THE ROOM LIST
-    std::optional<int> bytes_sent = Channel::Send(this->sock, Builder::GetRoomList());
+void ServerHandler::getRoomList(
+        const char *player_name) { // TODO: ACTUALLY HANDLE THE ROOM LIST
+    std::optional<int> bytes_sent =
+            Channel::Send(this->sock, Builder::GetRoomList());
     while (true) {
         this->msg = Channel::Receive(this->sock).value();
-        if (this->msg->type() == ROOM_LIST) break;
+        if (this->msg->type() == ROOM_LIST)
+            break;
     }
 
     auto rl = this->msg->roomlist();
@@ -76,9 +92,12 @@ void ServerHandler::wait4Game(EntityHandler &eh) {
     while (true) {
         this->msg = Channel::Receive(sock).value();
         printf("%d\n", this->msg->type());
-        if (this->msg->type() == GAME_START) break;
-        else if (this->msg->type() == WELCOME_TO_ROOM) this->joinRoom(eh);
-        else if (this->msg->type() == GAME_JOIN) this->addPlayer(this->msg->gamejoin().player(), eh);
+        if (this->msg->type() == GAME_START)
+            break;
+        else if (this->msg->type() == WELCOME_TO_ROOM)
+            this->joinRoom(eh);
+        else if (this->msg->type() == GAME_JOIN)
+            this->addPlayer(this->msg->gamejoin().player(), eh);
     }
 }
 
@@ -89,13 +108,16 @@ void ServerHandler::joinRoom(EntityHandler &eh) {
     }
 }
 
-void ServerHandler::addPlayer(const GamePlayer& player, EntityHandler &eh) {
+void ServerHandler::addPlayer(const GamePlayer &player, EntityHandler &eh) {
     this->setPlayerParams(player);
-    eh.players.emplace_back(player.username(), this->start_color, this->start_x, this->start_y, 3);
-    std::cout<<"Added player to local vector: "<<player.username()<<" with start pos (x,y): ("<<this->start_x<<","<<this->start_y<<")"<<std::endl;
+    eh.players.emplace_back(player.username(), this->start_color, this->start_x,
+                            this->start_y, 3);
+    std::cout << "Added player to local vector: " << player.username()
+              << " with start pos (x,y): (" << this->start_x << ","
+              << this->start_y << ")" << std::endl;
 }
 
-void ServerHandler::setPlayerParams(const GamePlayer& player) {
+void ServerHandler::setPlayerParams(const GamePlayer &player) {
     switch (player.color()) {
         case PLAYER_RED:
             this->start_x = 1;

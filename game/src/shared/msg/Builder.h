@@ -42,7 +42,7 @@ namespace Builder {
 
     std::unique_ptr<GameMessage> OtherBombPlace(const std::string &username, int64_t timestamp, float x, float y);
 
-    std::unique_ptr<GameMessage> GotHit(const std::string &username, int32_t livesRemaining);
+    std::unique_ptr<GameMessage> GotHit(const std::string &username, int32_t livesRemaining, int64_t timestamp);
 
     std::unique_ptr<GameMessage> OtherMove(const std::string &name, float x, float y);
 
