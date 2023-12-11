@@ -10,10 +10,10 @@
 class Boomberman{
 private:
     int* position;
-    int health, state;
+    int state;
     double long animation_start{};
 public:
-    int iframes;
+    int iframes, health;
     Color color{};
     std::string pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy;
     Boomberman(const std::string& pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy, Color color, int start_x, int start_y, int health);

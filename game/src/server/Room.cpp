@@ -93,6 +93,7 @@ void Room::HandleGameUpdates() {
                     // The person was hit by the bomb, cool
                     player->livesRemaining--;
                     SendBroadcast(Builder::GotHit, player->username, player->livesRemaining);
+                    std::cout<<"Player: %s"<<player->username<<" got hit. Lives remaining: "<<player->livesRemaining<<std::endl;
                 }
             }
         }
@@ -158,7 +159,7 @@ void Room::HandleQueue() {
 }
 
 void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
-    LOG << "Handling a message from user: " << msg->author->username<< msg->payload->type();
+    LOG << "Handling a message from user: " << msg->author->username;
 
     // If the game started
     if (state.load() == WAIT_FOR_START) {

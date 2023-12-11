@@ -1,4 +1,3 @@
-#include <csignal>
 #include "ServerHandler.h"
 
 ServerHandler::ServerHandler() {
@@ -34,6 +33,7 @@ void ServerHandler::receiveLoop(EntityHandler &eh) {
 
         if(polling[0].revents & POLLIN){
             this->msg = Channel::Receive(this->sock).value();
+            printf("%d\n",msg->type());
             switch (this->msg->type()) {
                 case OTHER_MOVE:{
                     std::string username = this->msg->othermove().username();

@@ -3,6 +3,7 @@
 
 #include <string>
 #include "../shared/game/Map.h"
+#include "ServerHandler.h"
 
 class Client {
 private:

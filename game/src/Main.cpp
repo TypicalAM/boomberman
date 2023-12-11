@@ -1,5 +1,6 @@
 #include <thread>
 #include <iostream>
+#include <csignal>
 #include "server/Server.h"
 #include "client/Client.h"
 #include <boost/log/expressions.hpp>
@@ -28,6 +29,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (target == "client") {
+
         Client client(screenWidth, screenHeight);
         client.Run(argv[2]);
     } else {

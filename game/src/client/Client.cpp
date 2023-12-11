@@ -4,12 +4,12 @@
 #include <thread>
 
 #include "Client.h"
-#include "ServerHandler.h"
 
 
 void Client::Run(const char* player_name) const {
     EntityHandler entityHandler;
     ServerHandler serverHandler;
+
     Map map(25, this->width, this->height);
 
     std::shared_ptr<int[]> local_boomberman_position(new int[2]);
@@ -74,9 +74,9 @@ void Client::Run(const char* player_name) const {
         entityHandler.drawBombs(&map);
         DrawText("Use Arrow Keys to ", 10, 10, 20, LIGHTGRAY);
         DrawText("MOVE", 213, 10, 20, local_boomberman->color);
-
         EndDrawing();
     }
+    Channel::Send(serverHandler.sock,Builder::ILeave());
     local_boomberman->cleanUp();
     delete[] local_boomberman;
 }
@@ -112,9 +112,3 @@ void Client::drawMap(Map *map) {
         }
     }
 }
-
-
-
-
-
-

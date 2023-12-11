@@ -47,7 +47,6 @@ void Boomberman::gotHit() {
     this->health--;
     if(this->health<=0) printf("YOU DIED\n");
     this->animation_start=Util::TimestampMillis();
-    printf("Local player got hit!\n");
     this->iframes=90;
 }
 
