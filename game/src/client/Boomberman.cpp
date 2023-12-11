@@ -43,10 +43,10 @@ void Boomberman::decrementIframes() {
     else this->state=1;
 }
 
-void Boomberman::gotHit() {
+void Boomberman::gotHit(double long when) {
     this->health--;
     if(this->health<=0) printf("YOU DIED\n");
-    this->animation_start=Util::TimestampMillis();
+    this->animation_start=when;
     this->iframes=90;
 }
 

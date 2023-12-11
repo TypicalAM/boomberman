@@ -319,6 +319,7 @@ bool Room::JoinPlayer(int sock, const std::string &username) {
 
     // Insert the player at the first pos
     // TODO: Igorze, dlaczego muszę popychać całą tablicę do tyłu...
+    // TODO: Adamie, zamykasz tabele, będziesz na czele...
     auto color = static_cast<PlayerColor>(players.size());
     players.insert(players.begin(), std::make_unique<SPlayer>(sock, username, color));
 

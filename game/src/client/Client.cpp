@@ -3,7 +3,7 @@
 #include <iostream>
 #include <thread>
 
-#include "Client.h"
+#include "ServerHandler.h"
 
 
 void Client::Run(const char* player_name) const {
@@ -19,6 +19,8 @@ void Client::Run(const char* player_name) const {
     serverHandler.wait4Game(entityHandler);
 
     Boomberman* local_boomberman = &entityHandler.players[0];
+    Color tutorial_color = local_boomberman->color;
+    std::string true_local_name = local_boomberman->pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy;
 
     std::unique_ptr<GameMessage> msg;
     std::thread socketReaderThread([&entityHandler, &serverHandler](){
@@ -30,41 +32,36 @@ void Client::Run(const char* player_name) const {
         local_boomberman_position[0] = local_boomberman->getBoombermanPos()[0];
         local_boomberman_position[1] = local_boomberman->getBoombermanPos()[1];
 
-        for (auto tile: entityHandler.theFloorIsLava) {
-            if (local_boomberman_position[0] == tile.x && local_boomberman_position[1] == tile.y &&
-                local_boomberman->iframes == 0) {
-                local_boomberman->gotHit();
-            }
-        }
-        //TODO maybe put this ^^^ into a function somehow, right now there is some include issue
-
         entityHandler.players[0].decrementIframes();
 
         entityHandler.tryExtinguish();
-        if (IsKeyPressed(KEY_SPACE)) {
-            entityHandler.placeBomb(local_boomberman_position[0], local_boomberman_position[1], 3, 25, Util::TimestampMillis(), 3.0f, false);
-            Channel::Send(serverHandler.sock,Builder::IPlaceBomb(local_boomberman_position[0],local_boomberman_position[1]));
-        }
-        if (IsKeyPressed(KEY_RIGHT)) {
-            if(local_boomberman->move(&map, local_boomberman_position, 1, 0)){
-                Channel::Send(serverHandler.sock,Builder::IMove(local_boomberman_position[0]+1, local_boomberman_position[1]));
+        if(local_boomberman->pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy == true_local_name){
+            if (IsKeyPressed(KEY_SPACE)) {
+                entityHandler.placeBomb(local_boomberman_position[0], local_boomberman_position[1], 3, 25, Util::TimestampMillis(), 3.0f, false);
+                Channel::Send(serverHandler.sock,Builder::IPlaceBomb(local_boomberman_position[0],local_boomberman_position[1]));
+            }
+            if (IsKeyPressed(KEY_RIGHT)) {
+                if(local_boomberman->move(&map, local_boomberman_position, 1, 0)){
+                    Channel::Send(serverHandler.sock,Builder::IMove(local_boomberman_position[0]+1, local_boomberman_position[1]));
+                }
+            }
+            if (IsKeyPressed(KEY_LEFT)) {
+                if(local_boomberman->move(&map, local_boomberman_position, -1, 0)) {
+                    Channel::Send(serverHandler.sock,Builder::IMove(local_boomberman_position[0]-1, local_boomberman_position[1]));
+                }
+            }
+            if (IsKeyPressed(KEY_UP)) {
+                if(local_boomberman->move(&map, local_boomberman_position, 0, -1)) {
+                    Channel::Send(serverHandler.sock,Builder::IMove(local_boomberman_position[0], local_boomberman_position[1]-1));
+                }
+            }
+            if (IsKeyPressed(KEY_DOWN)) {
+                if(local_boomberman->move(&map, local_boomberman_position, 0, 1)) {
+                    Channel::Send(serverHandler.sock,Builder::IMove(local_boomberman_position[0], local_boomberman_position[1]+1));
+                }
             }
         }
-        if (IsKeyPressed(KEY_LEFT)) {
-            if(local_boomberman->move(&map, local_boomberman_position, -1, 0)) {
-                Channel::Send(serverHandler.sock,Builder::IMove(local_boomberman_position[0]-1, local_boomberman_position[1]));
-            }
-        }
-        if (IsKeyPressed(KEY_UP)) {
-            if(local_boomberman->move(&map, local_boomberman_position, 0, -1)) {
-                Channel::Send(serverHandler.sock,Builder::IMove(local_boomberman_position[0], local_boomberman_position[1]-1));
-            }
-        }
-        if (IsKeyPressed(KEY_DOWN)) {
-            if(local_boomberman->move(&map, local_boomberman_position, 0, 1)) {
-                Channel::Send(serverHandler.sock,Builder::IMove(local_boomberman_position[0], local_boomberman_position[1]+1));
-            }
-        }
+
         BeginDrawing();
 
         ClearBackground(DARKGRAY);
@@ -73,7 +70,7 @@ void Client::Run(const char* player_name) const {
         entityHandler.drawPlayers(&map);
         entityHandler.drawBombs(&map);
         DrawText("Use Arrow Keys to ", 10, 10, 20, LIGHTGRAY);
-        DrawText("MOVE", 213, 10, 20, local_boomberman->color);
+        DrawText("MOVE", 213, 10, 20, tutorial_color);
         EndDrawing();
     }
     Channel::Send(serverHandler.sock,Builder::ILeave());

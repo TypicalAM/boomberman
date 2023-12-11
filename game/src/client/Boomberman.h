@@ -21,7 +21,7 @@ public:
     void setBoombermanPos(int new_x, int new_y);
     bool move(Map *map,std::shared_ptr<int[]> curr_pos, int x, int y);
     void cleanUp();
-    void gotHit();
+    void gotHit(double long when);
     void decrementIframes();
     void animateHit();
     int getState() const;

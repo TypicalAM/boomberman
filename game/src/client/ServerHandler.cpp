@@ -37,16 +37,25 @@ void ServerHandler::receiveLoop(EntityHandler &eh) {
             switch (this->msg->type()) {
                 case OTHER_MOVE: {
                     std::string username = this->msg->othermove().username();
-                    auto it = std::find_if(
-                            eh.players.begin(), eh.players.end(),
-                            [username](Boomberman &player) {
-                                return player
-                                               .pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy ==
-                                       username;
-                            });
-                    if (it != eh.players.end()) {
-                        it->setBoombermanPos(int(this->msg->othermove().x()),
+                    auto found = ServerHandler::findPlayer(eh,username);
+                    if (found != eh.players.end()) {
+                        found->setBoombermanPos(int(this->msg->othermove().x()),
                                              int(this->msg->othermove().y()));
+                    }
+                    break;
+                }
+                case OTHER_LEAVE: {
+                    std::string username = msg->otherleave().username();
+                    auto found = ServerHandler::findPlayer(eh,username);
+                    if (found != eh.players.end()) eh.players.erase(found);
+                    break;
+                }
+                case GOT_HIT: {
+                    std::string username = msg->gothit().username();
+                    auto found = ServerHandler::findPlayer(eh,username);
+                    if (found != eh.players.end()){
+                        found->gotHit(msg->gothit().timestamp()); //TODO: Adamie, server side iframe'y poproszę
+                        if(msg->gothit().livesremaining()<=0) eh.players.erase(found);
                     }
                     break;
                 }
@@ -115,6 +124,14 @@ void ServerHandler::addPlayer(const GamePlayer &player, EntityHandler &eh) {
     std::cout << "Added player to local vector: " << player.username()
               << " with start pos (x,y): (" << this->start_x << ","
               << this->start_y << ")" << std::endl;
+}
+
+std::vector<Boomberman>::iterator ServerHandler::findPlayer(EntityHandler &eh, const std::string& username) {
+    return std::find_if(
+            eh.players.begin(), eh.players.end(),
+            [username](Boomberman &player) {
+                return player.pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy == username;
+            });
 }
 
 void ServerHandler::setPlayerParams(const GamePlayer &player) {

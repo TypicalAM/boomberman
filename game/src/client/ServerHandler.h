@@ -9,6 +9,7 @@
 #include <sys/poll.h>
 #include <error.h>
 
+#include "Client.h"
 #include "EntityHandler.h"
 #include "../shared/msg/Channel.h"
 #include "../shared/msg/Builder.h"
@@ -30,6 +31,7 @@ public:
     void addPlayer(const GamePlayer& player, EntityHandler &eh);
     void joinRoom(EntityHandler &eh);
     void receiveLoop(EntityHandler &eh);
+    static std::vector<Boomberman>::iterator findPlayer(EntityHandler &eh, const std::string& username);
 };
 
 #endif //BOOMBERMAN_SERVERHANDLER_H

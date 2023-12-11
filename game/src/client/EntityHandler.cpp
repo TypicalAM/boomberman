@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <iostream>
 #include "EntityHandler.h"
 #include "raylib.h"
 
@@ -9,7 +10,7 @@ void EntityHandler::placeBomb(int x, int y, int explosion, int size, long double
 void EntityHandler::drawPlayers(Map *map) {
     for (auto &player: this->players) {
         player.animateHit();
-        if(player.getState() == 1) DrawRectangle(player.getBoombermanPos()[0] * map->offset + map->start_x+3, player.getBoombermanPos()[1] * map->offset + map->start_y+3, map->size-6,map->size-6, player.color);
+        if(player.getState() == 1 && player.health>=0) DrawRectangle(player.getBoombermanPos()[0] * map->offset + map->start_x+3, player.getBoombermanPos()[1] * map->offset + map->start_y+3, map->size-6,map->size-6, player.color);
     }
 }
 
