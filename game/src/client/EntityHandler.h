@@ -10,7 +10,7 @@ public:
     std::vector<Bomb> bombs;
     std::vector<TileOnFire> theFloorIsLava;
 
-    void placeBomb(int x, int y, int explostion, int size, int ttl, bool is_atomic);
+    void placeBomb(int x, int y, int explosion, int size, long double timestamp, int ttl, bool is_atomic);
     //static std::vector<TileOnFire> setOnFire(Bomb* bomb, Map* map);
     int explodeBomb(Bomb* bomb, Map* map);
     void tryExtinguish();

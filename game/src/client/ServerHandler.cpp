@@ -35,7 +35,7 @@ void ServerHandler::receiveLoop(EntityHandler &eh) {
         if(polling[0].revents & POLLIN){
             this->msg = Channel::Receive(this->sock).value();
             switch (this->msg->type()) {
-                case OTHER_MOVE:
+                case OTHER_MOVE:{
                     std::string username = this->msg->othermove().username();
                     auto it = std::find_if(eh.players.begin(), eh.players.end(), [username](Boomberman& player) {
                         return player.pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy == username;
@@ -44,6 +44,11 @@ void ServerHandler::receiveLoop(EntityHandler &eh) {
                         it->setBoombermanPos(int(this->msg->othermove().x()), int(this->msg->othermove().y()));
                     }
                     break;
+                }
+                case OTHER_BOMB_PLACE: {
+                    eh.bombs.emplace_back(this->msg->otherbombplace().x(),this->msg->otherbombplace().y(),3,25,this->msg->otherbombplace().timestamp(),3,false);
+                    break;
+                }
             }
         }
     }

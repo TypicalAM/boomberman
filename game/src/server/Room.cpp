@@ -178,7 +178,7 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
             // Place the bomb at the specified location
             IPlaceBomb ipb = msg->payload->iplacebomb();
             int64_t timestamp = Util::TimestampMillis();
-            bombs.emplace_back(std::floor(ipb.x()), std::floor(ipb.y()), 3, 25, 3.0f, false);
+            bombs.emplace_back(std::floor(ipb.x()), std::floor(ipb.y()), 3, 25, Util::TimestampMillis(),3.0f, false);
             SendExcept(msg->author->sock, Builder::OtherBombPlace, msg->author->username, timestamp, ipb.x(), ipb.y());
             return;
         }

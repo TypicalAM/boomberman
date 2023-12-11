@@ -2,9 +2,8 @@
 #include "EntityHandler.h"
 #include "raylib.h"
 
-void EntityHandler::placeBomb(int x, int y, int explostion, int size, int ttl, bool is_atomic) {
-    this->bombs.emplace_back(x,y,explostion,size,ttl,is_atomic);
-    printf("Placed bomb at x:%d y:%d!\n",x,y);
+void EntityHandler::placeBomb(int x, int y, int explosion, int size, long double timestamp, int ttl, bool is_atomic) {
+    this->bombs.emplace_back(x, y, explosion, size, timestamp, ttl, is_atomic);
 }
 
 void EntityHandler::drawPlayers(Map *map) {
@@ -18,7 +17,7 @@ void EntityHandler::drawBombs(Map* map) {
     Color c;
     for (auto &bomb: this->bombs) {
         if(!bomb.ShouldExplode()) {
-            bomb.animateOrBoom();
+            bomb.animate();
             if (bomb.state == -1) c = BLACK;
             else{
               if(bomb.is_atomic) c = GREEN;

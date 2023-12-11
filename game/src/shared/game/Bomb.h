@@ -13,9 +13,9 @@ public:
     double long plant_time, animation_start, ttl;
     int state;
     bool is_atomic;
-    Bomb(int pos_x, int pos_y, int explosion, int size, float ttl, bool is_atomic);
+    Bomb(int pos_x, int pos_y, int explosion, int size, long double timestamp, float ttl, bool is_atomic);
     [[nodiscard]] bool ShouldExplode() const;
-    void animateOrBoom();
+    void animate();
     std::vector<TileOnFire> boom(Map *map);
 };
 

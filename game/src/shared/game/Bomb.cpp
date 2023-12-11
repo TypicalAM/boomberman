@@ -1,13 +1,13 @@
 #include <cstdio>
 #include "Bomb.h"
 
-Bomb::Bomb(int pos_x, int pos_y, int explosion, int size, float ttl, bool is_atomic) {
+Bomb::Bomb(int pos_x, int pos_y, int explosion, int size, long double timestamp, float ttl, bool is_atomic) {
     this->pos_x=pos_x;
     this->pos_y=pos_y;
     this->explosion=explosion;
     this->size=size;
     this->ttl=ttl;
-    this->animation_start=Util::TimestampMillis();
+    this->animation_start=timestamp;
     this->plant_time=this->animation_start;
     this->state=-1;
     this->is_atomic=is_atomic;
@@ -17,7 +17,7 @@ bool Bomb::ShouldExplode() const {
     return Util::TimestampMillis() > this->plant_time + this->ttl*1000;
 }
 
-void Bomb::animateOrBoom() {
+void Bomb::animate() {
     double long now=Util::TimestampMillis();
     if(now-this->animation_start>=500.0f){
         this->state*=-1;
