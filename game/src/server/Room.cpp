@@ -193,7 +193,6 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
                 SendSpecific(msg->author->sock, Builder::Error("Invalid movement"));
                 return;
             }
-            LOG << "Player moved to: " << im.x() << ", " << im.y();
             // The movement was valid, let's roll
             msg->author->coords.x = im.x();
             msg->author->coords.y = im.y();

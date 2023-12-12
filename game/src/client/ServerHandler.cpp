@@ -101,21 +101,14 @@ std::string ServerHandler::selectUsername(float screen_width, float screen_heigh
     return username;
 }
 
-void ServerHandler::getRoomList(
-        const char *player_name) { // TODO: ACTUALLY HANDLE THE ROOM LIST
-    std::optional<int> bytes_sent =
-            Channel::Send(this->sock, Builder::GetRoomList());
+void ServerHandler::getRoomList(const char *player_name) { // TODO: ACTUALLY HANDLE THE ROOM LIST
+    std::optional<int> bytes_sent = Channel::Send(this->sock, Builder::GetRoomList());
     while (true) {
         this->msg = Channel::Receive(this->sock).value();
-        if (this->msg->type() == ROOM_LIST)
-            break;
+        if (this->msg->type() == ROOM_LIST) break;
     }
 
-
-
-
-
-        auto rl = this->msg->roomlist();
+    auto rl = this->msg->roomlist();
     if (rl.rooms_size() == 0) {
         Channel::Send(this->sock, Builder::JoinRoom(player_name));
         printf("WE ARE THE FIRST ROOM THAT HAS EVER EXISTd BATMAN!\n");
@@ -127,7 +120,7 @@ void ServerHandler::getRoomList(
 }
 
 void ServerHandler::wait4Game(EntityHandler &eh) {
-    while (true) {
+    while (!WindowShouldClose()) {
         this->msg = Channel::Receive(sock).value();
         printf("%d\n", this->msg->type());
         if (this->msg->type() == GAME_START)
@@ -136,6 +129,11 @@ void ServerHandler::wait4Game(EntityHandler &eh) {
             this->joinRoom(eh);
         else if (this->msg->type() == GAME_JOIN)
             this->addPlayer(this->msg->gamejoin().player(), eh);
+
+        BeginDrawing();
+        ClearBackground(DARKGRAY);
+        DrawText("Waiting for game to start...", 10, 10, 20, LIGHTGRAY);
+        EndDrawing();
     }
 }
 
