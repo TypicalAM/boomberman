@@ -76,6 +76,31 @@ void ServerHandler::receiveLoop(EntityHandler &eh) {
     }
 }
 
+std::string ServerHandler::selectUsername(float screen_width, float screen_height) {
+    std::string username;
+    Rectangle textBox = {screen_width/2 -100, screen_height/2 - 100, 200, 40};
+    while(!WindowShouldClose()) {
+        int key = GetKeyPressed();
+
+        if(key != 0) {
+            if (key == KEY_BACKSPACE && !username.empty()) username.pop_back();
+            else if (key == KEY_ENTER && !username.empty()) break;
+            else username += (char)key;
+        }
+        //TODO: BUG WHEN PRESSING BACKSPACE AS A FIRST CHAR
+
+        BeginDrawing();
+
+        ClearBackground(DARKGRAY);
+        DrawRectangleRec(textBox, LIGHTGRAY);
+        DrawText("Type your username and press ENTER",10,10,20,LIGHTGRAY);
+        DrawText(username.c_str(), textBox.x + 5, textBox.y + 10, 20, DARKGRAY);
+
+        EndDrawing();
+    }
+    return username;
+}
+
 void ServerHandler::getRoomList(
         const char *player_name) { // TODO: ACTUALLY HANDLE THE ROOM LIST
     std::optional<int> bytes_sent =
@@ -86,7 +111,11 @@ void ServerHandler::getRoomList(
             break;
     }
 
-    auto rl = this->msg->roomlist();
+
+
+
+
+        auto rl = this->msg->roomlist();
     if (rl.rooms_size() == 0) {
         Channel::Send(this->sock, Builder::JoinRoom(player_name));
         printf("WE ARE THE FIRST ROOM THAT HAS EVER EXISTd BATMAN!\n");

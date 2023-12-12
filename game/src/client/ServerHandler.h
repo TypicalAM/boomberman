@@ -25,6 +25,7 @@ public:
     int sock;
     ServerHandler();
     void connect2Server(const char* ip, int port) const;
+    static std::string selectUsername(float width, float height);
     void getRoomList(const char* player_name);
     void setPlayerParams(const GamePlayer& player);
     void wait4Game(EntityHandler &eh);

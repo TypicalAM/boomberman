@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
     if (target == "client") {
 
         Client client(screenWidth, screenHeight);
-        client.Run(argv[2]);
+        client.Run();
     } else {
         Server server(2137);
         server.Run();

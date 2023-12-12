@@ -13,7 +13,7 @@ private:
 public:
     Client(int width, int height);
     static void drawMap(Map* map);
-    void Run(const char* player_name) const;
+    void Run() const;
     int getDimension(const std::string& dimension) const;
 
     ~Client();

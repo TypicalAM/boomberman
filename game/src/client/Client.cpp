@@ -6,7 +6,7 @@
 #include "ServerHandler.h"
 
 
-void Client::Run(const char* player_name) const {
+void Client::Run() const {
     EntityHandler entityHandler;
     ServerHandler serverHandler;
 
@@ -15,7 +15,7 @@ void Client::Run(const char* player_name) const {
     std::shared_ptr<int[]> local_boomberman_position(new int[2]);
 
     serverHandler.connect2Server("127.0.0.1",2137);
-    serverHandler.getRoomList(player_name);
+    serverHandler.getRoomList(serverHandler.selectUsername(this->width,this->height).c_str());
     serverHandler.wait4Game(entityHandler);
 
     Boomberman* local_boomberman = &entityHandler.players[0];
