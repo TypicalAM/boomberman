@@ -1,4 +1,5 @@
 #include "ServerHandler.h"
+#include "RoomBox.h"
 #include <csignal>
 
 ServerHandler::ServerHandler() {
@@ -106,7 +107,8 @@ std::string ServerHandler::selectUsername(float screen_width, float screen_heigh
     return username;
 }
 
-void ServerHandler::getRoomList(const char *player_name) { // TODO: ACTUALLY HANDLE THE ROOM LIST
+
+void ServerHandler::menu(float width, float height) { // TODO: ACTUALLY HANDLE THE ROOM LIST
     std::optional<int> bytes_sent = Channel::Send(this->sock, Builder::GetRoomList());
     while (true) {
         this->msg = Channel::Receive(this->sock).value();
@@ -114,17 +116,98 @@ void ServerHandler::getRoomList(const char *player_name) { // TODO: ACTUALLY HAN
     }
 
     auto rl = this->msg->roomlist();
-    if (rl.rooms_size() == 0) {
-        Channel::Send(this->sock, Builder::JoinRoom(player_name));
-        printf("WE ARE THE FIRST ROOM THAT HAS EVER EXISTd BATMAN!\n");
-    } else {
-        auto room_name = rl.rooms(0).name();
-        Channel::Send(this->sock, Builder::JoinRoom(player_name, room_name));
-        printf("WE ARE JOINGING ANY ROOM: %s\n", room_name.c_str());
-    };
+    int rooms_total = rl.rooms_size();
+
+    Rectangle newGameButton = {(width / 2)-95, 110, 190, 60};
+    auto joinGameButtonColor=GRAY;
+    Rectangle joinGameButton= {(width / 2)-60, 190, 120, 60};
+
+    while(!WindowShouldClose()) {
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)){
+            Vector2 mousePoint = GetMousePosition();
+            if(CheckCollisionPointRec(mousePoint,newGameButton)){
+                Channel::Send(this->sock, Builder::JoinRoom(ServerHandler::selectUsername(width,height)));
+                return;
+            }
+        }
+        BeginDrawing();
+        ClearBackground(DARKGRAY);
+        DrawText("Welcome to Boomberman!", (width / 2) - 180, 30 ,30, LIGHTGRAY);
+
+        DrawRectangleRec(newGameButton,LIGHTGRAY);
+        DrawText("Create new game",newGameButton.x+10,newGameButton.y+20,20,DARKGRAY);
+
+        if(rooms_total>0){
+            joinGameButtonColor = LIGHTGRAY;
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)){
+                Vector2 mousePoint = GetMousePosition();
+                if(CheckCollisionPointRec(mousePoint,joinGameButton)){
+                    EndDrawing();
+                    return listRooms(width,height);
+                }
+            }
+        }
+        DrawRectangleRec(joinGameButton,joinGameButtonColor);
+        DrawText("Join game",joinGameButton.x+15,joinGameButton.y+20,20,DARKGRAY);
+        EndDrawing();
+    }
+
+
+}
+
+void ServerHandler::listRooms(float width, float height){
+    std::vector<RoomBox> rooms;
+    auto rl = this->msg->roomlist();
+
+    int current_row = 0;
+    float offset_from_top = 70;
+    for (int i = 0; i < rl.rooms_size(); i++) {
+        int column = i % 2;
+        if (i % 3 == 2) current_row++;
+        rooms.emplace_back(100 + column * width/4, current_row * 80 + offset_from_top, 150, 60,
+                           rl.rooms(i).name(), rl.rooms(i).playercount());
+    }
+
+    Camera2D camera = {0};
+    camera.target = {width / 2, height / 2};
+    camera.offset = {width / 2, height / 2};
+    camera.rotation = 0.0f;
+    camera.zoom = 1.0f;
+
+    while (!WindowShouldClose()) {
+        // Update
+        if (IsKeyPressed(KEY_UP) && camera.offset.y <= (height/2)-offset_from_top) camera.offset.y += offset_from_top;
+        if (IsKeyPressed(KEY_DOWN)) camera.offset.y -= offset_from_top;
+
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            Vector2 mousePoint = GetMousePosition();
+
+            for (const auto& room : rooms) {
+                if (CheckCollisionPointRec(mousePoint, room.rect)) {
+                    std::cout << "Clicked on: " << room.label << std::endl;
+                    Channel::Send(this->sock, Builder::JoinRoom(ServerHandler::selectUsername(width,height), room.label));
+                    return;
+                }
+            }
+        }
+        BeginDrawing();
+        BeginMode2D(camera);
+        ClearBackground(DARKGRAY);
+        DrawText("Select room", (width / 2) - 60, 10, 20, LIGHTGRAY);
+
+        // Draw rectangles and text inside
+        for (const auto &room: rooms) {
+            DrawRectangleRec(room.rect, LIGHTGRAY);
+            DrawText(room.label.c_str(), room.rect.x + 10, room.rect.y+20, 20, DARKGRAY);
+            DrawText((std::to_string(room.players_in) + "/4").c_str(), room.rect.x + 60, room.rect.y + offset_from_top+10, 20, LIGHTGRAY);
+        }
+        EndMode2D();
+        EndDrawing();
+    }
 }
 
 void ServerHandler::wait4Game(EntityHandler &eh) {
+    printf("INSIDE W8TING4GAME!\n");
     while (true) {
         this->msg = Channel::Receive(sock).value();
         if (this->msg->type() == GAME_START) {

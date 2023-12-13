@@ -16,7 +16,8 @@ void Client::Run() const {
     std::shared_ptr<int[]> local_boomberman_position(new int[2]);
 
     serverHandler.connect2Server("127.0.0.1",2137);
-    serverHandler.getRoomList(ServerHandler::selectUsername(this->width,this->height).c_str());
+    serverHandler.menu(this->width, this->height);
+    printf("GOT PAST ROOM LIST!\n");
     serverHandler.wait4Game(entityHandler);
 
     Boomberman* local_boomberman = &entityHandler.players[0];

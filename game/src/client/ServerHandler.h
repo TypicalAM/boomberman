@@ -26,11 +26,12 @@ public:
     ServerHandler();
     void connect2Server(const char* ip, int port) const;
     static std::string selectUsername(float width, float height);
-    void getRoomList(const char* player_name);
+    void menu(float width, float height);
     void setPlayerParams(const GamePlayer& player);
     void wait4Game(EntityHandler &eh);
     void addPlayer(const GamePlayer& player, EntityHandler &eh);
     void joinRoom(EntityHandler &eh);
+    void listRooms(float width, float height);
 
     [[noreturn]] void receiveLoop(EntityHandler &eh);
     static std::vector<Boomberman>::iterator findPlayer(EntityHandler &eh, const std::string& username);

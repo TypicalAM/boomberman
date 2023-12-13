@@ -49,6 +49,8 @@ set(SOURCES
         src/shared/proto/messages.pb.h
         src/client/ServerHandler.cpp
         src/client/ServerHandler.h
+        src/client/RoomBox.cpp
+        src/client/RoomBox.h
 )
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS messages.proto)
 add_executable(${PROJECT_NAME} ${SOURCES})
