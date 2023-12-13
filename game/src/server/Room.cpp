@@ -167,7 +167,14 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
 
     // If the game started
     if (state.load() == WAIT_FOR_START) {
-        SendSpecific(msg->author->sock, Builder::Error("Game hasn't started yet"));
+        if (msg->payload->type() != I_LEAVE) {
+            SendSpecific(msg->author->sock, Builder::Error("Game hasn't started yet"));
+            return;
+        }
+
+        // Make the player leave
+        shutdown(players[0]->sock, SHUT_RDWR);
+        close(players[0]->sock);
         return;
     }
 
@@ -274,6 +281,7 @@ void Room::ReadIntoQueue() {
             epoll_ctl(epollSock, EPOLL_CTL_DEL, client_sock, nullptr);
             shutdown(client_sock, SHUT_RDWR);
             close(client_sock);
+            clientCount--;
 
             int author_idx = -1;
             for (int j = 0; j < players.size(); ++j) if (players[j]->sock == client_sock) author_idx = j;
