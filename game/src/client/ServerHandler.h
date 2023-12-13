@@ -28,7 +28,7 @@ public:
     static std::string selectUsername(float width, float height);
     void menu(float width, float height);
     void setPlayerParams(const GamePlayer& player);
-    void wait4Game(EntityHandler &eh);
+    void wait4Game(EntityHandler &eh, float width, float height);
     void addPlayer(const GamePlayer& player, EntityHandler &eh);
     void joinRoom(EntityHandler &eh);
     void listRooms(float width, float height);

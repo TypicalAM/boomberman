@@ -17,8 +17,7 @@ void Client::Run() const {
 
     serverHandler.connect2Server("127.0.0.1",2137);
     serverHandler.menu(this->width, this->height);
-    printf("GOT PAST ROOM LIST!\n");
-    serverHandler.wait4Game(entityHandler);
+    serverHandler.wait4Game(entityHandler,this->width,this->height);
 
     Boomberman* local_boomberman = &entityHandler.players[0];
     Color tutorial_color = local_boomberman->color;

@@ -202,7 +202,6 @@ void ServerHandler::listRooms(float width, float height){
         DrawText("Back", backButton.x+5, backButton.y+2, 30, DARKGRAY);
 
 
-        // Draw rectangles and text inside
         for (const auto &room: rooms) {
             DrawRectangleRec(room.rect, LIGHTGRAY);
             DrawText(room.label.c_str(), room.rect.x + 10, room.rect.y+20, 20, DARKGRAY);
@@ -213,8 +212,7 @@ void ServerHandler::listRooms(float width, float height){
     }
 }
 
-void ServerHandler::wait4Game(EntityHandler &eh) {
-    printf("INSIDE W8TING4GAME!\n");
+void ServerHandler::wait4Game(EntityHandler &eh, float width, float height) {
     while (true) {
         this->msg = Channel::Receive(sock).value();
         if (this->msg->type() == GAME_START) {
@@ -226,6 +224,22 @@ void ServerHandler::wait4Game(EntityHandler &eh) {
         else if (this->msg->type() == GAME_JOIN) {
             printf("GOT GAME JOIN\n");
             this->addPlayer(this->msg->gamejoin().player(), eh);
+        }
+        else if(this->msg->type() == ERROR){
+            Rectangle backButton = {10,10,80,30};
+            while(true) {
+                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                    Vector2 mousePoint = GetMousePosition();
+                    if(CheckCollisionPointRec(mousePoint, backButton)) exit(0);
+                }
+
+                BeginDrawing();
+                ClearBackground(DARKGRAY);
+                DrawRectangleRec(backButton, LIGHTGRAY);
+                DrawText("Exit", backButton.x + 5, backButton.y + 2, 30, DARKGRAY);
+                DrawText("This username is already taken in this room!", 10, 50, 20, RED);
+                EndDrawing();
+            }
         }
 
         BeginDrawing();
