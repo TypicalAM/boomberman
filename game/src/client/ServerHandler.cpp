@@ -65,7 +65,7 @@ void ServerHandler::receiveLoop(EntityHandler &eh) {
                 case OTHER_BOMB_PLACE: {
                     if (msg->otherbombplace().username() == "Server") {
                         eh.bombs.emplace_back(
-                                this->msg->otherbombplace().x(), this->msg->otherbombplace().y(), 7,
+                                this->msg->otherbombplace().x(), this->msg->otherbombplace().y(), 9,
                                 25, this->msg->otherbombplace().timestamp(), 3, true);
                     } else {
                         eh.bombs.emplace_back(
