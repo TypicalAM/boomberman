@@ -159,12 +159,12 @@ void ServerHandler::listRooms(float width, float height){
     std::vector<RoomBox> rooms;
     auto rl = this->msg->roomlist();
 
-    int current_row = 0;
+    int current_row = -1;
     float offset_from_top = 70;
     for (int i = 0; i < rl.rooms_size(); i++) {
-        int column = i % 2;
-        if (i % 3 == 2) current_row++;
-        rooms.emplace_back(100 + column * width/4, current_row * 80 + offset_from_top, 150, 60,
+        int column = i % 3;
+        if (i % 3 == 0) current_row++;
+        rooms.emplace_back(110 + column * (width/4) + 28, current_row * 120 + offset_from_top, 150, 60,
                            rl.rooms(i).name(), rl.rooms(i).playercount());
     }
 
@@ -173,6 +173,8 @@ void ServerHandler::listRooms(float width, float height){
     camera.offset = {width / 2, height / 2};
     camera.rotation = 0.0f;
     camera.zoom = 1.0f;
+
+    Rectangle backButton = {10,10,80,30};
 
     while (!WindowShouldClose()) {
         // Update
@@ -184,16 +186,21 @@ void ServerHandler::listRooms(float width, float height){
 
             for (const auto& room : rooms) {
                 if (CheckCollisionPointRec(mousePoint, room.rect)) {
-                    std::cout << "Clicked on: " << room.label << std::endl;
                     Channel::Send(this->sock, Builder::JoinRoom(ServerHandler::selectUsername(width,height), room.label));
                     return;
                 }
+                else if(CheckCollisionPointRec(mousePoint, backButton)) return this->menu(width,height);
             }
         }
         BeginDrawing();
         BeginMode2D(camera);
         ClearBackground(DARKGRAY);
-        DrawText("Select room", (width / 2) - 60, 10, 20, LIGHTGRAY);
+
+        DrawText("Select room", (width / 2) - 80, 10, 30, LIGHTGRAY);
+
+        DrawRectangleRec(backButton, LIGHTGRAY);
+        DrawText("Back", backButton.x+5, backButton.y+2, 30, DARKGRAY);
+
 
         // Draw rectangles and text inside
         for (const auto &room: rooms) {
