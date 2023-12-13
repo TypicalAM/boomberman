@@ -20,6 +20,7 @@ void Room::GameLoop() {
 }
 
 void Room::SendSpecific(int sock, std::unique_ptr<GameMessage> msg) {
+    LOG << "Sending message of type: " << msg->type() << " to player sock " << sock;
     if (!Channel::Send(sock, std::move(msg)).has_value()) {
         shutdown(sock, SHUT_RDWR);
         close(sock);
@@ -31,6 +32,7 @@ void Room::SendExcept(int sock, Function &&builderFunc, Args &&... builderArgs) 
     for (auto &player: players) {
         if (player->sock == sock) continue;
         auto msg = std::invoke(std::forward<Function>(builderFunc), std::forward<Args>(builderArgs)...);
+        LOG << "Sending message of type: " << msg->type() << " to player sock " << player->sock;
         if (!Channel::Send(player->sock, std::move(msg)).has_value()) {
             shutdown(player->sock, SHUT_RDWR);
             close(player->sock);
@@ -42,6 +44,7 @@ template<typename Function, typename ...Args>
 void Room::SendBroadcast(Function &&builderFunc, Args &&... builderArgs) {
     for (auto &player: players) {
         auto msg = std::invoke(std::forward<Function>(builderFunc), std::forward<Args>(builderArgs)...);
+        LOG << "Sending message of type: " << msg->type() << " to player sock " << player->sock;
         if (!Channel::Send(player->sock, std::move(msg)).has_value()) {
             shutdown(player->sock, SHUT_RDWR);
             close(player->sock);
