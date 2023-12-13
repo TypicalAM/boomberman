@@ -7,6 +7,7 @@
 
 
 void Client::Run() const {
+
     EntityHandler entityHandler;
     ServerHandler serverHandler;
 
@@ -15,7 +16,7 @@ void Client::Run() const {
     std::shared_ptr<int[]> local_boomberman_position(new int[2]);
 
     serverHandler.connect2Server("127.0.0.1",2137);
-    serverHandler.getRoomList(serverHandler.selectUsername(this->width,this->height).c_str());
+    serverHandler.getRoomList(ServerHandler::selectUsername(this->width,this->height).c_str());
     serverHandler.wait4Game(entityHandler);
 
     Boomberman* local_boomberman = &entityHandler.players[0];
@@ -28,6 +29,7 @@ void Client::Run() const {
     });
     socketReaderThread.detach();
 
+    SetTargetFPS(30);
     while (!WindowShouldClose()) {
         local_boomberman_position[0] = local_boomberman->getBoombermanPos()[0];
         local_boomberman_position[1] = local_boomberman->getBoombermanPos()[1];
@@ -83,7 +85,6 @@ Client::Client(int width, int height) {
     this->height = height;
 
     InitWindow(width, height, "Boomberman client");
-    SetTargetFPS(60);
 }
 
 int Client::getDimension(const std::string &dimension) const {

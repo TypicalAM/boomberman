@@ -31,7 +31,8 @@ public:
     void wait4Game(EntityHandler &eh);
     void addPlayer(const GamePlayer& player, EntityHandler &eh);
     void joinRoom(EntityHandler &eh);
-    void receiveLoop(EntityHandler &eh);
+
+    [[noreturn]] void receiveLoop(EntityHandler &eh);
     static std::vector<Boomberman>::iterator findPlayer(EntityHandler &eh, const std::string& username);
 };
 

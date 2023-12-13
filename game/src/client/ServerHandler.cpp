@@ -42,6 +42,8 @@ void ServerHandler::receiveLoop(EntityHandler &eh) {
                         found->setBoombermanPos(int(this->msg->othermove().x()),
                                              int(this->msg->othermove().y()));
                     }
+                    printf("Player %s moved\n",found->pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy.c_str());
+
                     break;
                 }
                 case OTHER_LEAVE: {
@@ -83,11 +85,14 @@ std::string ServerHandler::selectUsername(float screen_width, float screen_heigh
         int key = GetKeyPressed();
 
         if(key != 0) {
-            if (key == KEY_BACKSPACE && !username.empty()) username.pop_back();
-            else if (key == KEY_ENTER && !username.empty()) break;
+            if (key == KEY_BACKSPACE) {
+                if(strlen(username.c_str())>0) username.pop_back();
+            }
+            else if (key == KEY_ENTER){
+                if(strlen(username.c_str())>0) break;
+            }
             else username += (char)key;
         }
-        //TODO: BUG WHEN PRESSING BACKSPACE AS A FIRST CHAR
 
         BeginDrawing();
 
@@ -120,15 +125,18 @@ void ServerHandler::getRoomList(const char *player_name) { // TODO: ACTUALLY HAN
 }
 
 void ServerHandler::wait4Game(EntityHandler &eh) {
-    while (!WindowShouldClose()) {
+    while (true) {
         this->msg = Channel::Receive(sock).value();
-        printf("%d\n", this->msg->type());
-        if (this->msg->type() == GAME_START)
+        if (this->msg->type() == GAME_START) {
+            printf("Starting game with %zu players\n", eh.players.size());
             break;
+        }
         else if (this->msg->type() == WELCOME_TO_ROOM)
             this->joinRoom(eh);
-        else if (this->msg->type() == GAME_JOIN)
+        else if (this->msg->type() == GAME_JOIN) {
+            printf("GOT GAME JOIN\n");
             this->addPlayer(this->msg->gamejoin().player(), eh);
+        }
 
         BeginDrawing();
         ClearBackground(DARKGRAY);
