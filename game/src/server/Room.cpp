@@ -236,7 +236,7 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
                 auto coords = msg->author->coords;
                 SendExcept(msg->author->sock, Builder::OtherBombPlace, "Server", Util::TimestampMillis(), coords.x,
                            coords.y);
-                bombs.emplace_back(std::floor(coords.x), std::floor(coords.y), 7, 25, Util::TimestampMillis(), 3.0f,
+                bombs.emplace_back(std::floor(coords.x), std::floor(coords.y), 9, 25, Util::TimestampMillis(), 3.0f,
                                    true);
             }
             shutdown(msg->author->sock, SHUT_RDWR);
