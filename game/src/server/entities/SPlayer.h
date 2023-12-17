@@ -5,19 +5,19 @@
 #include <utility>
 #include "Primitives.h"
 #include "../../shared/proto/messages.pb.h"
-#include "../../shared/msg/Channel.h"
+#include "../../shared/msg/Connection.h"
 
 #define STARTER_LIVES 3
 
 class SPlayer {
 public:
-    Channel conn;
+    Connection conn;
     int livesRemaining;
     Coords coords{};
     std::string username;
     PlayerColor color;
 
-    SPlayer(Channel conn, std::string username, PlayerColor color);
+    SPlayer(Connection conn, std::string username, PlayerColor color);
 };
 
 #endif

@@ -15,7 +15,7 @@ private:
     int epollSock;
     boost::log::sources::logger logger;
 
-    void handleClientMessage(Channel conn, std::unique_ptr<GameMessage> msg);
+    void handleClientMessage(Connection conn, std::unique_ptr<GameMessage> msg);
 
 public:
     [[noreturn]] void Run();

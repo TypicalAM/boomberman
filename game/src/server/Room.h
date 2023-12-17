@@ -55,10 +55,10 @@ private:
 
     void HandleGameUpdates();
 
-    void SendSpecific(Channel conn, std::unique_ptr<GameMessage> msg);
+    void SendSpecific(Connection conn, std::unique_ptr<GameMessage> msg);
 
     template<typename Function, typename ...Args>
-    void SendExcept(Channel conn, Function &&builderFunc, Args &&... builderArgs);
+    void SendExcept(Connection conn, Function &&builderFunc, Args &&... builderArgs);
 
     template<typename Function, typename ...Args>
     void SendBroadcast(Function &&builderFunc, Args &&... builderArgs);
@@ -72,7 +72,7 @@ public:
 
     void GameLoop();
 
-    bool JoinPlayer(Channel conn, const std::string &username);
+    bool JoinPlayer(Connection conn, const std::string &username);
 
     bool IsGameOver();
 

@@ -11,7 +11,7 @@
 
 #include "Client.h"
 #include "EntityHandler.h"
-#include "../shared/msg/Channel.h"
+#include "../shared/msg/Connection.h"
 #include "../shared/msg/Builder.h"
 #include "raylib.h"
 
@@ -22,7 +22,7 @@ private:
     Color start_color{};
     std::unique_ptr<GameMessage> msg;
 public:
-    Channel conn;
+    Connection conn;
     ServerHandler();
     void connect2Server(const char* ip, int port) const;
     static std::string selectUsername(float width, float height);

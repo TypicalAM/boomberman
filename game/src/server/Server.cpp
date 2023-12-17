@@ -9,7 +9,7 @@
 #include <boost/log/trivial.hpp>
 #include "../shared/msg/Builder.h"
 
-void Server::handleClientMessage(Channel conn, std::unique_ptr<GameMessage> msg) {
+void Server::handleClientMessage(Connection conn, std::unique_ptr<GameMessage> msg) {
     switch (msg->type()) {
         case GET_ROOM_LIST: {
             // Create a room list and send it to the user
@@ -108,7 +108,7 @@ void Server::handleClientMessage(Channel conn, std::unique_ptr<GameMessage> msg)
             if (events[i].data.fd == srvSock) {
                 int new_sock = accept(srvSock, nullptr, nullptr);
                 if (new_sock == -1) continue;
-                auto conn = Channel(new_sock);
+                auto conn = Connection(new_sock);
                 epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = &conn}};
                 if (epoll_ctl(epollSock, EPOLL_CTL_ADD, new_sock, &event) == -1) continue;
                 LOG << "New connection accepted from: " << new_sock;
@@ -116,7 +116,7 @@ void Server::handleClientMessage(Channel conn, std::unique_ptr<GameMessage> msg)
             }
 
             // We got a message from a client
-            auto conn = static_cast<Channel *>(events[i].data.ptr);
+            auto conn = static_cast<Connection *>(events[i].data.ptr);
             auto msg = conn->Receive();
             if (!msg.has_value()) {
                 LOG << "Closing connection since we can't receive data: " << events[i].data.fd;

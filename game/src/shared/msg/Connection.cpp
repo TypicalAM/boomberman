@@ -1,14 +1,14 @@
 #include <csignal>
-#include "Channel.h"
+#include "Connection.h"
 
-std::optional<int> Channel::Send(std::unique_ptr<GameMessage> msg) {
+std::optional<int> Connection::Send(std::unique_ptr<GameMessage> msg) {
     char buf[256];
     size_t msg_size = msg->ByteSizeLong();
     buf[0] = static_cast<unsigned int>(msg_size);
     msg->SerializeToArray(buf + 1, msg_size);
     size_t bytes_sent = write(sock, buf, msg_size + 1);
     if (bytes_sent != msg_size + 1) {
-        std::cerr << "[Channel] Couldn't send enough data, sent " << bytes_sent << "/" << msg_size + 1 << std::endl;
+        std::cerr << "[Connection] Couldn't send enough data, sent " << bytes_sent << "/" << msg_size + 1 << std::endl;
         size_t total_sent = bytes_sent;
         while (total_sent != msg_size + 1) {
             bytes_sent = write(sock, buf + total_sent, msg_size + 1 - total_sent);
@@ -22,7 +22,7 @@ std::optional<int> Channel::Send(std::unique_ptr<GameMessage> msg) {
     return bytes_sent;
 }
 
-std::optional<std::unique_ptr<GameMessage>> Channel::Receive() {
+std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
     // The queue first
     if (!inboundQueue.empty()) {
         auto msg = std::move(inboundQueue.front());
@@ -71,6 +71,6 @@ std::optional<std::unique_ptr<GameMessage>> Channel::Receive() {
     return result;
 }
 
-Channel::Channel(int sock) {
+Connection::Connection(int sock) {
     this->sock = sock;
 }

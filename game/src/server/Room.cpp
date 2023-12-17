@@ -18,7 +18,7 @@ void Room::GameLoop() {
     LOG << "Gameloop done";
 }
 
-void Room::SendSpecific(Channel conn, std::unique_ptr<GameMessage> msg) {
+void Room::SendSpecific(Connection conn, std::unique_ptr<GameMessage> msg) {
     LOG << "Sending message of type: " << msg->type() << " to player sock " << conn.sock;
     if (!conn.Send(std::move(msg)).has_value()) {
         shutdown(conn.sock, SHUT_RDWR);
@@ -27,7 +27,7 @@ void Room::SendSpecific(Channel conn, std::unique_ptr<GameMessage> msg) {
 }
 
 template<typename Function, typename ...Args>
-void Room::SendExcept(Channel conn, Function &&builderFunc, Args &&... builderArgs) {
+void Room::SendExcept(Connection conn, Function &&builderFunc, Args &&... builderArgs) {
     for (auto &player: players) {
         if (player->conn.sock == conn.sock) continue;
         auto msg = std::invoke(std::forward<Function>(builderFunc), std::forward<Args>(builderArgs)...);
@@ -275,7 +275,7 @@ void Room::ReadIntoQueue() {
 
         // We got a message from a client
         std::lock_guard<std::mutex> lock(playerMtx);
-        auto client_conn = static_cast<Channel *>(events[i].data.ptr);
+        auto client_conn = static_cast<Connection *>(events[i].data.ptr);
         auto msg = client_conn->Receive();
         if (!msg.has_value()) {
             LOG << "Closing connection since we can't receive data: " << client_conn->sock;
@@ -321,7 +321,7 @@ void Room::ReadIntoQueue() {
     }
 }
 
-bool Room::JoinPlayer(Channel conn, const std::string &username) {
+bool Room::JoinPlayer(Connection conn, const std::string &username) {
     if (state.load() != WAIT_FOR_START) return false;
     std::lock_guard<std::mutex> lock(playerMtx);
     epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = &conn}};
