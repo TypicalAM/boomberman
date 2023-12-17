@@ -22,7 +22,7 @@ private:
     Color start_color{};
     std::unique_ptr<GameMessage> msg;
 public:
-    int sock;
+    Channel conn;
     ServerHandler();
     void connect2Server(const char* ip, int port) const;
     static std::string selectUsername(float width, float height);
