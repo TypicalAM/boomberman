@@ -20,7 +20,7 @@ type Entity interface {
 type Player struct {
 	name   string
 	coords Coord
-	color  pb.Color
+	color  pb.PlayerColor
 }
 
 func (p Player) Name() string {

@@ -43,18 +43,18 @@ func New(serverAddr string, name string) (*Client, error) {
 func (c *Client) GameLoop() {
 	for msg := range c.msgs {
 		if c.username != "" {
-			log.Printf("[%s] New message of type %s!\n", c.username, msg.MessageType)
+			log.Printf("[%s] New message of type %s!\n", c.username, msg.Type)
 		}
 
-		switch msg.MessageType {
+		switch msg.Type {
 		case pb.MessageType_ROOM_LIST:
 			// This is the list of the rooms, we can join the first free one
 			rooms := msg.GetRoomList_().GetRooms()
 			hasAvailableRoom := false
 			if len(rooms) == 0 {
 				c.Send(&pb.GameMessage{
-					MessageType: pb.MessageType_JOIN_ROOM,
-					Message:     &pb.GameMessage_JoinRoom{JoinRoom: &pb.JoinRoomMsg{Username: c.username}},
+					Type:    pb.MessageType_JOIN_ROOM,
+					Message: &pb.GameMessage_JoinRoom{JoinRoom: &pb.JoinRoom{Username: c.username}},
 				})
 				log.Printf("[%s] Told the server to create a new room\n", c.username)
 				continue
@@ -62,8 +62,8 @@ func (c *Client) GameLoop() {
 
 			availableRoom := rooms[0]
 			for _, room := range rooms {
-				log.Printf("[%s] Room %s has %d players out of %d\n", c.username, room.Name, room.Players, room.MaxPlayers)
-				if room.Players < room.MaxPlayers {
+				log.Printf("[%s] Room %s has %d players out of %d\n", c.username, room.Name, room.PlayerCount, room.MaxPlayerCount)
+				if room.PlayerCount < room.MaxPlayerCount {
 					hasAvailableRoom = true
 					availableRoom = room
 				}
@@ -71,35 +71,38 @@ func (c *Client) GameLoop() {
 
 			if hasAvailableRoom {
 				c.Send(&pb.GameMessage{
-					MessageType: pb.MessageType_JOIN_ROOM,
-					Message:     &pb.GameMessage_JoinRoom{JoinRoom: &pb.JoinRoomMsg{Username: c.username, Room: availableRoom}},
+					Type:    pb.MessageType_JOIN_ROOM,
+					Message: &pb.GameMessage_JoinRoom{JoinRoom: &pb.JoinRoom{Username: c.username, RoomName: &availableRoom.Name}},
 				})
 				log.Printf("[%s] Told the server to join room %s\n", c.username, availableRoom.Name)
 			} else {
 				c.Send(&pb.GameMessage{
-					MessageType: pb.MessageType_JOIN_ROOM,
-					Message:     &pb.GameMessage_JoinRoom{JoinRoom: &pb.JoinRoomMsg{Username: c.username}},
+					Type:    pb.MessageType_JOIN_ROOM,
+					Message: &pb.GameMessage_JoinRoom{JoinRoom: &pb.JoinRoom{Username: c.username}},
 				})
 				log.Printf("[%s] Told the server to create a new room\n", c.username)
 			}
 
 		case pb.MessageType_OTHER_LEAVE:
-			log.Printf("[%s] %s left the room\n", c.username, msg.GetOtherLeave().GetName())
+			log.Printf("[%s] %s left the room\n", c.username, msg.GetOtherLeave().GetUsername())
+
+		case pb.MessageType_WELCOME_TO_ROOM:
+			log.Printf("[%s] Welcome to room!\n", c.username)
+			var b strings.Builder
+			for _, player := range msg.GetWelcomeToRoom().Players {
+				b.WriteString(player.GetUsername())
+				b.WriteString(" ")
+			}
+			log.Printf("[%s] Players in game: %s\n", c.username, b.String())
 
 		case pb.MessageType_GAME_START:
 			log.Printf("[%s] Game started!\n", c.username)
 			c.isInGameMutex.Lock()
 			c.isInGame = true
 			c.isInGameMutex.Unlock()
-			var b strings.Builder
-			for _, username := range msg.GetGameStart().GetUsernames() {
-				b.WriteString(username)
-				b.WriteString(" ")
-			}
-			log.Printf("[%s] Players in game: %s\n", c.username, b.String())
 
 		case pb.MessageType_GOT_HIT:
-			log.Printf("[%s] Someone got hit: %s, lives remaning: %d\n", c.username, msg.GetGotHit().GetName(), msg.GetGotHit().GetLivesRemaining())
+			log.Printf("[%s] Someone got hit: %s, lives remaning: %d\n", c.username, msg.GetGotHit().GetUsername(), msg.GetGotHit().GetLivesRemaining())
 
 		case pb.MessageType_ERROR:
 			log.Printf("[%s] Error: %s\n", c.username, msg.GetError().Error)
@@ -122,7 +125,8 @@ func (c *Client) ReadLoop() error {
 		}
 
 		var msg pb.GameMessage
-		if err := proto.Unmarshal(bytes[:n], &msg); err != nil {
+		if err := proto.Unmarshal(bytes[1:n], &msg); err != nil {
+			log.Printf("[%s] Failed to unmarshall: %w\n", c.username, err)
 			return fmt.Errorf("failed to unmarshal message: %w", err)
 		}
 		c.msgs <- &msg
@@ -130,12 +134,15 @@ func (c *Client) ReadLoop() error {
 }
 
 func (c *Client) Send(msg *pb.GameMessage) error {
-	data, err := proto.Marshal(msg)
+	dataRaw, err := proto.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 
-	log.Printf("[%s] Sending message of type %s\n", c.username, msg.MessageType)
+	log.Printf("[%s] Sending message of type %s\n", c.username, msg.Type)
+	data := append([]byte{uint8(len(dataRaw))}, dataRaw...)
+
+	log.Printf("[%s] Has a length of %d\n", c.username, data[0])
 	n, err := c.conn.Write(data)
 	if err != nil || n != len(data) {
 		return fmt.Errorf("failed to send message: %w", err)

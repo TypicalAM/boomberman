@@ -56,15 +56,15 @@ func joinFirstGame(names []string) {
 		clients[i] = createClient(names[random])
 		defer clients[i].Close()
 		clients[i].Send(&pb.GameMessage{
-			MessageType: pb.MessageType_GET_ROOM_LIST,
-			Message:     &pb.GameMessage_GetRoomList{&pb.GetRoomListMsg{}},
+			Type:    pb.MessageType_GET_ROOM_LIST,
+			Message: &pb.GameMessage_GetRoomList{&pb.GetRoomList{}},
 		})
 
 		time.Sleep(200 * time.Millisecond)
 	}
 
-	moveMsg := &pb.GameMessage{MessageType: pb.MessageType_I_MOVE,
-		Message: &pb.GameMessage_IMove{&pb.IMoveMsg{X: 3.0, Y: 1}}}
+	moveMsg := &pb.GameMessage{Type: pb.MessageType_I_MOVE,
+		Message: &pb.GameMessage_IMove{&pb.IMove{X: 3.0, Y: 1}}}
 
 	log.Println("Moving client 0")
 	clients[0].Send(moveMsg)
