@@ -190,7 +190,8 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
             IPlaceBomb ipb = msg->payload->iplacebomb();
             int64_t timestamp = Util::TimestampMillis();
             bombs.emplace_back(std::floor(ipb.x()), std::floor(ipb.y()), 3, 25, Util::TimestampMillis(), 3.0f, false);
-            SendExcept(msg->author->conn.get(), Builder::OtherBombPlace, msg->author->username, timestamp, ipb.x(), ipb.y());
+            SendExcept(msg->author->conn.get(), Builder::OtherBombPlace, msg->author->username, timestamp, ipb.x(),
+                       ipb.y());
             return;
         }
 
@@ -240,8 +241,8 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
             SendExcept(msg->author->conn.get(), Builder::OtherLeave, msg->author->username);
             if (state.load() == PLAY) {
                 auto coords = msg->author->coords;
-                SendExcept(msg->author->conn.get(), Builder::OtherBombPlace, "Server", Util::TimestampMillis(), coords.x,
-                           coords.y);
+                SendExcept(msg->author->conn.get(), Builder::OtherBombPlace, "Server", Util::TimestampMillis(),
+                           coords.x, coords.y);
                 bombs.emplace_back(std::floor(coords.x), std::floor(coords.y), 9, 25, Util::TimestampMillis(), 3.0f,
                                    true);
             }
@@ -339,7 +340,8 @@ bool Room::JoinPlayer(std::unique_ptr<Connection> conn, const std::string &usern
     SendExcept(players[0]->conn.get(), Builder::GameJoin, Builder::Player{username, color});
 
     epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = players[0]->conn.get()}};
-    if (epoll_ctl(epollSock, EPOLL_CTL_ADD, players[0]->conn->sock, &event) == -1) throw std::runtime_error("cannot add to epoll");
+    if (epoll_ctl(epollSock, EPOLL_CTL_ADD, players[0]->conn->sock, &event) == -1)
+        throw std::runtime_error("cannot add to epoll");
     clientCount++;
     return true;
 }

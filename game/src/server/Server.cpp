@@ -127,7 +127,7 @@ void Server::handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> 
             auto conn = static_cast<Connection *>(events[i].data.ptr);
             auto msg = conn->Receive();
             if (!msg.has_value()) {
-                LOG << "Closing connection since we can't receive data: " << events[i].data.fd;
+                LOG << "Closing connection since we can't receive data: " << conn->sock;
                 epoll_ctl(epollSock, EPOLL_CTL_DEL, events[i].data.fd, nullptr);
                 shutdown(events[i].data.fd, SHUT_RDWR);
                 close(events[i].data.fd);

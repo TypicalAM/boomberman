@@ -64,7 +64,7 @@ func joinFirstGame(names []string) {
 	}
 
 	moveMsg := &pb.GameMessage{Type: pb.MessageType_I_MOVE,
-		Message: &pb.GameMessage_IMove{&pb.IMove{X: 3.0, Y: 1}}}
+		Message: &pb.GameMessage_IMove{&pb.IMove{X: 1.0, Y: 1}}}
 
 	log.Println("Moving client 0")
 	clients[0].Send(moveMsg)

@@ -33,7 +33,7 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
     char buf[256];
     int bytes_received = read(sock, buf, 256);
     if (bytes_received <= 0) return std::nullopt;
-    uint32_t msg_size = static_cast<unsigned char>(buf[0]);
+    uint8_t msg_size = static_cast<unsigned char>(buf[0]);
     if (bytes_received == msg_size + 1) {
         // Everything is fine, let's deserialize and return
         GameMessage msg;
@@ -55,7 +55,7 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
     }
 
     // Read until we get the message
-    uint32_t read_total = bytes_received;
+    uint8_t read_total = bytes_received;
     while (read_total != msg_size + 1) {
         bytes_received = read(sock, buf + read_total + 1, 256 - read_total - 1);
         if (bytes_received <= 0) return std::nullopt;
