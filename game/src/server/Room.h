@@ -67,7 +67,7 @@ public:
 
     std::vector<std::unique_ptr<SPlayer>> players;
 
-    std::optional<Timestamp> HandleMessage(std::unique_ptr<AuthoredMessage> msg);
+    bool HandleMessage(std::unique_ptr<AuthoredMessage> msg); // return true is if bomb has been placed
 
     void PlaceSuperBomb(SPlayer *player);
 

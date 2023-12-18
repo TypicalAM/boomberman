@@ -1,4 +1,9 @@
 #include <cstdio>
+#include <ctime>
+#include <stdexcept>
+#include <sys/timerfd.h>
+#include <cstring>
+#include <chrono>
 #include "Bomb.h"
 
 Bomb::Bomb(int pos_x, int pos_y, int explosion, int size, long double timestamp, float ttl, bool is_atomic) {
@@ -50,4 +55,16 @@ std::vector<TileOnFire> Bomb::boom(Map* map) {
         }
     }
     return tilesLitUp;
+}
+
+int Bomb::CreateBombTimerfd() {
+    int timerfd = timerfd_create(CLOCK_REALTIME, 0);
+    if (timerfd == -1) throw std::runtime_error("timerfd create");
+
+    struct itimerspec new_value;
+    memset(&new_value, 0, sizeof(new_value));
+    new_value.it_value.tv_sec = FUSE_TIME_SEC;
+
+    if (timerfd_settime(timerfd, 0, &new_value, nullptr) == -1) throw std::runtime_error("timerfd set");
+    return timerfd;
 }

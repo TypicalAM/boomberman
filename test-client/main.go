@@ -72,7 +72,13 @@ func joinFirstGame(names []string) {
 	bombMsg := &pb.GameMessage{Type: pb.MessageType_I_PLACE_BOMB,
 		Message: &pb.GameMessage_IPlaceBomb{&pb.IPlaceBomb{X: 1, Y: 1}}}
 
+	// Test immunity
 	clients[0].Send(bombMsg)
+	time.Sleep(50 * time.Millisecond)
+	clients[0].Send(bombMsg)
+	time.Sleep(50 * time.Millisecond)
+	clients[0].Send(bombMsg)
+	time.Sleep(50 * time.Millisecond)
 
 	for _, client := range clients {
 		<-client.Done()

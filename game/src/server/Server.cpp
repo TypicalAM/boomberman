@@ -10,32 +10,6 @@
 #include <sys/timerfd.h>
 #include "../shared/msg/Builder.h"
 
-int createTimerfd(Timestamp timestampMillis) {
-    int timerfd = timerfd_create(CLOCK_REALTIME, 0);
-    if (timerfd == -1) throw std::runtime_error("timerfd create");
-
-    struct itimerspec new_value;
-    memset(&new_value, 0, sizeof(new_value));
-
-    // Get the current time in milliseconds since epoch
-    auto now = std::chrono::system_clock::now().time_since_epoch();
-    auto nowMillis = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
-
-    // Calculate the duration till the specified timestamp
-    Timestamp durationMillis = timestampMillis - nowMillis;
-
-    // Convert milliseconds to seconds and nanoseconds
-    auto seconds = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::milliseconds(durationMillis));
-    auto nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(
-            std::chrono::milliseconds(durationMillis) - seconds);
-
-    new_value.it_value.tv_sec = seconds.count();
-    new_value.it_value.tv_nsec = nanoseconds.count();
-
-    if (timerfd_settime(timerfd, TFD_TIMER_ABSTIME, &new_value, nullptr) == -1) throw std::runtime_error("timerfd set");
-    return timerfd;
-}
-
 void Server::handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> msg) {
     switch (msg->type()) {
         case GET_ROOM_LIST: {
@@ -165,12 +139,12 @@ void Server::handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> 
 
             LOG << "Received a message of type: " << msg.value()->type();
             auto authored = std::make_unique<AuthoredMessage>(AuthoredMessage{std::move(msg.value()), pl->player});
-            std::optional<Timestamp> bomb_ts = pl->room->HandleMessage(std::move(authored));
-            if (!bomb_ts.has_value()) continue;
+            bool place_bomb = pl->room->HandleMessage(std::move(authored));
+            if (!place_bomb) continue;
 
             // Create a timer based on the timestamp and set a watch for it
             epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
-            epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, createTimerfd(bomb_ts.value()), &event); // TODO: Error handling
+            epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(), &event); // TODO: Error handling
         }
     }
 }

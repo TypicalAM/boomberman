@@ -47,26 +47,26 @@ bool Room::CanJoin(const std::string &username) {
     return !already_exists && MAX_PLAYERS - clientCount > 0;
 }
 
-std::optional<Timestamp> Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
+bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
     LOG << "Handling a message from user: " << msg->author->username;
 
     // If the game started
     if (state.load() == WAIT_FOR_START) {
         if (msg->payload->type() != I_LEAVE) {
             SendSpecific(msg->author->conn, Builder::Error("Game hasn't started yet"));
-            return std::nullopt;
+            return false;
         }
 
         // Make the player leave
         shutdown(players[0]->conn->sock, SHUT_RDWR);
         close(players[0]->conn->sock);
-        return std::nullopt;
+        return false;
     }
 
     // Check if the player is playing tricks
     if (!msg->author->livesRemaining && msg->payload->type() != I_LEAVE) {
         SendSpecific(msg->author->conn, Builder::Error("You can't really do anything while dead, can you?"));
-        return std::nullopt;
+        return false;
     }
 
     // Handle message based on the type
@@ -78,7 +78,7 @@ std::optional<Timestamp> Room::HandleMessage(std::unique_ptr<AuthoredMessage> ms
             bombs.emplace(std::floor(ipb.x()), std::floor(ipb.y()), 3, 25, Util::TimestampMillis(), 3.0f, false);
             SendExcept(msg->author->conn, Builder::OtherBombPlace, msg->author->username, timestamp, ipb.x(),
                        ipb.y());
-            return Util::TimestampMillis() + FUSE_TIME_MILLIS;
+            return true;
         }
 
         case I_MOVE: {
@@ -87,13 +87,13 @@ std::optional<Timestamp> Room::HandleMessage(std::unique_ptr<AuthoredMessage> ms
             int tile_state = map->getSquareState(std::floor(im.x()), std::floor(im.y()));
             if (tile_state != NOTHIN) {
                 SendSpecific(msg->author->conn, Builder::Error("Invalid movement"));
-                return std::nullopt;
+                return false;
             }
             // The movement was valid, let's roll
             msg->author->coords.x = im.x();
             msg->author->coords.y = im.y();
             SendExcept(msg->author->conn, Builder::OtherMove, msg->author->username, im.x(), im.y());
-            return std::nullopt;
+            return false;
         }
 
         case I_LEAVE: {
@@ -104,7 +104,7 @@ std::optional<Timestamp> Room::HandleMessage(std::unique_ptr<AuthoredMessage> ms
                 close(players[0]->conn->sock);
                 state.store(GAME_OVER); // Close the game
                 close(epollSock);
-                return std::nullopt;
+                return false;
             }
 
             if (players.size() == 2 && state.load() == PLAY) {
@@ -121,7 +121,7 @@ std::optional<Timestamp> Room::HandleMessage(std::unique_ptr<AuthoredMessage> ms
                 }
                 state.store(GAME_OVER);
                 close(epollSock);
-                return std::nullopt;
+                return false;
             }
 
             PlaceSuperBomb(msg->author);
@@ -132,13 +132,13 @@ std::optional<Timestamp> Room::HandleMessage(std::unique_ptr<AuthoredMessage> ms
                     author_idx = i;
             players.erase(players.begin() + author_idx);
             // TODO: Cleaner
-            return Util::TimestampMillis() + FUSE_TIME_MILLIS;
+            return true;
         }
 
         default:
             LOG << "Unexpected message type: " << msg->payload->type();
             SendSpecific(msg->author->conn, Builder::Error("Unexpected message"));
-            return std::nullopt;
+            return false;
     }
 }
 
@@ -224,8 +224,7 @@ void Room::ExplodeBomb() {
                 player->immunityEndTimestamp = Util::TimestampMillis() + IMMUNITY_TIME_MILLIS;
                 player->livesRemaining--;
                 SendBroadcast(Builder::GotHit, player->username, player->livesRemaining, Util::TimestampMillis());
-                std::cout << "Player: " << player->username << " got hit. Lives remaining: "
-                          << player->livesRemaining << std::endl;
+                LOG << "Player: " << player->username << " got hit. Lives remaining: " << player->livesRemaining;
             }
         }
     }
