@@ -11,13 +11,13 @@
 
 class SPlayer {
 public:
-    Connection conn;
+    std::unique_ptr<Connection> conn;
     int livesRemaining;
     Coords coords{};
     std::string username;
     PlayerColor color;
 
-    SPlayer(Connection conn, std::string username, PlayerColor color);
+    SPlayer(std::unique_ptr<Connection> conn, std::string username, PlayerColor color);
 };
 
 #endif

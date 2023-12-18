@@ -1,6 +1,5 @@
 #include <iostream>
 #include <algorithm>
-#include <iostream>
 #include <thread>
 
 #include "ServerHandler.h"
@@ -40,26 +39,26 @@ void Client::Run() const {
         if(local_boomberman->pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy == true_local_name){
             if (IsKeyPressed(KEY_SPACE)) {
                 entityHandler.placeBomb(local_boomberman_position[0], local_boomberman_position[1], 3, 25, Util::TimestampMillis(), 3.0f, false);
-                serverHandler.conn.Send(Builder::IPlaceBomb(local_boomberman_position[0],local_boomberman_position[1]));
+                serverHandler.conn->Send(Builder::IPlaceBomb(local_boomberman_position[0],local_boomberman_position[1]));
             }
             if (IsKeyPressed(KEY_RIGHT)) {
                 if(local_boomberman->move(&map, local_boomberman_position, 1, 0)){
-                    serverHandler.conn.Send(Builder::IMove(local_boomberman_position[0]+1, local_boomberman_position[1]));
+                    serverHandler.conn->Send(Builder::IMove(local_boomberman_position[0]+1, local_boomberman_position[1]));
                 }
             }
             if (IsKeyPressed(KEY_LEFT)) {
                 if(local_boomberman->move(&map, local_boomberman_position, -1, 0)) {
-                    serverHandler.conn.Send(Builder::IMove(local_boomberman_position[0]-1, local_boomberman_position[1]));
+                    serverHandler.conn->Send(Builder::IMove(local_boomberman_position[0]-1, local_boomberman_position[1]));
                 }
             }
             if (IsKeyPressed(KEY_UP)) {
                 if(local_boomberman->move(&map, local_boomberman_position, 0, -1)) {
-                    serverHandler.conn.Send(Builder::IMove(local_boomberman_position[0], local_boomberman_position[1]-1));
+                    serverHandler.conn->Send(Builder::IMove(local_boomberman_position[0], local_boomberman_position[1]-1));
                 }
             }
             if (IsKeyPressed(KEY_DOWN)) {
                 if(local_boomberman->move(&map, local_boomberman_position, 0, 1)) {
-                    serverHandler.conn.Send(Builder::IMove(local_boomberman_position[0], local_boomberman_position[1]+1));
+                    serverHandler.conn->Send(Builder::IMove(local_boomberman_position[0], local_boomberman_position[1]+1));
                 }
             }
         }
@@ -75,7 +74,7 @@ void Client::Run() const {
         DrawText("MOVE", 213, 10, 20, tutorial_color);
         EndDrawing();
     }
-    serverHandler.conn.Send(Builder::ILeave());
+    serverHandler.conn->Send(Builder::ILeave());
     local_boomberman->cleanUp();
     delete[] local_boomberman;
 }

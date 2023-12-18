@@ -2,8 +2,9 @@
 #include "RoomBox.h"
 #include <csignal>
 
-ServerHandler::ServerHandler() : conn(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) {
-    this->polling[0].fd = this->conn.sock;
+ServerHandler::ServerHandler() {
+    this->conn = std::make_unique<Connection>(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP));
+    this->polling[0].fd = this->conn->sock;
     this->polling[0].events = POLLIN | POLLOUT;
 }
 
@@ -12,7 +13,7 @@ void ServerHandler::connect2Server(const char *ip, int port) const {
             .sin_port = htons(port),
             .sin_addr = {inet_addr(ip)}};
 
-    if (connect(this->conn.sock, (sockaddr *) &addr, sizeof(addr))) {
+    if (connect(this->conn->sock, (sockaddr *) &addr, sizeof(addr))) {
         if (errno != EINPROGRESS) {
             perror("Connection to the server failed!");
             exit(1);
@@ -26,13 +27,13 @@ void ServerHandler::receiveLoop(EntityHandler &eh) {
     while (1) {
         int ready = poll(this->polling, 1, -1);
         if (ready == -1) {
-            shutdown(this->conn.sock, SHUT_RDWR);
-            close(this->conn.sock);
+            shutdown(this->conn->sock, SHUT_RDWR);
+            close(this->conn->sock);
             error(1, errno, "poll failed");
         }
 
         if (polling[0].revents & POLLIN) {
-            this->msg = this->conn.Receive().value();
+            this->msg = this->conn->Receive().value();
             printf("%d\n", msg->type());
             switch (this->msg->type()) {
                 case OTHER_MOVE: {
@@ -107,9 +108,9 @@ std::string ServerHandler::selectUsername(float screen_width, float screen_heigh
 
 
 void ServerHandler::menu(float width, float height) { // TODO: ACTUALLY HANDLE THE ROOM LIST
-    std::optional<int> bytes_sent = this->conn.Send(Builder::GetRoomList());
+    std::optional<int> bytes_sent = this->conn->Send(Builder::GetRoomList());
     while (true) {
-        this->msg = this->conn.Receive().value();
+        this->msg = this->conn->Receive().value();
         if (this->msg->type() == ROOM_LIST) break;
     }
 
@@ -124,7 +125,7 @@ void ServerHandler::menu(float width, float height) { // TODO: ACTUALLY HANDLE T
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             Vector2 mousePoint = GetMousePosition();
             if (CheckCollisionPointRec(mousePoint, newGameButton)) {
-                this->conn.Send(Builder::JoinRoom(ServerHandler::selectUsername(width, height)));
+                this->conn->Send(Builder::JoinRoom(ServerHandler::selectUsername(width, height)));
                 return;
             }
         }
@@ -185,7 +186,7 @@ void ServerHandler::listRooms(float width, float height) {
 
             for (const auto &room: rooms) {
                 if (CheckCollisionPointRec(mousePoint, room.rect)) {
-                    this->conn.Send(Builder::JoinRoom(ServerHandler::selectUsername(width, height), room.label));
+                    this->conn->Send(Builder::JoinRoom(ServerHandler::selectUsername(width, height), room.label));
                     return;
                 } else if (CheckCollisionPointRec(mousePoint, backButton)) return this->menu(width, height);
             }
@@ -213,7 +214,7 @@ void ServerHandler::listRooms(float width, float height) {
 
 void ServerHandler::wait4Game(EntityHandler &eh, float width, float height) {
     while (true) {
-        this->msg = this->conn.Receive().value();
+        this->msg = this->conn->Receive().value();
         if (this->msg->type() == GAME_START) {
             printf("Starting game with %zu players\n", eh.players.size());
             break;

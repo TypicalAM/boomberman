@@ -9,13 +9,14 @@
 class Server {
 private:
     std::unordered_map<std::string, std::shared_ptr<Room>> rooms;
+    std::vector<std::unique_ptr<Connection>> conns;
     std::vector<int> lobbySockets;
     std::mutex roomsMtx;
     int srvSock;
     int epollSock;
     boost::log::sources::logger logger;
 
-    void handleClientMessage(Connection conn, std::unique_ptr<GameMessage> msg);
+    void handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> msg);
 
 public:
     [[noreturn]] void Run();
