@@ -6,7 +6,6 @@
 #include <sys/socket.h>
 #include "Room.h"
 #include "../shared/msg/Builder.h"
-#include "../shared/msg/Channel.h"
 
 void Room::GameLoop() {
     while (state.load() != GAME_OVER) {
@@ -19,23 +18,23 @@ void Room::GameLoop() {
     LOG << "Gameloop done";
 }
 
-void Room::SendSpecific(int sock, std::unique_ptr<GameMessage> msg) {
-    LOG << "Sending message of type: " << msg->type() << " to player sock " << sock;
-    if (!Channel::Send(sock, std::move(msg)).has_value()) {
-        shutdown(sock, SHUT_RDWR);
-        close(sock);
+void Room::SendSpecific(Connection *conn, std::unique_ptr<GameMessage> msg) {
+    LOG << "Sending message of type: " << msg->type() << " to player sock " << conn->sock;
+    if (!conn->Send(std::move(msg)).has_value()) {
+        shutdown(conn->sock, SHUT_RDWR);
+        close(conn->sock);
     }
 }
 
 template<typename Function, typename ...Args>
-void Room::SendExcept(int sock, Function &&builderFunc, Args &&... builderArgs) {
+void Room::SendExcept(Connection *conn, Function &&builderFunc, Args &&... builderArgs) {
     for (auto &player: players) {
-        if (player->sock == sock) continue;
+        if (player->conn->sock == conn->sock) continue;
         auto msg = std::invoke(std::forward<Function>(builderFunc), std::forward<Args>(builderArgs)...);
-        LOG << "Sending message of type: " << msg->type() << " to player sock " << player->sock;
-        if (!Channel::Send(player->sock, std::move(msg)).has_value()) {
-            shutdown(player->sock, SHUT_RDWR);
-            close(player->sock);
+        LOG << "Sending message of type: " << msg->type() << " to player sock " << player->conn->sock;
+        if (!player->conn->Send(std::move(msg)).has_value()) {
+            shutdown(player->conn->sock, SHUT_RDWR);
+            close(player->conn->sock);
         }
     }
 }
@@ -44,10 +43,10 @@ template<typename Function, typename ...Args>
 void Room::SendBroadcast(Function &&builderFunc, Args &&... builderArgs) {
     for (auto &player: players) {
         auto msg = std::invoke(std::forward<Function>(builderFunc), std::forward<Args>(builderArgs)...);
-        LOG << "Sending message of type: " << msg->type() << " to player sock " << player->sock;
-        if (!Channel::Send(player->sock, std::move(msg)).has_value()) {
-            shutdown(player->sock, SHUT_RDWR);
-            close(player->sock);
+        LOG << "Sending message of type: " << msg->type() << " to player sock " << player->conn->sock;
+        if (!player->conn->Send(std::move(msg)).has_value()) {
+            shutdown(player->conn->sock, SHUT_RDWR);
+            close(player->conn->sock);
         }
     }
 }
@@ -117,8 +116,8 @@ void Room::HandleGameUpdates() {
 
     if (people_alive == 0 && state.load() == PLAY) {
         // This can happen in the unfortunate event that the last two players die from the same bomb. In this case we select the
-        // winner randomly (I don't think the person who set the bomb deserves to win and also it would require a message rewrite
-        // so I ain't doin it.
+        // winner randomly (I don't think the person who set the bomb deserves to win) and also it would require a message rewrite,
+        // so I ain't doing it.
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_int_distribution<> distrib(0, explode_indices.size());
@@ -131,8 +130,8 @@ void Room::HandleGameUpdates() {
         std::this_thread::sleep_for(std::chrono::seconds(3));
         LOG << "Closing other connections and ending the game";
         for (auto &player: players) {
-            shutdown(player->sock, SHUT_RDWR);
-            close(player->sock);
+            shutdown(player->conn->sock, SHUT_RDWR);
+            close(player->conn->sock);
         }
         state.store(GAME_OVER);
         close(epollSock);
@@ -146,8 +145,8 @@ void Room::HandleGameUpdates() {
         std::this_thread::sleep_for(std::chrono::seconds(3));
         LOG << "Closing other connections and ending the game";
         for (auto &player: players) {
-            shutdown(player->sock, SHUT_RDWR);
-            close(player->sock);
+            shutdown(player->conn->sock, SHUT_RDWR);
+            close(player->conn->sock);
         }
         state.store(GAME_OVER);
         close(epollSock);
@@ -168,19 +167,19 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
     // If the game started
     if (state.load() == WAIT_FOR_START) {
         if (msg->payload->type() != I_LEAVE) {
-            SendSpecific(msg->author->sock, Builder::Error("Game hasn't started yet"));
+            SendSpecific(msg->author->conn.get(), Builder::Error("Game hasn't started yet"));
             return;
         }
 
         // Make the player leave
-        shutdown(players[0]->sock, SHUT_RDWR);
-        close(players[0]->sock);
+        shutdown(players[0]->conn->sock, SHUT_RDWR);
+        close(players[0]->conn->sock);
         return;
     }
 
     // Check if the player is playing tricks
     if (!msg->author->livesRemaining && msg->payload->type() != I_LEAVE) {
-        SendSpecific(msg->author->sock, Builder::Error("You can't really do anything while dead, can you?"));
+        SendSpecific(msg->author->conn.get(), Builder::Error("You can't really do anything while dead, can you?"));
         return;
     }
 
@@ -191,7 +190,8 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
             IPlaceBomb ipb = msg->payload->iplacebomb();
             int64_t timestamp = Util::TimestampMillis();
             bombs.emplace_back(std::floor(ipb.x()), std::floor(ipb.y()), 3, 25, Util::TimestampMillis(), 3.0f, false);
-            SendExcept(msg->author->sock, Builder::OtherBombPlace, msg->author->username, timestamp, ipb.x(), ipb.y());
+            SendExcept(msg->author->conn.get(), Builder::OtherBombPlace, msg->author->username, timestamp, ipb.x(),
+                       ipb.y());
             return;
         }
 
@@ -200,13 +200,13 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
             IMove im = msg->payload->imove();
             int tile_state = map->getSquareState(std::floor(im.x()), std::floor(im.y()));
             if (tile_state != NOTHIN) {
-                SendSpecific(msg->author->sock, Builder::Error("Invalid movement"));
+                SendSpecific(msg->author->conn.get(), Builder::Error("Invalid movement"));
                 return;
             }
             // The movement was valid, let's roll
             msg->author->coords.x = im.x();
             msg->author->coords.y = im.y();
-            SendExcept(msg->author->sock, Builder::OtherMove, msg->author->username, im.x(), im.y());
+            SendExcept(msg->author->conn.get(), Builder::OtherMove, msg->author->username, im.x(), im.y());
             return;
         }
 
@@ -214,8 +214,8 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
             // Notify others of the player leaving
             std::lock_guard<std::mutex> lock(playerMtx);
             if (players.size() == 1) {
-                shutdown(players[0]->sock, SHUT_RDWR);
-                close(players[0]->sock);
+                shutdown(players[0]->conn->sock, SHUT_RDWR);
+                close(players[0]->conn->sock);
                 state.store(GAME_OVER); // Close the game
                 close(epollSock);
                 return;
@@ -223,40 +223,42 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
 
             if (players.size() == 2 && state.load() == PLAY) {
                 // This player just won lol, let's notify the last one standing
-                auto winner_idx = (players[0]->sock == msg->author->sock) ? 1 : 0;
+                auto winner_idx = (players[0]->conn->sock == msg->author->conn->sock) ? 1 : 0;
                 LOG << "Player won by other disconnecting: " << players[winner_idx]->username;
                 SendBroadcast(Builder::GameWon, players[winner_idx]->username);
                 state.store(WAIT_FOR_END);
                 std::this_thread::sleep_for(std::chrono::seconds(3));
                 LOG << "Closing other connections and ending the game";
                 for (auto &player: players) {
-                    shutdown(player->sock, SHUT_RDWR);
-                    close(player->sock);
+                    shutdown(player->conn->sock, SHUT_RDWR);
+                    close(player->conn->sock);
                 }
                 state.store(GAME_OVER);
                 close(epollSock);
                 return;
             }
 
-            SendExcept(msg->author->sock, Builder::OtherLeave, msg->author->username);
+            SendExcept(msg->author->conn.get(), Builder::OtherLeave, msg->author->username);
             if (state.load() == PLAY) {
                 auto coords = msg->author->coords;
-                SendExcept(msg->author->sock, Builder::OtherBombPlace, "Server", Util::TimestampMillis(), coords.x,
-                           coords.y);
+                SendExcept(msg->author->conn.get(), Builder::OtherBombPlace, "Server", Util::TimestampMillis(),
+                           coords.x, coords.y);
                 bombs.emplace_back(std::floor(coords.x), std::floor(coords.y), 9, 25, Util::TimestampMillis(), 3.0f,
                                    true);
             }
-            shutdown(msg->author->sock, SHUT_RDWR);
-            close(msg->author->sock);
+            shutdown(msg->author->conn->sock, SHUT_RDWR);
+            close(msg->author->conn->sock);
             int author_idx = -1;
-            for (int i = 0; i < players.size(); ++i) if (players[i]->sock == msg->author->sock) author_idx = i;
+            for (int i = 0; i < players.size(); ++i)
+                if (players[i]->conn->sock == msg->author->conn->sock)
+                    author_idx = i;
             players.erase(players.begin() + author_idx);
             return;
         }
 
         default:
             LOG << "Unexpected message type: " << msg->payload->type();
-            SendSpecific(msg->author->sock, Builder::Error("Unexpected message"));
+            SendSpecific(msg->author->conn.get(), Builder::Error("Unexpected message"));
     }
 }
 
@@ -274,23 +276,23 @@ void Room::ReadIntoQueue() {
 
         // We got a message from a client
         std::lock_guard<std::mutex> lock(playerMtx);
-        auto client_sock = events[i].data.fd;
-        auto msg = Channel::Receive(client_sock);
+        auto client_conn = static_cast<Connection *>(events[i].data.ptr);
+        auto msg = client_conn->Receive();
         if (!msg.has_value()) {
-            LOG << "Closing connection since we can't receive data: " << client_sock;
-            epoll_ctl(epollSock, EPOLL_CTL_DEL, client_sock, nullptr);
-            shutdown(client_sock, SHUT_RDWR);
-            close(client_sock);
+            LOG << "Closing connection since we can't receive data: " << client_conn->sock;
+            epoll_ctl(epollSock, EPOLL_CTL_DEL, client_conn->sock, nullptr);
+            shutdown(client_conn->sock, SHUT_RDWR);
+            close(client_conn->sock);
             clientCount--;
 
             int author_idx = -1;
-            for (int j = 0; j < players.size(); ++j) if (players[j]->sock == client_sock) author_idx = j;
+            for (int j = 0; j < players.size(); ++j) if (players[j]->conn->sock == client_conn->sock) author_idx = j;
             if (author_idx == -1) continue; // Look below
 
-            SendExcept(players[author_idx]->sock, Builder::OtherLeave, players[author_idx]->username);
+            SendExcept(players[author_idx]->conn.get(), Builder::OtherLeave, players[author_idx]->username);
             if (state.load() == PLAY) {
                 auto coords = players[author_idx]->coords;
-                SendExcept(players[author_idx]->sock, Builder::OtherBombPlace, "Server", Util::TimestampMillis(),
+                SendExcept(players[author_idx]->conn.get(), Builder::OtherBombPlace, "Server", Util::TimestampMillis(),
                            coords.x, coords.y);
                 bombs.emplace_back(std::floor(coords.x), std::floor(coords.y), 7, 25, Util::TimestampMillis(), 3.0f,
                                    true);
@@ -301,15 +303,15 @@ void Room::ReadIntoQueue() {
 
         // Find the player and associate it with the message
         int author_idx = -1;
-        for (int j = 0; j < players.size(); ++j) if (players[j]->sock == client_sock) author_idx = j;
+        for (int j = 0; j < players.size(); ++j) if (players[j]->conn->sock == client_conn->sock) author_idx = j;
         if (author_idx == -1) {
             // This happens when a player has been disconnected from the game
             // (kicked out, idk) but they still somehow sent a message here. In that
             // case broadcasting of their leaving should've already been handled above.
-            LOG << "Closing connection since there isn't a player like that: " << client_sock;
-            epoll_ctl(epollSock, EPOLL_CTL_DEL, client_sock, nullptr);
-            shutdown(client_sock, SHUT_RDWR);
-            close(client_sock);
+            LOG << "Closing connection since there isn't a player like that: " << client_conn->sock;
+            epoll_ctl(epollSock, EPOLL_CTL_DEL, client_conn->sock, nullptr);
+            shutdown(client_conn->sock, SHUT_RDWR);
+            close(client_conn->sock);
             continue;
         }
 
@@ -320,29 +322,27 @@ void Room::ReadIntoQueue() {
     }
 }
 
-bool Room::JoinPlayer(int sock, const std::string &username) {
+bool Room::JoinPlayer(std::unique_ptr<Connection> conn, const std::string &username) {
     if (state.load() != WAIT_FOR_START) return false;
     std::lock_guard<std::mutex> lock(playerMtx);
-    epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.fd = sock}};
-    if (epoll_ctl(epollSock, EPOLL_CTL_ADD, sock, &event) == -1) throw std::runtime_error("cannot add to epoll");
-    clientCount++;
 
     // Insert the player at the first pos
     // TODO: Igorze, dlaczego muszę popychać całą tablicę do tyłu...
     // TODO: Adamie, zamykasz tabele, będziesz na czele...
     auto color = static_cast<PlayerColor>(players.size());
-    players.insert(players.begin(), std::make_unique<SPlayer>(sock, username, color));
+    players.insert(players.begin(), std::make_unique<SPlayer>(std::move(conn), username, color));
 
     // Send the current connected player list to the new player
     std::vector<Builder::Player> player_list;
     for (const auto &player: players) player_list.emplace_back(Builder::Player{player->username, player->color});
-    SendSpecific(sock, Builder::WelcomeToRoom(player_list));
 
-    // Tell everyone a new player is here
-    Builder::Player new_player = Builder::Player{username, color};
-    SendExcept(sock, Builder::GameJoin, new_player);
+    SendSpecific(players[0]->conn.get(), Builder::WelcomeToRoom(player_list));
+    SendExcept(players[0]->conn.get(), Builder::GameJoin, Builder::Player{username, color});
 
-    // Add the player to the player list
+    epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = players[0]->conn.get()}};
+    if (epoll_ctl(epollSock, EPOLL_CTL_ADD, players[0]->conn->sock, &event) == -1)
+        throw std::runtime_error("cannot add to epoll");
+    clientCount++;
     return true;
 }
 

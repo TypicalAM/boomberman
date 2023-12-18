@@ -19,8 +19,8 @@ endif ()
 set(SOURCES
         src/Main.cpp
 
-        src/shared/msg/Channel.cpp
-        src/shared/msg/Channel.h
+        src/shared/msg/Connection.cpp
+        src/shared/msg/Connection.h
 
         src/server/Room.cpp
         src/server/Room.h

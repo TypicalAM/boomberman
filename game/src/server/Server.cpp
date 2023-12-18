@@ -1,6 +1,5 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <random>
 #include <thread>
 #include "Server.h"
 #include <sys/epoll.h>
@@ -8,11 +7,9 @@
 #include <boost/log/attributes/constant.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/trivial.hpp>
-#include "../shared/Util.h"
-#include "../shared/msg/Channel.h"
 #include "../shared/msg/Builder.h"
 
-void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
+void Server::handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> msg) {
     switch (msg->type()) {
         case GET_ROOM_LIST: {
             // Create a room list and send it to the user
@@ -32,10 +29,10 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
             }
 
             // Close the connection if we can't send the message
-            if (!Channel::Send(sock, Builder::RoomList(room_list)).has_value()) {
-                epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
-                shutdown(sock, SHUT_RDWR);
-                close(sock);
+            if (!conn->Send(Builder::RoomList(room_list)).has_value()) {
+                epoll_ctl(epollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
+                shutdown(conn->sock, SHUT_RDWR);
+                close(conn->sock);
             }
             return;
         }
@@ -55,10 +52,10 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
                 if (rooms.find(room_msg.roomname()) == rooms.end()) {
                     // Close the connection if we can't send the message
                     LOG << "Client requested a room which doesn't exist: " << room_msg.roomname();
-                    if (Channel::Send(sock, Builder::Error("There is no room with that name man")).has_value()) return;
-                    epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
-                    shutdown(sock, SHUT_RDWR);
-                    close(sock);
+                    if (conn->Send(Builder::Error("There is no room with that name man")).has_value()) return;
+                    epoll_ctl(epollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
+                    shutdown(conn->sock, SHUT_RDWR);
+                    close(conn->sock);
                     return;
                 }
 
@@ -68,28 +65,38 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
 
             if (!room->CanJoin(room_msg.username())) {
                 // Close the connection if we can't send the message
-                if (Channel::Send(sock, Builder::Error("Cannot join this game")).has_value()) return;
-                epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
-                close(sock);
+                if (conn->Send(Builder::Error("Cannot join this game")).has_value()) return;
+                epoll_ctl(epollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
+                shutdown(conn->sock, SHUT_RDWR);
+                close(conn->sock);
                 return;
             }
 
             LOG << "Joining player to game: " << room_msg.username();
-            epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
-            if (!room->JoinPlayer(sock, room_msg.username())) {
-                shutdown(sock, SHUT_RDWR);
-                close(sock);
+            int idx = -1;
+            for (int i = 0; i < conns.size(); i++) {
+                if (conns[i]->sock == conn->sock) {
+                    idx = i;
+                }
             }
+
+            if (!room->JoinPlayer(std::move(conns[idx]), room_msg.username())) {
+                epoll_ctl(epollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
+                shutdown(conn->sock, SHUT_RDWR);
+                close(conn->sock);
+            }
+
+            conns.erase(conns.begin() + idx);
             return;
         }
 
         default: {
             // Close the connection if we can't send the message
             LOG << "Unexpected message type: " << msg->type();
-            if (!Channel::Send(sock, Builder::Error("Unexpected message")).has_value()) {
-                epoll_ctl(epollSock, EPOLL_CTL_DEL, sock, nullptr);
-                shutdown(sock, SHUT_RDWR);
-                close(sock);
+            if (!conn->Send(Builder::Error("Unexpected message")).has_value()) {
+                epoll_ctl(epollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
+                shutdown(conn->sock, SHUT_RDWR);
+                close(conn->sock);
             }
         }
     }
@@ -109,16 +116,18 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
             if (events[i].data.fd == srvSock) {
                 int new_sock = accept(srvSock, nullptr, nullptr);
                 if (new_sock == -1) continue;
-                epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.fd = new_sock}};
+                conns.push_back(std::make_unique<Connection>(new_sock));
+                epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = conns.back().get()}};
                 if (epoll_ctl(epollSock, EPOLL_CTL_ADD, new_sock, &event) == -1) continue;
                 LOG << "New connection accepted from: " << new_sock;
                 continue;
             }
 
             // We got a message from a client
-            auto msg = Channel::Receive(events[i].data.fd);
+            auto conn = static_cast<Connection *>(events[i].data.ptr);
+            auto msg = conn->Receive();
             if (!msg.has_value()) {
-                LOG << "Closing connection since we can't receive data: " << events[i].data.fd;
+                LOG << "Closing connection since we can't receive data: " << conn->sock;
                 epoll_ctl(epollSock, EPOLL_CTL_DEL, events[i].data.fd, nullptr);
                 shutdown(events[i].data.fd, SHUT_RDWR);
                 close(events[i].data.fd);
@@ -126,7 +135,7 @@ void Server::handleClientMessage(int sock, std::unique_ptr<GameMessage> msg) {
             }
 
             // Handle the message
-            handleClientMessage(events[i].data.fd, std::move(msg.value()));
+            handleClientMessage(conn, std::move(msg.value()));
         }
     }
 }

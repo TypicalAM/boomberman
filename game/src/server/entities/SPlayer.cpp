@@ -1,7 +1,9 @@
 #include "SPlayer.h"
 
-SPlayer::SPlayer(int fd, std::string username, PlayerColor color) {
-    this->sock = fd;
+#include <utility>
+
+SPlayer::SPlayer(std::unique_ptr<Connection> conn, std::string username, PlayerColor color) {
+    this->conn = std::move(conn);
     this->username = std::move(username);
     this->color = color;
     this->livesRemaining = STARTER_LIVES;
