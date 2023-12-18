@@ -8,6 +8,7 @@
 #include "../../shared/msg/Connection.h"
 
 #define STARTER_LIVES 3
+#define IMMUNITY_TIME_MILLIS 500
 
 class SPlayer {
 public:
@@ -16,6 +17,7 @@ public:
     Coords coords{};
     std::string username;
     PlayerColor color;
+    int64_t immunityEndTimestamp;
 
     SPlayer(std::unique_ptr<Connection> conn, std::string username, PlayerColor color);
 };

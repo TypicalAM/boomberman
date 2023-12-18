@@ -47,7 +47,7 @@ func createClient(name string) *Client {
 
 func joinFirstGame(names []string) {
 	log.Println("Creating a client")
-	count := 4
+	count := 3
 	clients := make([]*Client, count)
 
 	for i := 0; i < count; i++ {
@@ -63,12 +63,20 @@ func joinFirstGame(names []string) {
 		time.Sleep(200 * time.Millisecond)
 	}
 
-	moveMsg := &pb.GameMessage{Type: pb.MessageType_I_MOVE,
-		Message: &pb.GameMessage_IMove{&pb.IMove{X: 1.0, Y: 1}}}
+	placeBomb := &pb.GameMessage{Type: pb.MessageType_I_PLACE_BOMB,
+		Message: &pb.GameMessage_IPlaceBomb{&pb.IPlaceBomb{X: 1, Y: 1}}}
 
-	log.Println("Moving client 0")
-	clients[0].Send(moveMsg)
-	time.Sleep(1 * time.Second)
+	log.Println("Placing bomb client 0")
+	clients[0].Send(placeBomb)
+	time.Sleep(50 * time.Millisecond)
+	clients[0].Send(placeBomb)
+	time.Sleep(50 * time.Microsecond)
+	clients[0].Send(placeBomb)
+
+	time.Sleep(5 * time.Second)
+	clients[0].Send(placeBomb)
+
+	// We expect to see only one gothitmsg
 
 	for _, client := range clients {
 		<-client.Done()

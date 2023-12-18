@@ -92,7 +92,14 @@ void Room::HandleGameUpdates() {
             int adjusted_y = std::floor(player->coords.y);
             for (const auto &tile: result) {
                 if (adjusted_x == tile.x && adjusted_y == tile.y) {
+                    // Check if we are in iframes
+                    if (player->immunityEndTimestamp > Util::TimestampMillis()) {
+                        LOG << player->username << "is immune since " << player->immunityEndTimestamp << " > " << Util::TimestampMillis();
+                        continue;
+                    }
+
                     // The person was hit by the bomb, cool
+                    player->immunityEndTimestamp = Util::TimestampMillis() + IMMUNITY_TIME_MILLIS;
                     player->livesRemaining--;
                     SendBroadcast(Builder::GotHit, player->username, player->livesRemaining, Util::TimestampMillis());
                     std::cout << "Player: " << player->username << " got hit. Lives remaining: "
