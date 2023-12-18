@@ -67,6 +67,13 @@ func joinFirstGame(names []string) {
 		Message: &pb.GameMessage_IMove{&pb.IMove{X: 1, Y: 1}}}
 	clients[0].Send(moveMsg)
 
+	time.Sleep(500 * time.Millisecond)
+
+	bombMsg := &pb.GameMessage{Type: pb.MessageType_I_PLACE_BOMB,
+		Message: &pb.GameMessage_IPlaceBomb{&pb.IPlaceBomb{X: 1, Y: 1}}}
+
+	clients[0].Send(bombMsg)
+
 	for _, client := range clients {
 		<-client.Done()
 	}

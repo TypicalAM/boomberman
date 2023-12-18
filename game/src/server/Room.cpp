@@ -47,113 +47,26 @@ bool Room::CanJoin(const std::string &username) {
     return !already_exists && MAX_PLAYERS - clientCount > 0;
 }
 
-void Room::HandleGameUpdates() {
-    if (state.load() != PLAY) return;
-
-    std::lock_guard<std::mutex> lock(playerMtx);
-    std::vector<int> explode_indices;
-
-    for (int i = 0; i < bombs.size(); i++) {
-        if (!bombs[i].ShouldExplode()) continue;
-        explode_indices.push_back(i);
-
-        // The bomb explodes
-        std::vector<TileOnFire> result = bombs[i].boom(map.get());
-        for (auto &player: players) {
-            // Let's check if the player was in radius of the bomb
-            int adjusted_x = std::floor(player->coords.x);
-            int adjusted_y = std::floor(player->coords.y);
-            for (const auto &tile: result) {
-                if (adjusted_x == tile.x && adjusted_y == tile.y) {
-                    // Check if we are in iframes
-                    if (player->immunityEndTimestamp > Util::TimestampMillis()) {
-                        LOG << player->username << "is immune since " << player->immunityEndTimestamp << " > "
-                            << Util::TimestampMillis();
-                        continue;
-                    }
-
-                    // The person was hit by the bomb, cool
-                    player->immunityEndTimestamp = Util::TimestampMillis() + IMMUNITY_TIME_MILLIS;
-                    player->livesRemaining--;
-                    SendBroadcast(Builder::GotHit, player->username, player->livesRemaining, Util::TimestampMillis());
-                    std::cout << "Player: " << player->username << " got hit. Lives remaining: "
-                              << player->livesRemaining << std::endl;
-                }
-            }
-        }
-    }
-
-    for (const auto &index: explode_indices)
-        bombs.erase(bombs.begin() + index);
-
-    int people_alive = 0;
-    int last_alive_index = -1;
-    for (int i = 0; i < players.size(); ++i) {
-        if (players[i]->livesRemaining != 0) {
-            people_alive++;
-            last_alive_index = i;
-        }
-    }
-
-    if (people_alive == 0 && state.load() == PLAY) {
-        // This can happen in the unfortunate event that the last two players die from the same bomb. In this case we select the
-        // winner randomly (I don't think the person who set the bomb deserves to win) and also it would require a message rewrite,
-        // so I ain't doing it.
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_int_distribution<> distrib(0, explode_indices.size());
-        int winner_idx = distrib(gen);
-
-        // This person has won the game, announce that and disconnect all clients
-        LOG << "Player won by random mutual explosion: " << players[winner_idx]->username;
-        SendBroadcast(Builder::GameWon, players[winner_idx]->username);
-        state.store(WAIT_FOR_END);
-        std::this_thread::sleep_for(std::chrono::seconds(3));
-        LOG << "Closing other connections and ending the game";
-        for (auto &player: players) {
-            shutdown(player->conn->sock, SHUT_RDWR);
-            close(player->conn->sock);
-        }
-        state.store(GAME_OVER);
-        close(epollSock);
-    }
-
-    if (people_alive == 1 && state.load() == PLAY) {
-        // This person has won the game, announce that and disconnect all clients
-        LOG << "Player won by last person alive: " << players[last_alive_index]->username;
-        SendBroadcast(Builder::GameWon, players[last_alive_index]->username);
-        state.store(WAIT_FOR_END);
-        std::this_thread::sleep_for(std::chrono::seconds(3));
-        LOG << "Closing other connections and ending the game";
-        for (auto &player: players) {
-            shutdown(player->conn->sock, SHUT_RDWR);
-            close(player->conn->sock);
-        }
-        state.store(GAME_OVER);
-        close(epollSock);
-    }
-}
-
-void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
+std::optional<Timestamp> Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
     LOG << "Handling a message from user: " << msg->author->username;
 
     // If the game started
     if (state.load() == WAIT_FOR_START) {
         if (msg->payload->type() != I_LEAVE) {
             SendSpecific(msg->author->conn, Builder::Error("Game hasn't started yet"));
-            return;
+            return std::nullopt;
         }
 
         // Make the player leave
         shutdown(players[0]->conn->sock, SHUT_RDWR);
         close(players[0]->conn->sock);
-        return;
+        return std::nullopt;
     }
 
     // Check if the player is playing tricks
     if (!msg->author->livesRemaining && msg->payload->type() != I_LEAVE) {
         SendSpecific(msg->author->conn, Builder::Error("You can't really do anything while dead, can you?"));
-        return;
+        return std::nullopt;
     }
 
     // Handle message based on the type
@@ -161,11 +74,11 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
         case I_PLACE_BOMB: {
             // Place the bomb at the specified location
             IPlaceBomb ipb = msg->payload->iplacebomb();
-            int64_t timestamp = Util::TimestampMillis();
-            bombs.emplace_back(std::floor(ipb.x()), std::floor(ipb.y()), 3, 25, Util::TimestampMillis(), 3.0f, false);
+            Timestamp timestamp = Util::TimestampMillis();
+            bombs.emplace(std::floor(ipb.x()), std::floor(ipb.y()), 3, 25, Util::TimestampMillis(), 3.0f, false);
             SendExcept(msg->author->conn, Builder::OtherBombPlace, msg->author->username, timestamp, ipb.x(),
                        ipb.y());
-            return;
+            return Util::TimestampMillis() + FUSE_TIME_MILLIS;
         }
 
         case I_MOVE: {
@@ -174,13 +87,13 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
             int tile_state = map->getSquareState(std::floor(im.x()), std::floor(im.y()));
             if (tile_state != NOTHIN) {
                 SendSpecific(msg->author->conn, Builder::Error("Invalid movement"));
-                return;
+                return std::nullopt;
             }
             // The movement was valid, let's roll
             msg->author->coords.x = im.x();
             msg->author->coords.y = im.y();
             SendExcept(msg->author->conn, Builder::OtherMove, msg->author->username, im.x(), im.y());
-            return;
+            return std::nullopt;
         }
 
         case I_LEAVE: {
@@ -191,7 +104,7 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
                 close(players[0]->conn->sock);
                 state.store(GAME_OVER); // Close the game
                 close(epollSock);
-                return;
+                return std::nullopt;
             }
 
             if (players.size() == 2 && state.load() == PLAY) {
@@ -208,7 +121,7 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
                 }
                 state.store(GAME_OVER);
                 close(epollSock);
-                return;
+                return std::nullopt;
             }
 
             PlaceSuperBomb(msg->author);
@@ -218,12 +131,14 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
                 if (players[i]->conn->sock == msg->author->conn->sock)
                     author_idx = i;
             players.erase(players.begin() + author_idx);
-            return;
+            // TODO: Cleaner
+            return Util::TimestampMillis() + FUSE_TIME_MILLIS;
         }
 
         default:
             LOG << "Unexpected message type: " << msg->payload->type();
             SendSpecific(msg->author->conn, Builder::Error("Unexpected message"));
+            return std::nullopt;
     }
 }
 
@@ -278,7 +193,88 @@ void Room::PlaceSuperBomb(SPlayer *player) {
     if (state.load() == PLAY) {
         auto coords = player->coords;
         SendExcept(player->conn, Builder::OtherBombPlace, "Server", Util::TimestampMillis(), coords.x, coords.y);
-        bombs.emplace_back(std::floor(coords.x), std::floor(coords.y), 9, 25, Util::TimestampMillis(), 3.0f,
-                           true);
+        bombs.emplace(std::floor(coords.x), std::floor(coords.y), 9, 25, Util::TimestampMillis(), 3.0f, true);
+    }
+}
+
+void Room::ExplodeBomb() {
+    if (state.load() != PLAY) return;
+
+    Bomb bomb = bombs.front();
+    bombs.pop();
+    if (bomb.ShouldExplode()) return; // TODO: This shouldn't happen, cuz we are notified by a timer
+
+    // The bomb explodes
+    std::vector<TileOnFire> result = bomb.boom(map.get());
+    std::lock_guard<std::mutex> lock(playerMtx);
+    for (auto &player: players) {
+        // Let's check if the player was in radius of the bomb
+        int adjusted_x = std::floor(player->coords.x);
+        int adjusted_y = std::floor(player->coords.y);
+        for (const auto &tile: result) {
+            if (adjusted_x == tile.x && adjusted_y == tile.y) {
+                // Check if we are in iframes
+                if (player->immunityEndTimestamp > Util::TimestampMillis()) {
+                    LOG << player->username << "is immune since " << player->immunityEndTimestamp << " > "
+                        << Util::TimestampMillis();
+                    continue;
+                }
+
+                // The person was hit by the bomb, cool
+                player->immunityEndTimestamp = Util::TimestampMillis() + IMMUNITY_TIME_MILLIS;
+                player->livesRemaining--;
+                SendBroadcast(Builder::GotHit, player->username, player->livesRemaining, Util::TimestampMillis());
+                std::cout << "Player: " << player->username << " got hit. Lives remaining: "
+                          << player->livesRemaining << std::endl;
+            }
+        }
+    }
+
+    int people_alive = 0;
+    int last_alive_index = -1;
+    for (int i = 0; i < players.size(); ++i) {
+        if (players[i]->livesRemaining != 0) {
+            people_alive++;
+            last_alive_index = i;
+        }
+    }
+
+    if (people_alive == 0 && state.load() == PLAY) {
+        // This can happen in the unfortunate event that the last two players die from the same bomb. In this case we select the
+        // winner randomly (I don't think the person who set the bomb deserves to win) and also it would require a message rewrite,
+        // so I ain't doing it.
+        // TODO: I don't think it does what I think, too late evening, brain not worky
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> distrib(0, people_alive);
+        int winner_idx = distrib(gen);
+
+        // This person has won the game, announce that and disconnect all clients
+        LOG << "Player won by random mutual explosion: " << players[winner_idx]->username;
+        SendBroadcast(Builder::GameWon, players[winner_idx]->username);
+        state.store(WAIT_FOR_END);
+        std::this_thread::sleep_for(std::chrono::seconds(3));
+        LOG << "Closing other connections and ending the game";
+        for (auto &player: players) {
+            shutdown(player->conn->sock, SHUT_RDWR);
+            close(player->conn->sock);
+        }
+        state.store(GAME_OVER);
+        close(epollSock);
+    }
+
+    if (people_alive == 1 && state.load() == PLAY) {
+        // This person has won the game, announce that and disconnect all clients
+        LOG << "Player won by last person alive: " << players[last_alive_index]->username;
+        SendBroadcast(Builder::GameWon, players[last_alive_index]->username);
+        state.store(WAIT_FOR_END);
+        std::this_thread::sleep_for(std::chrono::seconds(3));
+        LOG << "Closing other connections and ending the game";
+        for (auto &player: players) {
+            shutdown(player->conn->sock, SHUT_RDWR);
+            close(player->conn->sock);
+        }
+        state.store(GAME_OVER);
+        close(epollSock);
     }
 }

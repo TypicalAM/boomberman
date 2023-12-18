@@ -31,9 +31,9 @@ struct AuthoredMessage {
 
 class Room {
 private:
-    std::vector<Bomb> bombs;
+    std::queue<Bomb> bombs;
     std::atomic<GameState> state = WAIT_FOR_START;
-    int64_t lastGameWaitMessage;
+    Timestamp lastGameWaitMessage;
 
     std::mutex playerMtx;
     int clientCount = 0;
@@ -45,8 +45,6 @@ private:
     std::unique_ptr<Map> map;
 
     int epollSock;
-
-    void HandleGameUpdates();
 
     void SendSpecific(Connection *conn, std::unique_ptr<GameMessage> msg);
 
@@ -69,9 +67,11 @@ public:
 
     std::vector<std::unique_ptr<SPlayer>> players;
 
-    void HandleMessage(std::unique_ptr<AuthoredMessage> msg);
+    std::optional<Timestamp> HandleMessage(std::unique_ptr<AuthoredMessage> msg);
 
     void PlaceSuperBomb(SPlayer *player);
+
+    void ExplodeBomb();
 };
 
 #endif

@@ -33,6 +33,7 @@ int main(int argc, char *argv[]) {
     } else {
         Server server(2137);
         std::thread(&Server::RunRoom, &server).detach();
+        std::thread(&Server::RunBombs, &server).detach();
         server.RunLobby();
     };
 

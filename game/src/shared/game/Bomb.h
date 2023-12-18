@@ -6,6 +6,8 @@
 #include <vector>
 #include "../Util.h"
 
+#define FUSE_TIME_MILLIS 3000
+
 class Bomb{
 public:
     int pos_x, pos_y;

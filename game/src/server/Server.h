@@ -19,6 +19,7 @@ private:
     std::unordered_map<int, std::unique_ptr<Connection>> roomConns;
     std::unordered_map<int, PlayerInRoom> roomAssignments;
     int roomEpollSock;
+    int bombEpollSock;
 
     std::vector<std::unique_ptr<Connection>> lobbyConns;
     std::vector<int> lobbySockets;
@@ -37,6 +38,8 @@ public:
     explicit Server(int port);
 
     [[noreturn]] void RunRoom();
+
+    [[noreturn]] void RunBombs();
 };
 
 #endif

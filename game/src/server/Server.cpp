@@ -7,7 +7,34 @@
 #include <boost/log/attributes/constant.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/trivial.hpp>
+#include <sys/timerfd.h>
 #include "../shared/msg/Builder.h"
+
+int createTimerfd(Timestamp timestampMillis) {
+    int timerfd = timerfd_create(CLOCK_REALTIME, 0);
+    if (timerfd == -1) throw std::runtime_error("timerfd create");
+
+    struct itimerspec new_value;
+    memset(&new_value, 0, sizeof(new_value));
+
+    // Get the current time in milliseconds since epoch
+    auto now = std::chrono::system_clock::now().time_since_epoch();
+    auto nowMillis = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+
+    // Calculate the duration till the specified timestamp
+    Timestamp durationMillis = timestampMillis - nowMillis;
+
+    // Convert milliseconds to seconds and nanoseconds
+    auto seconds = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::milliseconds(durationMillis));
+    auto nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::milliseconds(durationMillis) - seconds);
+
+    new_value.it_value.tv_sec = seconds.count();
+    new_value.it_value.tv_nsec = nanoseconds.count();
+
+    if (timerfd_settime(timerfd, TFD_TIMER_ABSTIME, &new_value, nullptr) == -1) throw std::runtime_error("timerfd set");
+    return timerfd;
+}
 
 void Server::handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> msg) {
     switch (msg->type()) {
@@ -102,6 +129,20 @@ void Server::handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> 
     }
 }
 
+[[noreturn]] void Server::RunBombs() {
+    LOG << "Serving bombs";
+
+    epoll_event events[MAX_EVENTS];
+    while (true) {
+        int event_num = epoll_wait(bombEpollSock, events, MAX_EVENTS, -1);
+        for (int i = 0; i < event_num; ++i) {
+            auto room = static_cast<Room *>(events[i].data.ptr);
+            LOG << "Got new bomb timer expiry, notifying appropriate room";
+            room->ExplodeBomb();
+        }
+    }
+}
+
 [[noreturn]] void Server::RunRoom() {
     LOG << "Serving rooms";
 
@@ -124,13 +165,18 @@ void Server::handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> 
 
             LOG << "Received a message of type: " << msg.value()->type();
             auto authored = std::make_unique<AuthoredMessage>(AuthoredMessage{std::move(msg.value()), pl->player});
-            pl->room->HandleMessage(std::move(authored)); // TODO: How to handle bombs
+            std::optional<Timestamp> bomb_ts = pl->room->HandleMessage(std::move(authored));
+            if (!bomb_ts.has_value()) continue;
+
+            // Create a timer based on the timestamp and set a watch for it
+            epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
+            epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, createTimerfd(bomb_ts.value()), &event); // TODO: Error handling
         }
     }
 }
 
 [[noreturn]] void Server::RunLobby() {
-    LOG << "Serving";
+    LOG << "Serving lobby";
 
     epoll_event events[MAX_EVENTS];
     while (true) {
@@ -200,7 +246,7 @@ Server::Server(int port) {
         throw std::runtime_error("listen failed");
     }
 
-    // Create epoll instance
+    // Create lobby epoll instance
     if ((lobbyEpollSock = epoll_create1(0)) == -1) {
         close(lobbyEpollSock); // Clean up on failure
         throw std::runtime_error("epoll creation failed");
@@ -214,9 +260,17 @@ Server::Server(int port) {
         throw std::runtime_error("epoll control failed");
     }
 
-    // Create epoll instance
+    // Create room epoll instance
     if ((roomEpollSock = epoll_create1(0)) == -1) {
         close(roomEpollSock); // Clean up on failure
+        close(lobbyEpollSock);
+        throw std::runtime_error("epoll creation failed");
+    }
+
+    // Create bombs epoll instance
+    if ((bombEpollSock = epoll_create1(0)) == -1) {
+        close(bombEpollSock); // Clean up on failure
+        close(roomEpollSock);
         close(lobbyEpollSock);
         throw std::runtime_error("epoll creation failed");
     }
