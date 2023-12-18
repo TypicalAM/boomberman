@@ -99,16 +99,6 @@ std::unique_ptr<GameMessage> Builder::GameJoin(Player player) {
     return std::make_unique<GameMessage>(msg);
 }
 
-std::unique_ptr<GameMessage> Builder::GameWait(int32_t waitingFor) {
-    auto *gw = new class GameWait;
-    gw->set_waitingfor(waitingFor);
-
-    GameMessage msg;
-    msg.set_type(GAME_WAIT);
-    msg.set_allocated_gamewait(gw);
-    return std::make_unique<GameMessage>(msg);
-}
-
 std::unique_ptr<GameMessage> Builder::GameStart() {
     GameMessage msg;
     msg.set_type(GAME_START);

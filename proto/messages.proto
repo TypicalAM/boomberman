@@ -77,10 +77,6 @@ message WelcomeToRoom { repeated GamePlayer players = 1; }
 // name, color and whether the player is the client.
 message GameJoin { GamePlayer player = 1; }
 
-// GameWait is sent to the client when the game is waiting for more players
-// to join.
-message GameWait { int32 waitingFor = 1; }
-
 // GameStart is sent to all players when the game starts.
 message GameStart {}
 
@@ -123,13 +119,12 @@ enum MessageType {
   ROOM_LIST = 6;
   WELCOME_TO_ROOM = 7;
   GAME_JOIN = 8;
-  GAME_WAIT = 9;
-  GAME_START = 10;
-  OTHER_BOMB_PLACE = 11;
-  GOT_HIT = 12;
-  OTHER_MOVE = 13;
-  OTHER_LEAVE = 14;
-  GAME_WON = 15;
+  GAME_START = 9;
+  OTHER_BOMB_PLACE = 10;
+  GOT_HIT = 11;
+  OTHER_MOVE = 12;
+  OTHER_LEAVE = 13;
+  GAME_WON = 14;
 }
 
 // Wrapper Message
@@ -145,12 +140,11 @@ message GameMessage {
     RoomList roomList = 8;
     WelcomeToRoom welcomeToRoom = 9;
     GameJoin gameJoin = 10;
-    GameWait gameWait = 11;
-    GameStart gameStart = 12;
-    OtherBombPlace otherBombPlace = 13;
-    GotHit gotHit = 14;
-    OtherMove otherMove = 15;
-    OtherLeave otherLeave = 16;
-    GameWon gameWon = 17;
+    GameStart gameStart = 11;
+    OtherBombPlace otherBombPlace = 12;
+    GotHit gotHit = 13;
+    OtherMove otherMove = 14;
+    OtherLeave otherLeave = 15;
+    GameWon gameWon = 16;
   }
 }

@@ -36,8 +36,6 @@ namespace Builder {
 
     std::unique_ptr<GameMessage> GameJoin(Player player);
 
-    std::unique_ptr<GameMessage> GameWait(int32_t waitingFor);
-
     std::unique_ptr<GameMessage> GameStart();
 
     std::unique_ptr<GameMessage> OtherBombPlace(const std::string &username, int64_t timestamp, float x, float y);

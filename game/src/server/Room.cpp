@@ -176,7 +176,6 @@ bool Room::IsGameOver() {
 Room::Room(boost::log::sources::logger roomLogger) {
     logger = std::move(roomLogger);
     map = std::make_unique<Map>(25, MAP_WIDTH, MAP_HEIGHT); // TODO: This should just be constant???
-    lastGameWaitMessage = Util::TimestampMillis();
 }
 
 void Room::PlaceSuperBomb(SPlayer *player) {

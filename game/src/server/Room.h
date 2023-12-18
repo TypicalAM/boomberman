@@ -14,7 +14,6 @@
 #include <boost/log/sources/record_ostream.hpp>
 
 #define MAX_PLAYERS 3
-#define GAME_WAIT_MESSAGE_INTERVAL 1000
 #define LOG BOOST_LOG(this->logger)
 
 enum GameState {
@@ -33,13 +32,9 @@ class Room {
 private:
     std::queue<Bomb> bombs;
     std::atomic<GameState> state = WAIT_FOR_START;
-    Timestamp lastGameWaitMessage;
-
     std::mutex playerMtx;
     int clientCount = 0;
-
     boost::log::sources::logger logger;
-
     std::unique_ptr<Map> map;
 
     void SendSpecific(Connection *conn, std::unique_ptr<GameMessage> msg);
