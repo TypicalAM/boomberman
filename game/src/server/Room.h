@@ -26,7 +26,7 @@ enum GameState {
 
 struct AuthoredMessage {
     std::unique_ptr<GameMessage> payload;
-    std::shared_ptr<SPlayer> author;
+    SPlayer *author;
 };
 
 class Room {
@@ -36,7 +36,6 @@ private:
     int64_t lastGameWaitMessage;
 
     std::mutex playerMtx;
-    std::vector<std::shared_ptr<SPlayer>> players;
     int clientCount = 0;
 
     std::mutex msgQueueMtx;
@@ -46,12 +45,6 @@ private:
     std::unique_ptr<Map> map;
 
     int epollSock;
-
-    void HandleQueue();
-
-    void HandleMessage(std::unique_ptr<AuthoredMessage> msg);
-
-    void CheckIfGameReady();
 
     void HandleGameUpdates();
 
@@ -63,20 +56,22 @@ private:
     template<typename Function, typename ...Args>
     void SendBroadcast(Function &&builderFunc, Args &&... builderArgs);
 
-    void ReadIntoQueue();
-
 public:
     int Players();
 
     bool CanJoin(const std::string &username);
 
-    void GameLoop();
-
-    bool JoinPlayer(std::unique_ptr<Connection> conn, const std::string &username);
+    SPlayer *JoinPlayer(Connection *conn, const std::string &username);
 
     bool IsGameOver();
 
     explicit Room(boost::log::sources::logger roomLoggger);
+
+    std::vector<std::unique_ptr<SPlayer>> players;
+
+    void HandleMessage(std::unique_ptr<AuthoredMessage> msg);
+
+    void PlaceSuperBomb(SPlayer *player);
 };
 
 #endif

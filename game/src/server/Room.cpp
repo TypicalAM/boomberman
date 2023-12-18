@@ -7,17 +7,6 @@
 #include "Room.h"
 #include "../shared/msg/Builder.h"
 
-void Room::GameLoop() {
-    while (state.load() != GAME_OVER) {
-        ReadIntoQueue();
-        CheckIfGameReady();
-        HandleQueue();
-        HandleGameUpdates();
-    }
-
-    LOG << "Gameloop done";
-}
-
 void Room::SendSpecific(Connection *conn, std::unique_ptr<GameMessage> msg) {
     LOG << "Sending message of type: " << msg->type() << " to player sock " << conn->sock;
     if (!conn->Send(std::move(msg)).has_value()) {
@@ -58,22 +47,6 @@ bool Room::CanJoin(const std::string &username) {
     return !already_exists && MAX_PLAYERS - clientCount > 0;
 }
 
-void Room::CheckIfGameReady() {
-    if (state.load() != WAIT_FOR_START) return;
-
-    std::lock_guard<std::mutex> lock(playerMtx);
-    if (MAX_PLAYERS - clientCount > 0) {
-        if (Util::TimestampMillis() < lastGameWaitMessage + GAME_WAIT_MESSAGE_INTERVAL) return;
-        SendBroadcast(Builder::GameWait, MAX_PLAYERS - clientCount);
-        lastGameWaitMessage = Util::TimestampMillis();
-        return;
-    }
-
-    LOG << "Starting game";
-    state.store(PLAY);
-    SendBroadcast(Builder::GameStart);
-}
-
 void Room::HandleGameUpdates() {
     if (state.load() != PLAY) return;
 
@@ -94,7 +67,8 @@ void Room::HandleGameUpdates() {
                 if (adjusted_x == tile.x && adjusted_y == tile.y) {
                     // Check if we are in iframes
                     if (player->immunityEndTimestamp > Util::TimestampMillis()) {
-                        LOG << player->username << "is immune since " << player->immunityEndTimestamp << " > " << Util::TimestampMillis();
+                        LOG << player->username << "is immune since " << player->immunityEndTimestamp << " > "
+                            << Util::TimestampMillis();
                         continue;
                     }
 
@@ -160,21 +134,13 @@ void Room::HandleGameUpdates() {
     }
 }
 
-void Room::HandleQueue() {
-    std::lock_guard<std::mutex> lock(msgQueueMtx);
-    while (!msgQueue.empty()) {
-        HandleMessage(std::move(msgQueue.front()));
-        msgQueue.pop();
-    }
-}
-
 void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
     LOG << "Handling a message from user: " << msg->author->username;
 
     // If the game started
     if (state.load() == WAIT_FOR_START) {
         if (msg->payload->type() != I_LEAVE) {
-            SendSpecific(msg->author->conn.get(), Builder::Error("Game hasn't started yet"));
+            SendSpecific(msg->author->conn, Builder::Error("Game hasn't started yet"));
             return;
         }
 
@@ -186,7 +152,7 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
 
     // Check if the player is playing tricks
     if (!msg->author->livesRemaining && msg->payload->type() != I_LEAVE) {
-        SendSpecific(msg->author->conn.get(), Builder::Error("You can't really do anything while dead, can you?"));
+        SendSpecific(msg->author->conn, Builder::Error("You can't really do anything while dead, can you?"));
         return;
     }
 
@@ -197,7 +163,7 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
             IPlaceBomb ipb = msg->payload->iplacebomb();
             int64_t timestamp = Util::TimestampMillis();
             bombs.emplace_back(std::floor(ipb.x()), std::floor(ipb.y()), 3, 25, Util::TimestampMillis(), 3.0f, false);
-            SendExcept(msg->author->conn.get(), Builder::OtherBombPlace, msg->author->username, timestamp, ipb.x(),
+            SendExcept(msg->author->conn, Builder::OtherBombPlace, msg->author->username, timestamp, ipb.x(),
                        ipb.y());
             return;
         }
@@ -207,13 +173,13 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
             IMove im = msg->payload->imove();
             int tile_state = map->getSquareState(std::floor(im.x()), std::floor(im.y()));
             if (tile_state != NOTHIN) {
-                SendSpecific(msg->author->conn.get(), Builder::Error("Invalid movement"));
+                SendSpecific(msg->author->conn, Builder::Error("Invalid movement"));
                 return;
             }
             // The movement was valid, let's roll
             msg->author->coords.x = im.x();
             msg->author->coords.y = im.y();
-            SendExcept(msg->author->conn.get(), Builder::OtherMove, msg->author->username, im.x(), im.y());
+            SendExcept(msg->author->conn, Builder::OtherMove, msg->author->username, im.x(), im.y());
             return;
         }
 
@@ -245,16 +211,8 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
                 return;
             }
 
-            SendExcept(msg->author->conn.get(), Builder::OtherLeave, msg->author->username);
-            if (state.load() == PLAY) {
-                auto coords = msg->author->coords;
-                SendExcept(msg->author->conn.get(), Builder::OtherBombPlace, "Server", Util::TimestampMillis(),
-                           coords.x, coords.y);
-                bombs.emplace_back(std::floor(coords.x), std::floor(coords.y), 9, 25, Util::TimestampMillis(), 3.0f,
-                                   true);
-            }
-            shutdown(msg->author->conn->sock, SHUT_RDWR);
-            close(msg->author->conn->sock);
+            PlaceSuperBomb(msg->author);
+
             int author_idx = -1;
             for (int i = 0; i < players.size(); ++i)
                 if (players[i]->conn->sock == msg->author->conn->sock)
@@ -265,92 +223,32 @@ void Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
 
         default:
             LOG << "Unexpected message type: " << msg->payload->type();
-            SendSpecific(msg->author->conn.get(), Builder::Error("Unexpected message"));
+            SendSpecific(msg->author->conn, Builder::Error("Unexpected message"));
     }
 }
 
-void Room::ReadIntoQueue() {
-    if (state.load() == GAME_OVER) return;
-
-    epoll_event events[10];
-    int event_num = epoll_wait(epollSock, events, 10, 0);
-    for (int i = 0; i < event_num; ++i) {
-        // If this isn't an in event, ignore it
-        if (!(events[i].events & EPOLLIN)) {
-            LOG << "Ignoring event on socket: " << events[i].data.fd;
-            continue;
-        }
-
-        // We got a message from a client
-        std::lock_guard<std::mutex> lock(playerMtx);
-        auto client_conn = static_cast<Connection *>(events[i].data.ptr);
-        auto msg = client_conn->Receive();
-        if (!msg.has_value()) {
-            LOG << "Closing connection since we can't receive data: " << client_conn->sock;
-            epoll_ctl(epollSock, EPOLL_CTL_DEL, client_conn->sock, nullptr);
-            shutdown(client_conn->sock, SHUT_RDWR);
-            close(client_conn->sock);
-            clientCount--;
-
-            int author_idx = -1;
-            for (int j = 0; j < players.size(); ++j) if (players[j]->conn->sock == client_conn->sock) author_idx = j;
-            if (author_idx == -1) continue; // Look below
-
-            SendExcept(players[author_idx]->conn.get(), Builder::OtherLeave, players[author_idx]->username);
-            if (state.load() == PLAY) {
-                auto coords = players[author_idx]->coords;
-                SendExcept(players[author_idx]->conn.get(), Builder::OtherBombPlace, "Server", Util::TimestampMillis(),
-                           coords.x, coords.y);
-                bombs.emplace_back(std::floor(coords.x), std::floor(coords.y), 7, 25, Util::TimestampMillis(), 3.0f,
-                                   true);
-            }
-            players.erase(players.begin() + author_idx);
-            continue;
-        }
-
-        // Find the player and associate it with the message
-        int author_idx = -1;
-        for (int j = 0; j < players.size(); ++j) if (players[j]->conn->sock == client_conn->sock) author_idx = j;
-        if (author_idx == -1) {
-            // This happens when a player has been disconnected from the game
-            // (kicked out, idk) but they still somehow sent a message here. In that
-            // case broadcasting of their leaving should've already been handled above.
-            LOG << "Closing connection since there isn't a player like that: " << client_conn->sock;
-            epoll_ctl(epollSock, EPOLL_CTL_DEL, client_conn->sock, nullptr);
-            shutdown(client_conn->sock, SHUT_RDWR);
-            close(client_conn->sock);
-            continue;
-        }
-
-        // Push the authored message into the queue
-        std::lock_guard<std::mutex> queue_lock(msgQueueMtx);
-        msgQueue.push(
-                std::make_unique<AuthoredMessage>(AuthoredMessage{std::move(msg.value()), players[author_idx]}));
-    }
-}
-
-bool Room::JoinPlayer(std::unique_ptr<Connection> conn, const std::string &username) {
-    if (state.load() != WAIT_FOR_START) return false;
+SPlayer *Room::JoinPlayer(Connection *conn, const std::string &username) {
+    if (state.load() != WAIT_FOR_START) return nullptr; // TODO: This should never happen
     std::lock_guard<std::mutex> lock(playerMtx);
 
     // Insert the player at the first pos
-    // TODO: Igorze, dlaczego muszę popychać całą tablicę do tyłu...
-    // TODO: Adamie, zamykasz tabele, będziesz na czele...
     auto color = static_cast<PlayerColor>(players.size());
-    players.insert(players.begin(), std::make_unique<SPlayer>(std::move(conn), username, color));
+    players.insert(players.begin(), std::make_unique<SPlayer>(conn, username, color));
+    clientCount++;
 
     // Send the current connected player list to the new player
     std::vector<Builder::Player> player_list;
     for (const auto &player: players) player_list.emplace_back(Builder::Player{player->username, player->color});
+    SendSpecific(players[0]->conn, Builder::WelcomeToRoom(player_list));
+    SendExcept(players[0]->conn, Builder::GameJoin, Builder::Player{username, color});
 
-    SendSpecific(players[0]->conn.get(), Builder::WelcomeToRoom(player_list));
-    SendExcept(players[0]->conn.get(), Builder::GameJoin, Builder::Player{username, color});
+    if (MAX_PLAYERS - clientCount == 0) {
+        LOG << "Starting game";
+        state.store(PLAY);
+        SendBroadcast(Builder::GameStart);
+    }
 
-    epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = players[0]->conn.get()}};
-    if (epoll_ctl(epollSock, EPOLL_CTL_ADD, players[0]->conn->sock, &event) == -1)
-        throw std::runtime_error("cannot add to epoll");
-    clientCount++;
-    return true;
+    return players[0].get();
 }
 
 int Room::Players() {
@@ -372,5 +270,15 @@ Room::Room(boost::log::sources::logger roomLogger) {
     if ((epollSock = epoll_create1(0)) == -1) {
         close(epollSock); // Clean up on failure
         throw std::runtime_error("epoll creation failed");
+    }
+}
+
+void Room::PlaceSuperBomb(SPlayer *player) {
+    SendExcept(player->conn, Builder::OtherLeave, player->username);
+    if (state.load() == PLAY) {
+        auto coords = player->coords;
+        SendExcept(player->conn, Builder::OtherBombPlace, "Server", Util::TimestampMillis(), coords.x, coords.y);
+        bombs.emplace_back(std::floor(coords.x), std::floor(coords.y), 9, 25, Util::TimestampMillis(), 3.0f,
+                           true);
     }
 }
