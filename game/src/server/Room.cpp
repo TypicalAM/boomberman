@@ -103,7 +103,6 @@ bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
                 shutdown(players[0]->conn->sock, SHUT_RDWR);
                 close(players[0]->conn->sock);
                 state.store(GAME_OVER); // Close the game
-                close(epollSock);
                 return false;
             }
 
@@ -120,7 +119,6 @@ bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
                     close(player->conn->sock);
                 }
                 state.store(GAME_OVER);
-                close(epollSock);
                 return false;
             }
 
@@ -178,14 +176,7 @@ bool Room::IsGameOver() {
 Room::Room(boost::log::sources::logger roomLogger) {
     logger = std::move(roomLogger);
     map = std::make_unique<Map>(25, MAP_WIDTH, MAP_HEIGHT); // TODO: This should just be constant???
-    msgQueue = std::queue<std::unique_ptr<AuthoredMessage>>();
     lastGameWaitMessage = Util::TimestampMillis();
-
-    // Create epoll instance
-    if ((epollSock = epoll_create1(0)) == -1) {
-        close(epollSock); // Clean up on failure
-        throw std::runtime_error("epoll creation failed");
-    }
 }
 
 void Room::PlaceSuperBomb(SPlayer *player) {
@@ -259,7 +250,6 @@ void Room::ExplodeBomb() {
             close(player->conn->sock);
         }
         state.store(GAME_OVER);
-        close(epollSock);
     }
 
     if (people_alive == 1 && state.load() == PLAY) {
@@ -274,6 +264,5 @@ void Room::ExplodeBomb() {
             close(player->conn->sock);
         }
         state.store(GAME_OVER);
-        close(epollSock);
     }
 }

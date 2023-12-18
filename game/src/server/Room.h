@@ -38,13 +38,9 @@ private:
     std::mutex playerMtx;
     int clientCount = 0;
 
-    std::mutex msgQueueMtx;
-    std::queue<std::unique_ptr<AuthoredMessage>> msgQueue;
     boost::log::sources::logger logger;
 
     std::unique_ptr<Map> map;
-
-    int epollSock;
 
     void SendSpecific(Connection *conn, std::unique_ptr<GameMessage> msg);
 
