@@ -27,8 +27,6 @@ set(SOURCES
         src/server/Server.cpp
         src/server/Server.h
         src/client/Client.cpp
-        src/shared/msg/Builder.cpp
-        src/shared/msg/Builder.h
         src/shared/Util.cpp
         src/shared/Util.h
         src/shared/proto/messages.pb.cc
