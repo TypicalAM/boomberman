@@ -12,7 +12,6 @@
 #include "Client.h"
 #include "EntityHandler.h"
 #include "../shared/msg/Connection.h"
-#include "../shared/msg/Builder.h"
 #include "raylib.h"
 
 class ServerHandler {

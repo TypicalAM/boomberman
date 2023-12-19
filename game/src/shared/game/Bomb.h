@@ -6,6 +6,8 @@
 #include <vector>
 #include "../Util.h"
 
+#define FUSE_TIME_SEC 3
+
 class Bomb{
 public:
     int pos_x, pos_y;
@@ -17,6 +19,7 @@ public:
     [[nodiscard]] bool ShouldExplode() const;
     void animate();
     std::vector<TileOnFire> boom(Map *map);
+    static int CreateBombTimerfd();
 };
 
 #endif //BOOMBERMAN_BOMB_H

@@ -14,7 +14,6 @@
 #include <boost/log/sources/record_ostream.hpp>
 
 #define MAX_PLAYERS 3
-#define GAME_WAIT_MESSAGE_INTERVAL 1000
 #define LOG BOOST_LOG(this->logger)
 
 enum GameState {
@@ -26,36 +25,20 @@ enum GameState {
 
 struct AuthoredMessage {
     std::unique_ptr<GameMessage> payload;
-    std::shared_ptr<SPlayer> author;
+    SPlayer *author;
 };
 
 class Room {
 private:
-    std::vector<Bomb> bombs;
+    std::queue<Bomb> bombs;
     std::atomic<GameState> state = WAIT_FOR_START;
-    int64_t lastGameWaitMessage;
-
     std::mutex playerMtx;
-    std::vector<std::shared_ptr<SPlayer>> players;
     int clientCount = 0;
-
-    std::mutex msgQueueMtx;
-    std::queue<std::unique_ptr<AuthoredMessage>> msgQueue;
     boost::log::sources::logger logger;
-
     std::unique_ptr<Map> map;
 
-    int epollSock;
-
-    void HandleQueue();
-
-    void HandleMessage(std::unique_ptr<AuthoredMessage> msg);
-
-    void CheckIfGameReady();
-
-    void HandleGameUpdates();
-
-    void SendSpecific(Connection *conn, std::unique_ptr<GameMessage> msg);
+    template<typename Function, typename ...Args>
+    void SendSpecific(Connection *conn, Function &&builderFunc, Args &&... builderArgs);
 
     template<typename Function, typename ...Args>
     void SendExcept(Connection *conn, Function &&builderFunc, Args &&... builderArgs);
@@ -63,20 +46,24 @@ private:
     template<typename Function, typename ...Args>
     void SendBroadcast(Function &&builderFunc, Args &&... builderArgs);
 
-    void ReadIntoQueue();
-
 public:
     int Players();
 
     bool CanJoin(const std::string &username);
 
-    void GameLoop();
-
-    bool JoinPlayer(std::unique_ptr<Connection> conn, const std::string &username);
+    SPlayer *JoinPlayer(Connection *conn, const std::string &username);
 
     bool IsGameOver();
 
     explicit Room(boost::log::sources::logger roomLoggger);
+
+    std::vector<std::unique_ptr<SPlayer>> players;
+
+    bool HandleMessage(std::unique_ptr<AuthoredMessage> msg); // return true is if bomb has been placed
+
+    void PlaceSuperBomb(SPlayer *player);
+
+    void ExplodeBomb();
 };
 
 #endif

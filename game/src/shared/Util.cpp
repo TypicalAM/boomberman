@@ -2,8 +2,8 @@
 #include <random>
 #include "Util.h"
 
-int64_t Util::TimestampMillis() {
-    return static_cast<int64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+Timestamp Util::TimestampMillis() {
+    return static_cast<Timestamp>(std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());;
 }
 

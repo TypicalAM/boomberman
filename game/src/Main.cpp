@@ -1,6 +1,5 @@
 #include <thread>
 #include <iostream>
-#include <csignal>
 #include "server/Server.h"
 #include "client/Client.h"
 #include <boost/log/expressions.hpp>
@@ -29,13 +28,14 @@ int main(int argc, char *argv[]) {
     }
 
     if (target == "client") {
-
         Client client(screenWidth, screenHeight);
         client.Run();
     } else {
         Server server(2137);
-        server.Run();
-    }
+        std::thread(&Server::RunRoom, &server).detach();
+        std::thread(&Server::RunBombs, &server).detach();
+        server.RunLobby();
+    };
 
     return 0;
 }

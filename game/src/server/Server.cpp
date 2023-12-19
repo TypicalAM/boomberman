@@ -7,7 +7,6 @@
 #include <boost/log/attributes/constant.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/trivial.hpp>
-#include "../shared/msg/Builder.h"
 
 void Server::handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> msg) {
     switch (msg->type()) {
@@ -29,8 +28,8 @@ void Server::handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> 
             }
 
             // Close the connection if we can't send the message
-            if (!conn->Send(Builder::RoomList(room_list)).has_value()) {
-                epoll_ctl(epollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
+            if (!conn->SendRoomList(room_list).has_value()) {
+                epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
                 shutdown(conn->sock, SHUT_RDWR);
                 close(conn->sock);
             }
@@ -45,15 +44,14 @@ void Server::handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> 
             if (!room_msg.has_roomname()) {
                 auto new_room_name = Util::RandomString(10);
                 room = std::make_shared<Room>(createNamedLogger(new_room_name));
-                std::thread(&Room::GameLoop, room).detach();
                 std::lock_guard<std::mutex> lock(roomsMtx);
                 rooms[new_room_name] = room;
             } else {
                 if (rooms.find(room_msg.roomname()) == rooms.end()) {
                     // Close the connection if we can't send the message
                     LOG << "Client requested a room which doesn't exist: " << room_msg.roomname();
-                    if (conn->Send(Builder::Error("There is no room with that name man")).has_value()) return;
-                    epoll_ctl(epollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
+                    if (conn->SendError("There is no room with that name man").has_value()) return;
+                    epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
                     shutdown(conn->sock, SHUT_RDWR);
                     close(conn->sock);
                     return;
@@ -65,36 +63,37 @@ void Server::handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> 
 
             if (!room->CanJoin(room_msg.username())) {
                 // Close the connection if we can't send the message
-                if (conn->Send(Builder::Error("Cannot join this game")).has_value()) return;
-                epoll_ctl(epollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
+                if (conn->SendError("Cannot join this game").has_value()) return;
+                epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
                 shutdown(conn->sock, SHUT_RDWR);
                 close(conn->sock);
                 return;
             }
 
             LOG << "Joining player to game: " << room_msg.username();
+
+            // Delete the old epoll
+            epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
+
+            // Find the index and move the connection from the lobby into the room
             int idx = -1;
-            for (int i = 0; i < conns.size(); i++) {
-                if (conns[i]->sock == conn->sock) {
-                    idx = i;
-                }
-            }
+            for (int i = 0; i < lobbyConns.size(); i++) if (lobbyConns[i]->sock == conn->sock) idx = i;
+            roomConns[conn->sock] = std::move(lobbyConns[idx]);
+            lobbyConns.erase(lobbyConns.begin() + idx);
 
-            if (!room->JoinPlayer(std::move(conns[idx]), room_msg.username())) {
-                epoll_ctl(epollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
-                shutdown(conn->sock, SHUT_RDWR);
-                close(conn->sock);
-            }
-
-            conns.erase(conns.begin() + idx);
+            // Create the new player
+            SPlayer *player = room->JoinPlayer(conn, room_msg.username()); // player is destructed along with the room
+            roomAssignments[conn->sock] = PlayerInRoom{player, room.get()};
+            epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = &roomAssignments[conn->sock]}};
+            epoll_ctl(roomEpollSock, EPOLL_CTL_ADD, conn->sock, &event); // TODO: Error handling
             return;
         }
 
         default: {
             // Close the connection if we can't send the message
             LOG << "Unexpected message type: " << msg->type();
-            if (!conn->Send(Builder::Error("Unexpected message")).has_value()) {
-                epoll_ctl(epollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
+            if (!conn->SendError("Unexpected message").has_value()) {
+                epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
                 shutdown(conn->sock, SHUT_RDWR);
                 close(conn->sock);
             }
@@ -102,12 +101,58 @@ void Server::handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> 
     }
 }
 
-[[noreturn]] void Server::Run() {
-    LOG << "Serving";
+[[noreturn]] void Server::RunBombs() {
+    LOG << "Serving bombs";
 
-    epoll_event events[10];
+    epoll_event events[MAX_EVENTS];
     while (true) {
-        int event_num = epoll_wait(epollSock, events, 10, -1);
+        int event_num = epoll_wait(bombEpollSock, events, MAX_EVENTS, -1);
+        for (int i = 0; i < event_num; ++i) {
+            auto room = static_cast<Room *>(events[i].data.ptr);
+            LOG << "Got new bomb timer expiry, notifying appropriate room";
+            room->ExplodeBomb();
+        }
+    }
+}
+
+[[noreturn]] void Server::RunRoom() {
+    LOG << "Serving rooms";
+
+    epoll_event events[MAX_EVENTS];
+    while (true) {
+        int event_num = epoll_wait(roomEpollSock, events, MAX_EVENTS, -1);
+        for (int i = 0; i < event_num; ++i) {
+            auto pl = static_cast<PlayerInRoom *>(events[i].data.ptr);
+            LOG << "Got new message from guy: " << pl->player->username;
+
+            auto msg = pl->player->conn->Receive();
+            if (!msg.has_value()) {
+                // TODO: Close the connection and send I_LEAVE, place super bomb, etc.
+                pl->room->PlaceSuperBomb(pl->player);
+                LOG << "Received nothin";
+                shutdown(pl->player->conn->sock, SHUT_RDWR);
+                close(pl->player->conn->sock);
+                continue;
+            }
+
+            LOG << "Received a message of type: " << msg.value()->type();
+            auto authored = std::make_unique<AuthoredMessage>(AuthoredMessage{std::move(msg.value()), pl->player});
+            bool place_bomb = pl->room->HandleMessage(std::move(authored));
+            if (!place_bomb) continue;
+
+            // Create a timer based on the timestamp and set a watch for it
+            epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
+            epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(), &event); // TODO: Error handling
+        }
+    }
+}
+
+[[noreturn]] void Server::RunLobby() {
+    LOG << "Serving lobby";
+
+    epoll_event events[MAX_EVENTS];
+    while (true) {
+        int event_num = epoll_wait(lobbyEpollSock, events, MAX_EVENTS, -1);
         for (int i = 0; i < event_num; ++i) {
             // If this isn't an in event, ignore it
             if (!(events[i].events & EPOLLIN)) continue;
@@ -116,9 +161,9 @@ void Server::handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> 
             if (events[i].data.fd == srvSock) {
                 int new_sock = accept(srvSock, nullptr, nullptr);
                 if (new_sock == -1) continue;
-                conns.push_back(std::make_unique<Connection>(new_sock));
-                epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = conns.back().get()}};
-                if (epoll_ctl(epollSock, EPOLL_CTL_ADD, new_sock, &event) == -1) continue;
+                lobbyConns.push_back(std::make_unique<Connection>(new_sock));
+                epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = lobbyConns.back().get()}};
+                if (epoll_ctl(lobbyEpollSock, EPOLL_CTL_ADD, new_sock, &event) == -1) continue;
                 LOG << "New connection accepted from: " << new_sock;
                 continue;
             }
@@ -128,7 +173,7 @@ void Server::handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> 
             auto msg = conn->Receive();
             if (!msg.has_value()) {
                 LOG << "Closing connection since we can't receive data: " << conn->sock;
-                epoll_ctl(epollSock, EPOLL_CTL_DEL, events[i].data.fd, nullptr);
+                epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, events[i].data.fd, nullptr);
                 shutdown(events[i].data.fd, SHUT_RDWR);
                 close(events[i].data.fd);
                 continue;
@@ -162,7 +207,7 @@ Server::Server(int port) {
     }
 
     // Bind the socket
-    if (bind(srvSock, (sockaddr *) &localAddress, sizeof(localAddress)) == -1) {
+    if (bind(srvSock, (sockaddr * ) & localAddress, sizeof(localAddress)) == -1) {
         close(srvSock); // Clean up on failure
         throw std::runtime_error("bind failed");
     }
@@ -173,18 +218,33 @@ Server::Server(int port) {
         throw std::runtime_error("listen failed");
     }
 
-    // Create epoll instance
-    if ((epollSock = epoll_create1(0)) == -1) {
-        close(epollSock); // Clean up on failure
+    // Create lobby epoll instance
+    if ((lobbyEpollSock = epoll_create1(0)) == -1) {
+        close(lobbyEpollSock); // Clean up on failure
         throw std::runtime_error("epoll creation failed");
     }
 
-    // Add server socket to epoll
+    // Add server socket to lobby epoll
     epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.fd = srvSock}};
-    if (epoll_ctl(epollSock, EPOLL_CTL_ADD, srvSock, &event) == -1) {
+    if (epoll_ctl(lobbyEpollSock, EPOLL_CTL_ADD, srvSock, &event) == -1) {
         close(srvSock); // Clean up on failure
-        close(epollSock); // Clean up on failure
+        close(lobbyEpollSock); // Clean up on failure
         throw std::runtime_error("epoll control failed");
+    }
+
+    // Create room epoll instance
+    if ((roomEpollSock = epoll_create1(0)) == -1) {
+        close(roomEpollSock); // Clean up on failure
+        close(lobbyEpollSock);
+        throw std::runtime_error("epoll creation failed");
+    }
+
+    // Create bombs epoll instance
+    if ((bombEpollSock = epoll_create1(0)) == -1) {
+        close(bombEpollSock); // Clean up on failure
+        close(roomEpollSock);
+        close(lobbyEpollSock);
+        throw std::runtime_error("epoll creation failed");
     }
 
     LOG << "Listening on port: " << port;

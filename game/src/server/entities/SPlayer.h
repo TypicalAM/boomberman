@@ -6,20 +6,21 @@
 #include "Primitives.h"
 #include "../../shared/proto/messages.pb.h"
 #include "../../shared/msg/Connection.h"
+#include "../../shared/Util.h"
 
 #define STARTER_LIVES 3
 #define IMMUNITY_TIME_MILLIS 500
 
 class SPlayer {
 public:
-    std::unique_ptr<Connection> conn;
+    Connection *conn;
     int livesRemaining;
     Coords coords{};
     std::string username;
     PlayerColor color;
-    int64_t immunityEndTimestamp;
+    Timestamp immunityEndTimestamp;
 
-    SPlayer(std::unique_ptr<Connection> conn, std::string username, PlayerColor color);
+    SPlayer(Connection *conn, std::string username, PlayerColor color);
 };
 
 #endif

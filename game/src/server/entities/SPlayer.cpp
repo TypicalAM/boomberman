@@ -3,8 +3,8 @@
 
 #include <utility>
 
-SPlayer::SPlayer(std::unique_ptr<Connection> conn, std::string username, PlayerColor color) {
-    this->conn = std::move(conn);
+SPlayer::SPlayer(Connection *conn, std::string username, PlayerColor color) {
+    this->conn = conn;
     this->username = std::move(username);
     this->color = color;
     this->livesRemaining = STARTER_LIVES;
@@ -26,6 +26,4 @@ SPlayer::SPlayer(std::unique_ptr<Connection> conn, std::string username, PlayerC
         default:
             throw std::runtime_error("unhandled color starting position");
     }
-
-    std::cout << "Spawned player: " << username << " at " << coords.x << " " << coords.y << std::endl;
 }

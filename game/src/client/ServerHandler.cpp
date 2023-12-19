@@ -59,6 +59,7 @@ void ServerHandler::receiveLoop(EntityHandler &eh) {
                     auto found = ServerHandler::findPlayer(eh, username);
                     if (found != eh.players.end()) {
                         found->gotHit(msg->gothit().timestamp()); //TODO: Adamie, server side iframe'y poproszę
+                        // TODO: Już są
                         if (msg->gothit().livesremaining() <= 0) eh.players.erase(found);
                     }
                     break;
@@ -108,7 +109,7 @@ std::string ServerHandler::selectUsername(float screen_width, float screen_heigh
 
 
 void ServerHandler::menu(float width, float height) { // TODO: ACTUALLY HANDLE THE ROOM LIST
-    std::optional<int> bytes_sent = this->conn->Send(Builder::GetRoomList());
+    std::optional<int> bytes_sent = this->conn->SendGetRoomList();
     while (true) {
         this->msg = this->conn->Receive().value();
         if (this->msg->type() == ROOM_LIST) break;
@@ -125,7 +126,7 @@ void ServerHandler::menu(float width, float height) { // TODO: ACTUALLY HANDLE T
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             Vector2 mousePoint = GetMousePosition();
             if (CheckCollisionPointRec(mousePoint, newGameButton)) {
-                this->conn->Send(Builder::JoinRoom(ServerHandler::selectUsername(width, height)));
+                this->conn->SendJoinRoom(ServerHandler::selectUsername(width, height));
                 return;
             }
         }
@@ -186,7 +187,7 @@ void ServerHandler::listRooms(float width, float height) {
 
             for (const auto &room: rooms) {
                 if (CheckCollisionPointRec(mousePoint, room.rect)) {
-                    this->conn->Send(Builder::JoinRoom(ServerHandler::selectUsername(width, height), room.label));
+                    this->conn->SendJoinRoom(ServerHandler::selectUsername(width, height), room.label);
                     return;
                 } else if (CheckCollisionPointRec(mousePoint, backButton)) return this->menu(width, height);
             }
