@@ -1,43 +1,31 @@
 #include <utility>
 #include <thread>
-#include <sys/epoll.h>
 #include <csignal>
 #include <random>
 #include <sys/socket.h>
 #include "Room.h"
-#include "../shared/msg/Builder.h"
 
-void Room::SendSpecific(Connection *conn, std::unique_ptr<GameMessage> msg) {
-    LOG << "Sending message of type: " << msg->type() << " to player sock " << conn->sock;
-    if (!conn->Send(std::move(msg)).has_value()) {
+template<typename Function, typename ...Args>
+void Room::SendSpecific(Connection *conn, Function &&builderFunc, Args &&... builderArgs) {
+    std::optional<int> bytes_sent = std::invoke(std::forward<Function>(builderFunc), conn,
+                                                std::forward<Args>(builderArgs)...);
+    if (!bytes_sent.has_value()) {
         shutdown(conn->sock, SHUT_RDWR);
         close(conn->sock);
     }
 }
 
+
 template<typename Function, typename ...Args>
 void Room::SendExcept(Connection *conn, Function &&builderFunc, Args &&... builderArgs) {
-    for (auto &player: players) {
-        if (player->conn->sock == conn->sock) continue;
-        auto msg = std::invoke(std::forward<Function>(builderFunc), std::forward<Args>(builderArgs)...);
-        LOG << "Sending message of type: " << msg->type() << " to player sock " << player->conn->sock;
-        if (!player->conn->Send(std::move(msg)).has_value()) {
-            shutdown(player->conn->sock, SHUT_RDWR);
-            close(player->conn->sock);
-        }
-    }
+    for (auto &player: players)
+        if (player->conn->sock != conn->sock)
+            SendSpecific(player->conn, builderFunc, builderArgs...);
 }
 
 template<typename Function, typename ...Args>
 void Room::SendBroadcast(Function &&builderFunc, Args &&... builderArgs) {
-    for (auto &player: players) {
-        auto msg = std::invoke(std::forward<Function>(builderFunc), std::forward<Args>(builderArgs)...);
-        LOG << "Sending message of type: " << msg->type() << " to player sock " << player->conn->sock;
-        if (!player->conn->Send(std::move(msg)).has_value()) {
-            shutdown(player->conn->sock, SHUT_RDWR);
-            close(player->conn->sock);
-        }
-    }
+    for (auto &player: players) SendSpecific(player->conn, builderFunc, builderArgs...);
 }
 
 bool Room::CanJoin(const std::string &username) {
@@ -53,7 +41,7 @@ bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
     // If the game started
     if (state.load() == WAIT_FOR_START) {
         if (msg->payload->type() != I_LEAVE) {
-            SendSpecific(msg->author->conn, Builder::Error("Game hasn't started yet"));
+            SendSpecific(msg->author->conn, &Connection::SendError, "Game hasn't started yet");
             return false;
         }
 
@@ -65,7 +53,7 @@ bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
 
     // Check if the player is playing tricks
     if (!msg->author->livesRemaining && msg->payload->type() != I_LEAVE) {
-        SendSpecific(msg->author->conn, Builder::Error("You can't really do anything while dead, can you?"));
+        SendSpecific(msg->author->conn, &Connection::SendError, "You can't really do anything while dead, can you?");
         return false;
     }
 
@@ -74,10 +62,10 @@ bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
         case I_PLACE_BOMB: {
             // Place the bomb at the specified location
             IPlaceBomb ipb = msg->payload->iplacebomb();
-            Timestamp timestamp = Util::TimestampMillis();
+            Timestamp ts = Util::TimestampMillis();
             bombs.emplace(std::floor(ipb.x()), std::floor(ipb.y()), 3, 25, Util::TimestampMillis(), 3.0f, false);
-            SendExcept(msg->author->conn, Builder::OtherBombPlace, msg->author->username, timestamp, ipb.x(),
-                       ipb.y());
+            SendSpecific(msg->author->conn, &Connection::SendOtherBombPlace, msg->author->username, ts, ipb.x(),
+                         ipb.y());
             return true;
         }
 
@@ -86,13 +74,13 @@ bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
             IMove im = msg->payload->imove();
             int tile_state = map->getSquareState(std::floor(im.x()), std::floor(im.y()));
             if (tile_state != NOTHIN) {
-                SendSpecific(msg->author->conn, Builder::Error("Invalid movement"));
+                SendSpecific(msg->author->conn, &Connection::SendError, "Invalid movement");
                 return false;
             }
             // The movement was valid, let's roll
             msg->author->coords.x = im.x();
             msg->author->coords.y = im.y();
-            SendExcept(msg->author->conn, Builder::OtherMove, msg->author->username, im.x(), im.y());
+            SendExcept(msg->author->conn, &Connection::SendOtherMove, msg->author->username, im.x(), im.y());
             return false;
         }
 
@@ -110,7 +98,7 @@ bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
                 // This player just won lol, let's notify the last one standing
                 auto winner_idx = (players[0]->conn->sock == msg->author->conn->sock) ? 1 : 0;
                 LOG << "Player won by other disconnecting: " << players[winner_idx]->username;
-                SendBroadcast(Builder::GameWon, players[winner_idx]->username);
+                SendBroadcast(&Connection::SendGameWon, players[winner_idx]->username);
                 state.store(WAIT_FOR_END);
                 std::this_thread::sleep_for(std::chrono::seconds(3));
                 LOG << "Closing other connections and ending the game";
@@ -135,7 +123,7 @@ bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
 
         default:
             LOG << "Unexpected message type: " << msg->payload->type();
-            SendSpecific(msg->author->conn, Builder::Error("Unexpected message"));
+            SendSpecific(msg->author->conn, &Connection::SendError, "Unexpected message");
             return false;
     }
 }
@@ -152,13 +140,13 @@ SPlayer *Room::JoinPlayer(Connection *conn, const std::string &username) {
     // Send the current connected player list to the new player
     std::vector<Builder::Player> player_list;
     for (const auto &player: players) player_list.emplace_back(Builder::Player{player->username, player->color});
-    SendSpecific(players[0]->conn, Builder::WelcomeToRoom(player_list));
-    SendExcept(players[0]->conn, Builder::GameJoin, Builder::Player{username, color});
+    SendSpecific(players[0]->conn, &Connection::SendWelcomeToRoom, player_list);
+    SendExcept(players[0]->conn, &Connection::SendGameJoin, Builder::Player{username, color});
 
     if (MAX_PLAYERS - clientCount == 0) {
         LOG << "Starting game";
         state.store(PLAY);
-        SendBroadcast(Builder::GameStart);
+        SendBroadcast(&Connection::SendGameStart);
     }
 
     return players[0].get();
@@ -179,10 +167,10 @@ Room::Room(boost::log::sources::logger roomLogger) {
 }
 
 void Room::PlaceSuperBomb(SPlayer *player) {
-    SendExcept(player->conn, Builder::OtherLeave, player->username);
+    SendExcept(player->conn, &Connection::SendOtherLeave, player->username);
     if (state.load() == PLAY) {
         auto coords = player->coords;
-        SendExcept(player->conn, Builder::OtherBombPlace, "Server", Util::TimestampMillis(), coords.x, coords.y);
+        SendExcept(player->conn, &Connection::SendOtherBombPlace, "Server", Util::TimestampMillis(), coords.x, coords.y);
         bombs.emplace(std::floor(coords.x), std::floor(coords.y), 9, 25, Util::TimestampMillis(), 3.0f, true);
     }
 }
@@ -213,7 +201,7 @@ void Room::ExplodeBomb() {
                 // The person was hit by the bomb, cool
                 player->immunityEndTimestamp = Util::TimestampMillis() + IMMUNITY_TIME_MILLIS;
                 player->livesRemaining--;
-                SendBroadcast(Builder::GotHit, player->username, player->livesRemaining, Util::TimestampMillis());
+                SendBroadcast(&Connection::SendGotHit, player->username, player->livesRemaining, Util::TimestampMillis());
                 LOG << "Player: " << player->username << " got hit. Lives remaining: " << player->livesRemaining;
             }
         }
@@ -240,7 +228,7 @@ void Room::ExplodeBomb() {
 
         // This person has won the game, announce that and disconnect all clients
         LOG << "Player won by random mutual explosion: " << players[winner_idx]->username;
-        SendBroadcast(Builder::GameWon, players[winner_idx]->username);
+        SendBroadcast(&Connection::SendGameWon, players[winner_idx]->username);
         state.store(WAIT_FOR_END);
         std::this_thread::sleep_for(std::chrono::seconds(3));
         LOG << "Closing other connections and ending the game";
@@ -254,7 +242,7 @@ void Room::ExplodeBomb() {
     if (people_alive == 1 && state.load() == PLAY) {
         // This person has won the game, announce that and disconnect all clients
         LOG << "Player won by last person alive: " << players[last_alive_index]->username;
-        SendBroadcast(Builder::GameWon, players[last_alive_index]->username);
+        SendBroadcast(&Connection::SendGameWon, players[last_alive_index]->username);
         state.store(WAIT_FOR_END);
         std::this_thread::sleep_for(std::chrono::seconds(3));
         LOG << "Closing other connections and ending the game";

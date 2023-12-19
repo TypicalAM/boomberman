@@ -7,8 +7,6 @@
 #include <boost/log/attributes/constant.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/trivial.hpp>
-#include <sys/timerfd.h>
-#include "../shared/msg/Builder.h"
 
 void Server::handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> msg) {
     switch (msg->type()) {
@@ -30,7 +28,7 @@ void Server::handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> 
             }
 
             // Close the connection if we can't send the message
-            if (!conn->Send(Builder::RoomList(room_list)).has_value()) {
+            if (!conn->SendRoomList(room_list).has_value()) {
                 epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
                 shutdown(conn->sock, SHUT_RDWR);
                 close(conn->sock);
@@ -52,7 +50,7 @@ void Server::handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> 
                 if (rooms.find(room_msg.roomname()) == rooms.end()) {
                     // Close the connection if we can't send the message
                     LOG << "Client requested a room which doesn't exist: " << room_msg.roomname();
-                    if (conn->Send(Builder::Error("There is no room with that name man")).has_value()) return;
+                    if (conn->SendError("There is no room with that name man").has_value()) return;
                     epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
                     shutdown(conn->sock, SHUT_RDWR);
                     close(conn->sock);
@@ -65,7 +63,7 @@ void Server::handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> 
 
             if (!room->CanJoin(room_msg.username())) {
                 // Close the connection if we can't send the message
-                if (conn->Send(Builder::Error("Cannot join this game")).has_value()) return;
+                if (conn->SendError("Cannot join this game").has_value()) return;
                 epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
                 shutdown(conn->sock, SHUT_RDWR);
                 close(conn->sock);
@@ -94,7 +92,7 @@ void Server::handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> 
         default: {
             // Close the connection if we can't send the message
             LOG << "Unexpected message type: " << msg->type();
-            if (!conn->Send(Builder::Error("Unexpected message")).has_value()) {
+            if (!conn->SendError("Unexpected message").has_value()) {
                 epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
                 shutdown(conn->sock, SHUT_RDWR);
                 close(conn->sock);
@@ -209,7 +207,7 @@ Server::Server(int port) {
     }
 
     // Bind the socket
-    if (bind(srvSock, (sockaddr *) &localAddress, sizeof(localAddress)) == -1) {
+    if (bind(srvSock, (sockaddr * ) & localAddress, sizeof(localAddress)) == -1) {
         close(srvSock); // Clean up on failure
         throw std::runtime_error("bind failed");
     }

@@ -37,7 +37,8 @@ private:
     boost::log::sources::logger logger;
     std::unique_ptr<Map> map;
 
-    void SendSpecific(Connection *conn, std::unique_ptr<GameMessage> msg);
+    template<typename Function, typename ...Args>
+    void SendSpecific(Connection *conn, Function &&builderFunc, Args &&... builderArgs);
 
     template<typename Function, typename ...Args>
     void SendExcept(Connection *conn, Function &&builderFunc, Args &&... builderArgs);
