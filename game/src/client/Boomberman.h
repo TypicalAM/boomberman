@@ -1,30 +1,35 @@
 #ifndef BOOMBERMAN_BOOMBERMAN_H
 #define BOOMBERMAN_BOOMBERMAN_H
 
-#include "../shared/game/Map.h"
 #include "../shared/Util.h"
+#include "../shared/game/Map.h"
 #include <memory>
-#include <string>
 #include <raylib.h>
+#include <string>
 
-class Boomberman{
+class Boomberman {
 private:
-    int* position;
-    int state;
-    double long animation_start{};
+  int *position;
+  int state;
+  double long animation_start{};
+
 public:
-    int iframes, health;
-    Color color{};
-    std::string pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy;
-    Boomberman(const std::string& pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy, Color color, int start_x, int start_y, int health);
-    std::unique_ptr<int[]> getBoombermanPos();
-    void setBoombermanPos(int new_x, int new_y);
-    bool move(Map *map,std::shared_ptr<int[]> curr_pos, int x, int y);
-    void cleanUp();
-    void gotHit(double long when);
-    void decrementIframes();
-    void animateHit();
-    int getState() const;
+  int iframes, health;
+  Color color{};
+  std::string
+      pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy;
+  Boomberman(
+      const std::string &
+          pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy,
+      Color color, int start_x, int start_y, int health);
+  std::unique_ptr<int[]> getBoombermanPos();
+  void setBoombermanPos(int new_x, int new_y);
+  bool move(Map *map, std::shared_ptr<int[]> curr_pos, int x, int y);
+  void cleanUp();
+  void gotHit(double long when);
+  void decrementIframes();
+  void animateHit();
+  int getState() const;
 };
 
-#endif //BOOMBERMAN_BOOMBERMAN_H
+#endif // BOOMBERMAN_BOOMBERMAN_H

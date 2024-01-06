@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.20.4)
 project(boomberman)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
 find_package(Protobuf REQUIRED)
 find_package(Boost 1.70.0 REQUIRED log_setup log)

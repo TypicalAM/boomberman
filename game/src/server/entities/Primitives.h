@@ -2,8 +2,8 @@
 #define BOOMBERMAN_PRIMITIVES_H
 
 struct Coords {
-    float x;
-    float y;
+  float x;
+  float y;
 };
 
 #endif

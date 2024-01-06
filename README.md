@@ -34,7 +34,8 @@ Requirements:
 Run:
 
 ```bash
-protoc --proto_path=$PWD/proto --cpp_out=$PWD/game/src/shared $PWD/proto/messages.proto
+mkdir game/src/shared/proto
+protoc --proto_path=$PWD/proto --cpp_out=$PWD/game/src/shared/proto $PWD/proto/messages.proto
 cd game && mkdir build && cd build
 cmake .. && make -j$(nproc)
 ./boomberman server # (or client, depending on what you need)

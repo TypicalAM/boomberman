@@ -7,9 +7,9 @@
 typedef int64_t Timestamp;
 
 namespace Util {
-    Timestamp TimestampMillis();
+Timestamp TimestampMillis();
 
-    std::string RandomString(std::string::size_type length);
-};
+std::string RandomString(std::string::size_type length);
+}; // namespace Util
 
 #endif

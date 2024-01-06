@@ -1,4 +1,6 @@
 # Additional 
+.cache/
+compile_commands.json
 test-client/pb
 game/src/shared/proto/
 build
