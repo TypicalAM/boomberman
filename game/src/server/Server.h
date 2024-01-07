@@ -4,6 +4,7 @@
 #include "Room.h"
 #include <mutex>
 #include <optional>
+#include <sys/epoll.h>
 #include <unordered_map>
 
 #define MAX_EVENTS 25
@@ -24,14 +25,17 @@ private:
   std::vector<std::unique_ptr<Connection>> lobbyConns;
   std::vector<int> lobbySockets;
   std::mutex roomsMtx;
-  std::mutex runMtx;
   int srvSock;
   int lobbyEpollSock;
   boost::log::sources::logger logger;
 
+  int sigSock; // NOTE: we use that to catch a stopping signal because closing
+               // an epoll doesnt end its epoll_waits (xd)
   std::atomic<bool> end = false;
 
   void handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> msg);
+
+  bool shouldEnd(epoll_event &event);
 
 public:
   static boost::log::sources::logger createNamedLogger(const std::string &name);
@@ -39,7 +43,7 @@ public:
   void RunRooms();
   void RunBombs();
   void Run();
-  void Shutdown();
+  void Cleanup();
 
   explicit Server(int port);
 };
