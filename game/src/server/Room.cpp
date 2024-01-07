@@ -170,7 +170,7 @@ SPlayer *Room::JoinPlayer(Connection *conn, const std::string &username) {
   return players[0].get();
 }
 
-int Room::Players() {
+int Room::PlayersCount() {
   std::lock_guard<std::mutex> lock(playerMtx);
   return clientCount;
 }

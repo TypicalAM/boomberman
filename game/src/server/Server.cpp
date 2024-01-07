@@ -4,22 +4,25 @@
 #include <boost/log/utility/setup/console.hpp>
 #include <csignal>
 #include <netinet/in.h>
+#include <ratio>
 #include <sys/epoll.h>
+#include <sys/signalfd.h>
 #include <sys/socket.h>
 #include <thread>
+#include <unistd.h>
 
 void Server::handleClientMessage(Connection *conn,
                                  std::unique_ptr<GameMessage> msg) {
+  std::lock_guard<std::mutex> lock(roomsMtx);
   switch (msg->type()) {
   case GET_ROOM_LIST: {
     // Create a room list and send it to the user
-    std::lock_guard<std::mutex> lock(roomsMtx);
     std::vector<Builder::Room> room_list;
     std::vector<std::string> rooms_finished;
     for (const auto &pair : rooms) {
       if (pair.second->IsGameOver())
         rooms_finished.push_back(pair.first);
-      int player_count = pair.second->Players();
+      int player_count = pair.second->PlayersCount();
       if (player_count != MAX_PLAYERS)
         room_list.push_back(
             Builder::Room{pair.first, player_count, MAX_PLAYERS});
@@ -47,7 +50,6 @@ void Server::handleClientMessage(Connection *conn,
     if (!room_msg.has_roomname()) {
       auto new_room_name = Util::RandomString(10);
       room = std::make_shared<Room>(createNamedLogger(new_room_name));
-      std::lock_guard<std::mutex> lock(roomsMtx);
       rooms[new_room_name] = room;
     } else {
       if (rooms.find(room_msg.roomname()) == rooms.end()) {
@@ -62,7 +64,6 @@ void Server::handleClientMessage(Connection *conn,
         return;
       }
 
-      std::lock_guard<std::mutex> lock(roomsMtx);
       room = rooms[room_msg.roomname()];
     }
 
@@ -112,27 +113,52 @@ void Server::handleClientMessage(Connection *conn,
   }
 }
 
-[[noreturn]] void Server::RunBombs() {
+bool Server::shouldEnd(epoll_event &event) {
+  if (event.data.fd != sigSock)
+    return false;
+
+  // NOTE: We aren't going to read the signal, the mask indicates that it's a
+  // SIGINT and if we read it, only one epoll could successfully exit. Deal
+  // with it.
+  LOG << "SIGINT has been trapped, exiting poll";
+  return true;
+}
+
+void Server::RunBombs() {
   LOG << "Serving bombs";
 
   epoll_event events[MAX_EVENTS];
-  while (true) {
+  while (!end.load()) {
     int event_num = epoll_wait(bombEpollSock, events, MAX_EVENTS, -1);
     for (int i = 0; i < event_num; ++i) {
+      if (shouldEnd(events[i])) {
+        end.store(true);
+        continue;
+      }
+
       auto room = static_cast<Room *>(events[i].data.ptr);
       LOG << "Got new bomb timer expiry, notifying appropriate room";
+      std::lock_guard<std::mutex> lock(roomsMtx); // ptr read isn't atomic
       room->ExplodeBomb();
     }
   }
+
+  LOG << "Bombs out";
 }
 
-[[noreturn]] void Server::RunRoom() {
+void Server::RunRooms() {
   LOG << "Serving rooms";
 
   epoll_event events[MAX_EVENTS];
-  while (true) {
+  while (!end.load()) {
     int event_num = epoll_wait(roomEpollSock, events, MAX_EVENTS, -1);
     for (int i = 0; i < event_num; ++i) {
+      if (shouldEnd(events[i])) {
+        end.store(true);
+        continue;
+      }
+
+      std::lock_guard<std::mutex> lock(roomsMtx);
       auto pl = static_cast<PlayerInRoom *>(events[i].data.ptr);
       LOG << "Got new message from guy: " << pl->player->username;
 
@@ -159,15 +185,22 @@ void Server::handleClientMessage(Connection *conn,
                 &event); // TODO: Error handling
     }
   }
+
+  LOG << "Rooms out";
 }
 
-[[noreturn]] void Server::RunLobby() {
+void Server::RunLobby() {
   LOG << "Serving lobby";
 
   epoll_event events[MAX_EVENTS];
-  while (true) {
+  while (!end.load()) {
     int event_num = epoll_wait(lobbyEpollSock, events, MAX_EVENTS, -1);
     for (int i = 0; i < event_num; ++i) {
+      if (shouldEnd(events[i])) {
+        end.store(true);
+        continue;
+      }
+
       // If this isn't an in event, ignore it
       if (!(events[i].events & EPOLLIN))
         continue;
@@ -201,6 +234,8 @@ void Server::handleClientMessage(Connection *conn,
       handleClientMessage(conn, std::move(msg.value()));
     }
   }
+
+  LOG << "Lobby out";
 }
 
 boost::log::sources::logger Server::createNamedLogger(const std::string &name) {
@@ -213,6 +248,7 @@ boost::log::sources::logger Server::createNamedLogger(const std::string &name) {
 
 Server::Server(int port) {
   logger = createNamedLogger("Server");
+
   sockaddr_in localAddress{AF_INET, htons(port), htonl(INADDR_ANY)};
   int one = 1;
   // Socket creation
@@ -244,28 +280,102 @@ Server::Server(int port) {
     throw std::runtime_error("epoll creation failed");
   }
 
+  // Interrupt handling
+  sigset_t mask;
+  sigemptyset(&mask);
+  sigaddset(&mask, SIGINT); // Catch SIGINT signal
+
+  // Block the signals so that they are not handled by the default signal
+  // handler
+  if (sigprocmask(SIG_BLOCK, &mask, nullptr) == -1)
+    throw std::runtime_error("sigprocmask failed");
+
+  // Create a signalfd to receive signals asynchronously
+  sigSock = signalfd(-1, &mask, 0);
+  if (sigSock == -1)
+    throw std::runtime_error("signalfd failed");
+
+  // Add the signalfd to the epoll instance
+  epoll_event sigev = {EPOLLIN | EPOLLET, epoll_data{.fd = sigSock}};
+  if (epoll_ctl(lobbyEpollSock, EPOLL_CTL_ADD, sigSock, &sigev) == -1) {
+    close(srvSock); // Clean up on failure
+    close(lobbyEpollSock);
+    close(sigSock);
+    throw std::runtime_error("epoll control failed");
+  }
+
   // Add server socket to lobby epoll
   epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.fd = srvSock}};
   if (epoll_ctl(lobbyEpollSock, EPOLL_CTL_ADD, srvSock, &event) == -1) {
-    close(srvSock);        // Clean up on failure
-    close(lobbyEpollSock); // Clean up on failure
+    close(srvSock); // Clean up on failure
+    close(lobbyEpollSock);
+    close(sigSock);
     throw std::runtime_error("epoll control failed");
   }
 
   // Create room epoll instance
   if ((roomEpollSock = epoll_create1(0)) == -1) {
-    close(roomEpollSock); // Clean up on failure
+    close(srvSock); // Clean up on failure
+    close(roomEpollSock);
     close(lobbyEpollSock);
+    close(sigSock);
     throw std::runtime_error("epoll creation failed");
+  }
+
+  if (epoll_ctl(roomEpollSock, EPOLL_CTL_ADD, sigSock, &sigev) == -1) {
+    close(srvSock); // Clean up on failure
+    close(roomEpollSock);
+    close(lobbyEpollSock);
+    close(sigSock);
+    throw std::runtime_error("epoll control failed");
   }
 
   // Create bombs epoll instance
   if ((bombEpollSock = epoll_create1(0)) == -1) {
-    close(bombEpollSock); // Clean up on failure
+    close(srvSock); // Clean up on failure
+    close(bombEpollSock);
     close(roomEpollSock);
     close(lobbyEpollSock);
+    close(sigSock);
     throw std::runtime_error("epoll creation failed");
   }
 
+  if (epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, sigSock, &sigev) == -1) {
+    close(srvSock); // Clean up on failure
+    close(bombEpollSock);
+    close(roomEpollSock);
+    close(lobbyEpollSock);
+    close(sigSock);
+    throw std::runtime_error("epoll control failed");
+  }
+
   LOG << "Listening on port: " << port;
+}
+
+void Server::Run() {
+  std::thread rooms(&Server::RunRooms, this);
+  std::thread bombs(&Server::RunBombs, this);
+  std::thread lobby(&Server::RunLobby, this);
+
+  rooms.join();
+  bombs.join();
+  lobby.join();
+
+  LOG << "Done running";
+}
+
+void Server::Cleanup() {
+  LOG << "Cleaning up";
+  close(bombEpollSock);
+  close(lobbyEpollSock);
+  close(roomEpollSock);
+
+  for (const auto &[name, room] : rooms) {
+    for (const auto &player : room->players) {
+      shutdown(player->conn->sock, SHUT_RDWR);
+      close(player->conn->sock);
+    }
+  }
+
+  close(srvSock);
 }
