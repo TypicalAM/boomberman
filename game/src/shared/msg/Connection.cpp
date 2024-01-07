@@ -1,8 +1,6 @@
 #include "Connection.h"
 #include <csignal>
 #include <cstddef>
-#include <iomanip>
-#include <ios>
 #include <optional>
 
 std::optional<int> Connection::Send() {
@@ -152,13 +150,12 @@ std::optional<int> Connection::SendIPlaceBomb(float x, float y) {
 }
 
 std::optional<int> Connection::SendIMove(float x, float y) {
-  GameMessage msg;
   auto im = std::make_unique<IMove>();
   im->set_x(x);
   im->set_y(y);
 
-  msg.set_type(I_MOVE);
-  msg.set_allocated_imove(im.release());
+  msg->set_type(I_MOVE);
+  msg->set_allocated_imove(im.release());
   return Send();
 }
 
