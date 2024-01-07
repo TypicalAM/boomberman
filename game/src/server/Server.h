@@ -24,22 +24,24 @@ private:
   std::vector<std::unique_ptr<Connection>> lobbyConns;
   std::vector<int> lobbySockets;
   std::mutex roomsMtx;
+  std::mutex runMtx;
   int srvSock;
   int lobbyEpollSock;
   boost::log::sources::logger logger;
 
+  std::atomic<bool> end = false;
+
   void handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> msg);
 
 public:
-  [[noreturn]] void RunLobby();
-
   static boost::log::sources::logger createNamedLogger(const std::string &name);
+  void RunLobby();
+  void RunRooms();
+  void RunBombs();
+  void Run();
+  void Shutdown();
 
   explicit Server(int port);
-
-  [[noreturn]] void RunRoom();
-
-  [[noreturn]] void RunBombs();
 };
 
 #endif

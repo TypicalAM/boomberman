@@ -48,7 +48,7 @@ private:
   void SendBroadcast(Function &&builderFunc, Args &&...builderArgs);
 
 public:
-  int Players();
+  int PlayersCount();
 
   bool CanJoin(const std::string &username);
 

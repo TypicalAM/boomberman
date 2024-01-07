@@ -4,22 +4,24 @@
 #include <boost/log/utility/setup/console.hpp>
 #include <csignal>
 #include <netinet/in.h>
+#include <ratio>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <thread>
+#include <unistd.h>
 
 void Server::handleClientMessage(Connection *conn,
                                  std::unique_ptr<GameMessage> msg) {
+  std::lock_guard<std::mutex> lock(roomsMtx);
   switch (msg->type()) {
   case GET_ROOM_LIST: {
     // Create a room list and send it to the user
-    std::lock_guard<std::mutex> lock(roomsMtx);
     std::vector<Builder::Room> room_list;
     std::vector<std::string> rooms_finished;
     for (const auto &pair : rooms) {
       if (pair.second->IsGameOver())
         rooms_finished.push_back(pair.first);
-      int player_count = pair.second->Players();
+      int player_count = pair.second->PlayersCount();
       if (player_count != MAX_PLAYERS)
         room_list.push_back(
             Builder::Room{pair.first, player_count, MAX_PLAYERS});
@@ -47,7 +49,6 @@ void Server::handleClientMessage(Connection *conn,
     if (!room_msg.has_roomname()) {
       auto new_room_name = Util::RandomString(10);
       room = std::make_shared<Room>(createNamedLogger(new_room_name));
-      std::lock_guard<std::mutex> lock(roomsMtx);
       rooms[new_room_name] = room;
     } else {
       if (rooms.find(room_msg.roomname()) == rooms.end()) {
@@ -62,7 +63,6 @@ void Server::handleClientMessage(Connection *conn,
         return;
       }
 
-      std::lock_guard<std::mutex> lock(roomsMtx);
       room = rooms[room_msg.roomname()];
     }
 
@@ -112,27 +112,29 @@ void Server::handleClientMessage(Connection *conn,
   }
 }
 
-[[noreturn]] void Server::RunBombs() {
+void Server::RunBombs() {
   LOG << "Serving bombs";
 
   epoll_event events[MAX_EVENTS];
-  while (true) {
+  while (!end.load()) {
     int event_num = epoll_wait(bombEpollSock, events, MAX_EVENTS, -1);
     for (int i = 0; i < event_num; ++i) {
       auto room = static_cast<Room *>(events[i].data.ptr);
       LOG << "Got new bomb timer expiry, notifying appropriate room";
+      std::lock_guard<std::mutex> lock(roomsMtx); // ptr read isn't atomic
       room->ExplodeBomb();
     }
   }
 }
 
-[[noreturn]] void Server::RunRoom() {
+void Server::RunRooms() {
   LOG << "Serving rooms";
 
   epoll_event events[MAX_EVENTS];
-  while (true) {
+  while (!end.load()) {
     int event_num = epoll_wait(roomEpollSock, events, MAX_EVENTS, -1);
     for (int i = 0; i < event_num; ++i) {
+      std::lock_guard<std::mutex> lock(roomsMtx);
       auto pl = static_cast<PlayerInRoom *>(events[i].data.ptr);
       LOG << "Got new message from guy: " << pl->player->username;
 
@@ -161,11 +163,11 @@ void Server::handleClientMessage(Connection *conn,
   }
 }
 
-[[noreturn]] void Server::RunLobby() {
+void Server::RunLobby() {
   LOG << "Serving lobby";
 
   epoll_event events[MAX_EVENTS];
-  while (true) {
+  while (!end.load()) {
     int event_num = epoll_wait(lobbyEpollSock, events, MAX_EVENTS, -1);
     for (int i = 0; i < event_num; ++i) {
       // If this isn't an in event, ignore it
@@ -268,4 +270,32 @@ Server::Server(int port) {
   }
 
   LOG << "Listening on port: " << port;
+}
+
+void Server::Shutdown() {
+  end.store(true);
+  std::lock_guard<std::mutex> lock(runMtx); // wait until Run() ends
+
+  for (const auto &[name, room] : rooms) {
+    for (const auto &player : room->players) {
+      shutdown(player->conn->sock, SHUT_RDWR);
+      close(player->conn->sock);
+    }
+  }
+
+  close(bombEpollSock);
+  close(lobbyEpollSock);
+  close(roomEpollSock);
+  close(srvSock);
+}
+
+void Server::Run() {
+  std::lock_guard<std::mutex> lock(runMtx);
+  std::thread rooms(&Server::RunRooms, this);
+  std::thread bombs(&Server::RunBombs, this);
+  std::thread lobby(&Server::RunLobby, this);
+
+  rooms.join();
+  bombs.join();
+  lobby.join();
 }
