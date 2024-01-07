@@ -1,5 +1,9 @@
 #include "Connection.h"
 #include <csignal>
+#include <cstddef>
+#include <iomanip>
+#include <ios>
+#include <optional>
 
 std::optional<int> Connection::Send() {
   char buf[256];
@@ -7,21 +11,28 @@ std::optional<int> Connection::Send() {
   buf[0] = static_cast<unsigned int>(msg_size);
   msg->SerializeToArray(buf + 1, msg_size);
   size_t bytes_sent = write(sock, buf, msg_size + 1);
-  if (bytes_sent != msg_size + 1) {
-    std::cerr << "[Connection] Couldn't send enough data, sent " << bytes_sent
-              << "/" << msg_size + 1 << std::endl;
-    size_t total_sent = bytes_sent;
-    while (total_sent != msg_size + 1) {
-      bytes_sent = write(sock, buf + total_sent, msg_size + 1 - total_sent);
-      if (bytes_sent <= 0)
-        return std::nullopt;
-      total_sent += bytes_sent;
-    }
+  if (bytes_sent <= 0)
+    return std::nullopt;
 
-    return total_sent;
+  if (bytes_sent == msg_size + 1) // best situation
+    return bytes_sent;
+
+  std::cerr << "[Connection] Couldn't send enough data, sent " << bytes_sent
+            << "/" << msg_size + 1 << std::endl;
+  std::cerr << "[Connection] Continuing to send" << std::endl;
+
+  size_t total_sent = bytes_sent;
+  while (total_sent != msg_size + 1) {
+    bytes_sent =
+        write(sock, buf + total_sent,
+              msg_size + 1 - total_sent); // Can't really test if this works
+                                          // correctly for now unfortunately
+    if (bytes_sent <= 0)
+      return std::nullopt;
+    total_sent += bytes_sent;
   }
 
-  return bytes_sent;
+  return total_sent;
 }
 
 std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
@@ -36,7 +47,17 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
   int bytes_received = read(sock, buf, 256);
   if (bytes_received <= 0)
     return std::nullopt;
-  uint8_t msg_size = static_cast<unsigned char>(buf[0]);
+
+  // Now we have three possible cases
+  // We can receive 1 full message (god bless)
+  // We can receive n full messages, in this case we fill the inboundQueue with
+  // messages and expect the client of the function to check if there are more
+  // We can receive n full and a fraction of the next message (worst case), then
+  // we wait for the other fraction of the message to appear?
+
+  // TODO: Store half of the message somewhere
+
+  auto msg_size = static_cast<uint8_t>(buf[0]);
   if (bytes_received == msg_size + 1) {
     // Everything is fine, let's deserialize and return
     GameMessage new_msg;
@@ -44,7 +65,7 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
     return std::make_unique<GameMessage>(new_msg);
   }
 
-  if (bytes_received > msg_size + 1) {
+  while (bytes_received > msg_size + 1) {
     // We received more than one message (maybe one is partial)
     GameMessage new_msg;
     new_msg.ParseFromArray(buf + 1, msg_size);
@@ -54,13 +75,24 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
     // recalculate the size
     bytes_received -= msg_size + 1;
     memmove(buf, buf + msg_size + 1, 256 - msg_size - 1);
-    msg_size = static_cast<unsigned char>(buf[0]);
+    msg_size = static_cast<uint8_t>(buf[0]);
   }
+
+  // TODO: I know this isn't the optimal solution, because there is the edge
+  // case of a timeout in the middle of sending a stream. This could potentially
+  // lag the read thread of the server until the client breaks the connection or
+  // reconnects. We could implement a timeout mechanism here or a partial
+  // message buffer, but I'm just too tired. NOTE: Connection doesn't intend
+  // to support non-blocking reads.
+
+  std::cerr << "[Connection] Couldn't read enough data, read " << bytes_received
+            << "/" << msg_size + 1 << std::endl;
+  std::cerr << "[Connection] Continuing to read" << std::endl;
 
   // Read until we get the message
   uint8_t read_total = bytes_received;
-  while (read_total != msg_size + 1) {
-    bytes_received = read(sock, buf + read_total + 1, 256 - read_total - 1);
+  while (read_total < msg_size + 1) {
+    bytes_received = read(sock, buf + read_total, 256 - read_total - 1);
     if (bytes_received <= 0)
       return std::nullopt;
     read_total += bytes_received;
@@ -74,6 +106,8 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
   inboundQueue.pop();
   return result;
 }
+
+bool Connection::MoreMessages() { return !inboundQueue.empty(); }
 
 Connection::Connection(int sock) {
   this->sock = sock;

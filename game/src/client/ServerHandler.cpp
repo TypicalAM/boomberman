@@ -19,6 +19,8 @@ void ServerHandler::connect2Server(const char *ip, int port) const {
       perror("Connection to the server failed!");
       exit(1);
     }
+    // TODO: Wait for the connect to finish when we detect EINPROGRESS, it might
+    // error
   }
 }
 
