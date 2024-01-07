@@ -176,13 +176,25 @@ void Server::RunRooms() {
       auto authored = std::make_unique<AuthoredMessage>(
           AuthoredMessage{std::move(msg.value()), pl->player});
       bool place_bomb = pl->room->HandleMessage(std::move(authored));
-      if (!place_bomb)
-        continue;
+      if (place_bomb) {
+        // Create a timer based on the timestamp and set a watch for it
+        epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
+        epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
+                  &event); // TODO: Error handling
+      }
 
-      // Create a timer based on the timestamp and set a watch for it
-      epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
-      epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
-                &event); // TODO: Error handling
+      while (pl->player->conn->HasMoreMessages()) {
+        LOG << "Received a message of type: " << msg.value()->type();
+        auto authored = std::make_unique<AuthoredMessage>(
+            AuthoredMessage{std::move(msg.value()), pl->player});
+        bool place_bomb = pl->room->HandleMessage(std::move(authored));
+        if (place_bomb) {
+          // Create a timer based on the timestamp and set a watch for it
+          epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
+          epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
+                    &event); // TODO: Error handling
+        }
+      }
     }
   }
 
@@ -232,6 +244,19 @@ void Server::RunLobby() {
 
       // Handle the message
       handleClientMessage(conn, std::move(msg.value()));
+
+      // If we have more messages, handle them too
+      while (conn->HasMoreMessages()) {
+        auto msg = conn->Receive();
+        if (!msg.has_value()) {
+          LOG << "Closing connection since we can't receive data: "
+              << conn->sock;
+          epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, events[i].data.fd, nullptr);
+          shutdown(events[i].data.fd, SHUT_RDWR);
+          close(events[i].data.fd);
+          continue;
+        }
+      }
     }
   }
 

@@ -36,7 +36,8 @@ void ServerHandler::receiveLoop(EntityHandler &eh) {
     }
 
     if (polling[0].revents & POLLIN) {
-      this->msg = this->conn->Receive().value();
+      this->msg = this->conn->Receive()
+                      .value(); // TODO: Handle Connection::HasMoreMessages()
       printf("%d\n", msg->type());
       switch (this->msg->type()) {
       case OTHER_MOVE: {
@@ -126,7 +127,8 @@ void ServerHandler::menu(float width,
                          float height) { // TODO: ACTUALLY HANDLE THE ROOM LIST
   std::optional<int> bytes_sent = this->conn->SendGetRoomList();
   while (true) {
-    this->msg = this->conn->Receive().value();
+    this->msg = this->conn->Receive()
+                    .value(); // TODO: Handle Connection::HasMoreMessages()
     if (this->msg->type() == ROOM_LIST)
       break;
   }
@@ -238,7 +240,8 @@ void ServerHandler::listRooms(float width, float height) {
 
 void ServerHandler::wait4Game(EntityHandler &eh, float width, float height) {
   while (true) {
-    this->msg = this->conn->Receive().value();
+    this->msg = this->conn->Receive()
+                    .value(); // TODO: Handle Connection::HasMoreMessages()
     if (this->msg->type() == GAME_START) {
       printf("Starting game with %zu players\n", eh.players.size());
       break;

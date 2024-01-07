@@ -33,7 +33,8 @@ public:
 
   std::optional<std::unique_ptr<GameMessage>> Receive();
 
-  bool MoreMessages(); // Tells us if we have more messages in the inbound queue
+  bool
+  HasMoreMessages(); // Tells us if we have more messages in the inbound queue
 
   std::optional<int> SendError(std::string error);
 

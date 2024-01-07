@@ -105,7 +105,7 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
   return result;
 }
 
-bool Connection::MoreMessages() { return !inboundQueue.empty(); }
+bool Connection::HasMoreMessages() { return !inboundQueue.empty(); }
 
 Connection::Connection(int sock) {
   this->sock = sock;
