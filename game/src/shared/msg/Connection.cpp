@@ -15,6 +15,9 @@ std::optional<int> Connection::Send() {
   if (bytes_sent == msg_size + 1) // best situation
     return bytes_sent;
 
+  if (bytes_sent > 255) // peculiar situation
+    return std::nullopt;
+
   std::cerr << "[Connection] Couldn't send enough data, sent " << bytes_sent
             << "/" << msg_size + 1 << std::endl;
   std::cerr << "[Connection] Continuing to send" << std::endl;

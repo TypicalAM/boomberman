@@ -22,7 +22,7 @@ void Server::handleClientMessage(Connection *conn,
     for (const auto &pair : rooms) {
       if (pair.second->IsGameOver())
         rooms_finished.push_back(pair.first);
-      int player_count = pair.second->PlayersCount();
+      int player_count = pair.second->PlayerCount();
       if (player_count != MAX_PLAYERS)
         room_list.push_back(
             Builder::Room{pair.first, player_count, MAX_PLAYERS});
@@ -49,7 +49,8 @@ void Server::handleClientMessage(Connection *conn,
     std::shared_ptr<Room> room;
     if (!room_msg.has_roomname()) {
       auto new_room_name = Util::RandomString(10);
-      room = std::make_shared<Room>(createNamedLogger(new_room_name));
+      room = std::make_shared<Room>(createNamedLogger(new_room_name),
+                                    roomEpollSock);
       rooms[new_room_name] = room;
     } else {
       if (rooms.find(room_msg.roomname()) == rooms.end()) {
@@ -96,8 +97,7 @@ void Server::handleClientMessage(Connection *conn,
     roomAssignments[conn->sock] = PlayerInRoom{player, room.get()};
     epoll_event event = {EPOLLIN | EPOLLET,
                          epoll_data{.ptr = &roomAssignments[conn->sock]}};
-    epoll_ctl(roomEpollSock, EPOLL_CTL_ADD, conn->sock,
-              &event); // TODO: Error handling
+    epoll_ctl(roomEpollSock, EPOLL_CTL_ADD, conn->sock, &event);
     return;
   }
 
@@ -139,7 +139,7 @@ void Server::RunBombs() {
       auto room = static_cast<Room *>(events[i].data.ptr);
       LOG << "Got new bomb timer expiry, notifying appropriate room";
       std::lock_guard<std::mutex> lock(roomsMtx); // ptr read isn't atomic
-      room->ExplodeBomb();
+      room->NotifyExplosion();
     }
   }
 
@@ -153,6 +153,7 @@ void Server::RunRooms() {
   while (!end.load()) {
     int event_num = epoll_wait(roomEpollSock, events, MAX_EVENTS, -1);
     for (int i = 0; i < event_num; ++i) {
+      LOG << "epoll notified me";
       if (shouldEnd(events[i])) {
         end.store(true);
         continue;
@@ -164,11 +165,16 @@ void Server::RunRooms() {
 
       auto msg = pl->player->conn->Receive();
       if (!msg.has_value()) {
-        // TODO: Close the connection and send I_LEAVE, place super bomb, etc.
-        pl->room->PlaceSuperBomb(pl->player);
-        LOG << "Received nothin";
-        shutdown(pl->player->conn->sock, SHUT_RDWR);
-        close(pl->player->conn->sock);
+        pl->room->Disconnect(pl->player);
+
+        // Delete the user from the epoll
+        epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, events[i].data.fd, nullptr);
+
+        // Since the player most likely drops an atomic bomb in the event of
+        // leaving here, let's notify them when it goes off
+        epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
+        epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
+                  &event);
         continue;
       }
 
@@ -180,7 +186,7 @@ void Server::RunRooms() {
         // Create a timer based on the timestamp and set a watch for it
         epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
         epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
-                  &event); // TODO: Error handling
+                  &event);
       }
 
       while (pl->player->conn->HasMoreMessages()) {
@@ -192,7 +198,7 @@ void Server::RunRooms() {
           // Create a timer based on the timestamp and set a watch for it
           epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
           epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
-                    &event); // TODO: Error handling
+                    &event);
         }
       }
     }

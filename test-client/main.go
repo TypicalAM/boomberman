@@ -63,22 +63,13 @@ func joinFirstGame(names []string) {
 		time.Sleep(200 * time.Millisecond)
 	}
 
-	moveMsg := &pb.GameMessage{Type: pb.MessageType_I_MOVE,
-		Message: &pb.GameMessage_IMove{&pb.IMove{X: 1, Y: 1}}}
-	clients[0].Send(moveMsg)
+	leaveMsg := &pb.GameMessage{Type: pb.MessageType_I_LEAVE,
+		Message: &pb.GameMessage_ILeave{&pb.ILeave{}}}
+	clients[0].Send(leaveMsg)
+	time.Sleep(200 * time.Millisecond)
+	clients[1].Send(leaveMsg)
 
 	time.Sleep(500 * time.Millisecond)
-
-	bombMsg := &pb.GameMessage{Type: pb.MessageType_I_PLACE_BOMB,
-		Message: &pb.GameMessage_IPlaceBomb{&pb.IPlaceBomb{X: 1, Y: 1}}}
-
-	// Test immunity
-	clients[0].Send(bombMsg)
-	time.Sleep(50 * time.Millisecond)
-	clients[0].Send(bombMsg)
-	time.Sleep(50 * time.Millisecond)
-	clients[0].Send(bombMsg)
-	time.Sleep(50 * time.Millisecond)
 
 	for _, client := range clients {
 		<-client.Done()

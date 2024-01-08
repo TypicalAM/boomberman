@@ -27,7 +27,22 @@ struct AuthoredMessage {
   SPlayer *author;
 };
 
+/**
+ * @class Room
+ * Contains logic connected to handling a room gamestate
+ */
 class Room {
+public:
+  Room(boost::log::sources::logger roomLoggger, int epollSock);
+  int PlayerCount();
+  void Disconnect(SPlayer *player);
+  bool CanJoin(const std::string &username);
+  SPlayer *JoinPlayer(Connection *conn, const std::string &username);
+  bool IsGameOver();
+  std::vector<std::unique_ptr<SPlayer>> players;
+  bool HandleMessage(std::unique_ptr<AuthoredMessage> msg);
+  void NotifyExplosion();
+
 private:
   std::queue<Bomb> bombs;
   std::atomic<GameState> state = WAIT_FOR_START;
@@ -35,6 +50,7 @@ private:
   int clientCount = 0;
   boost::log::sources::logger logger;
   std::unique_ptr<Map> map;
+  int epollSock;
 
   template <typename Function, typename... Args>
   void SendSpecific(Connection *conn, Function &&builderFunc,
@@ -46,26 +62,6 @@ private:
 
   template <typename Function, typename... Args>
   void SendBroadcast(Function &&builderFunc, Args &&...builderArgs);
-
-public:
-  int PlayersCount();
-
-  bool CanJoin(const std::string &username);
-
-  SPlayer *JoinPlayer(Connection *conn, const std::string &username);
-
-  bool IsGameOver();
-
-  explicit Room(boost::log::sources::logger roomLoggger);
-
-  std::vector<std::unique_ptr<SPlayer>> players;
-
-  bool HandleMessage(std::unique_ptr<AuthoredMessage>
-                         msg); // return true is if bomb has been placed
-
-  void PlaceSuperBomb(SPlayer *player);
-
-  void ExplodeBomb();
 };
 
 #endif

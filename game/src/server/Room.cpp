@@ -1,6 +1,7 @@
 #include "Room.h"
 #include <csignal>
 #include <random>
+#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <thread>
 #include <utility>
@@ -72,8 +73,8 @@ bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
     Timestamp ts = Util::TimestampMillis();
     bombs.emplace(std::floor(ipb.x()), std::floor(ipb.y()), 3, 25,
                   Util::TimestampMillis(), 3.0f, false);
-    SendSpecific(msg->author->conn, &Connection::SendOtherBombPlace,
-                 msg->author->username, ts, ipb.x(), ipb.y());
+    SendBroadcast(&Connection::SendOtherBombPlace, msg->author->username, ts,
+                  ipb.x(), ipb.y());
     return true;
   }
 
@@ -87,6 +88,7 @@ bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
                    "Invalid movement");
       return false;
     }
+
     // The movement was valid, let's roll
     msg->author->coords.x = im.x();
     msg->author->coords.y = im.y();
@@ -123,15 +125,11 @@ bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
       return false;
     }
 
-    PlaceSuperBomb(msg->author);
-
-    int author_idx = -1;
-    for (int i = 0; i < players.size(); ++i)
-      if (players[i]->conn->sock == msg->author->conn->sock)
-        author_idx = i;
-    players.erase(players.begin() + author_idx);
-    // TODO: Cleaner
-    return true;
+    // When the epoll picks up that we closed the connection, @ref Disconnect
+    // should be called and the player will be removed from the array
+    shutdown(msg->author->conn->sock, SHUT_RDWR);
+    close(msg->author->conn->sock);
+    return false;
   }
 
   default:
@@ -170,38 +168,53 @@ SPlayer *Room::JoinPlayer(Connection *conn, const std::string &username) {
   return players[0].get();
 }
 
-int Room::PlayersCount() {
+int Room::PlayerCount() {
   std::lock_guard<std::mutex> lock(playerMtx);
   return clientCount;
 }
 
+void Room::Disconnect(SPlayer *player) {
+  if (player == nullptr)
+    return;
+
+  LOG << "Disconnected: " << player->username;
+  std::lock_guard<std::mutex> lock(playerMtx);
+  int player_idx = -1;
+  for (int i = 0; i < players.size(); i++)
+    if (players[i].get() == player)
+      player_idx = i;
+
+  if (player_idx == -1)
+    return;
+
+  if (state.load() == PLAY) {
+    SendBroadcast(&Connection::SendOtherBombPlace, "Server",
+                  Util::TimestampMillis(), player->coords.x, player->coords.y);
+    bombs.emplace(std::floor(player->coords.x), std::floor(player->coords.y), 9,
+                  25, Util::TimestampMillis(), 3.0f, true);
+  }
+
+  SendExcept(player->conn, &Connection::SendOtherLeave, player->username);
+  players.erase(players.begin() + player_idx);
+}
+
 bool Room::IsGameOver() { return state.load() == GAME_OVER; }
 
-Room::Room(boost::log::sources::logger roomLogger) {
+Room::Room(boost::log::sources::logger roomLogger, int epollSock) {
+  this->epollSock = epollSock;
   logger = std::move(roomLogger);
   map = std::make_unique<Map>(
       25, MAP_WIDTH, MAP_HEIGHT); // TODO: This should just be constant???
 }
 
-void Room::PlaceSuperBomb(SPlayer *player) {
-  SendExcept(player->conn, &Connection::SendOtherLeave, player->username);
-  if (state.load() == PLAY) {
-    auto coords = player->coords;
-    SendExcept(player->conn, &Connection::SendOtherBombPlace, "Server",
-               Util::TimestampMillis(), coords.x, coords.y);
-    bombs.emplace(std::floor(coords.x), std::floor(coords.y), 9, 25,
-                  Util::TimestampMillis(), 3.0f, true);
-  }
-}
-
-void Room::ExplodeBomb() {
-  if (state.load() != PLAY)
+void Room::NotifyExplosion() {
+  if (state.load() != PLAY || bombs.empty())
     return;
 
   Bomb bomb = bombs.front();
-  bombs.pop();
   if (bomb.ShouldExplode())
-    return; // TODO: This shouldn't happen, cuz we are notified by a timer
+    return; // Since we are notified by a timer, this shouldn't happen
+  bombs.pop();
 
   // The bomb explodes
   std::vector<TileOnFire> result = bomb.boom(map.get());
