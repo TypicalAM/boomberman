@@ -144,8 +144,10 @@ void ServerHandler::menu(float width,
                          float height) {
   std::optional<int> bytes_sent = this->conn->SendGetRoomList();
   while (true) {
-    this->msg = this->conn->Receive()
-                    .value(); // TODO: Handle Connection::HasMoreMessages()
+    this->ensureReceivedMsg();
+    while (this->conn->HasMoreMessages()) {
+      this->ensureReceivedMsg();
+  }
     if (this->msg.value()->type() == ROOM_LIST)
       break;
   }
