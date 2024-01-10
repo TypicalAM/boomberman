@@ -18,7 +18,7 @@ private:
   int start_x{}, start_y{};
   pollfd polling[1]{};
   Color start_color{};
-  std::unique_ptr<GameMessage> msg;
+  std::optional<std::unique_ptr<GameMessage>> msg;
 
 public:
   std::unique_ptr<Connection> conn;
@@ -35,6 +35,8 @@ public:
   [[noreturn]] void receiveLoop(EntityHandler &eh);
   static std::vector<Boomberman>::iterator
   findPlayer(EntityHandler &eh, const std::string &username);
+  void handleMessage(EntityHandler &eh);
+  void ensureReceivedMsg();
 };
 
 #endif // BOOMBERMAN_SERVERHANDLER_H

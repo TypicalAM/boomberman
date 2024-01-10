@@ -43,7 +43,7 @@ void Client::Run() const {
       if (IsKeyPressed(KEY_SPACE)) {
         entityHandler.placeBomb(local_boomberman_position[0],
                                 local_boomberman_position[1], 3, 25,
-                                Util::TimestampMillis(), 3.0f, false);
+                                Util::TimestampMillis(), 3, false);
         serverHandler.conn->SendIPlaceBomb(local_boomberman_position[0],
                                            local_boomberman_position[1]);
       }
