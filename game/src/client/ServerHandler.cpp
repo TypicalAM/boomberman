@@ -36,8 +36,11 @@ void ServerHandler::receiveLoop(EntityHandler &eh) {
     }
 
     if (polling[0].revents & POLLIN) {
-      this->msg = this->conn->Receive()
-                      .value(); // TODO: Handle Connection::HasMoreMessages()
+      this->msg = this->conn->Receive().value(); // TODO: Handle Connection::HasMoreMessages()
+      while(this->conn->HasMoreMessages()){
+          this->msg = this->conn->Receive().value(); // TODO: Handle Connection::HasMoreMessages()
+      }
+
       printf("%d\n", msg->type());
       switch (this->msg->type()) {
       case OTHER_MOVE: {
