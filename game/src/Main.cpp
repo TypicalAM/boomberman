@@ -18,6 +18,7 @@ void init_logging() {
 
 int main(int argc, char *argv[]) {
   init_logging();
+  signal(SIGPIPE, SIG_IGN);
   BOOST_LOG_TRIVIAL(info) << "Starting boomberman";
 
   if (argc != 2) {

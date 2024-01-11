@@ -153,7 +153,6 @@ void Server::RunRooms() {
   while (!end.load()) {
     int event_num = epoll_wait(roomEpollSock, events, MAX_EVENTS, -1);
     for (int i = 0; i < event_num; ++i) {
-      LOG << "epoll notified me";
       if (shouldEnd(events[i])) {
         end.store(true);
         continue;
@@ -163,18 +162,21 @@ void Server::RunRooms() {
       auto pl = static_cast<PlayerInRoom *>(events[i].data.ptr);
       LOG << "Got new message from guy: " << pl->player->username;
 
+      if (!pl->player->conn || pl->player->marked_for_disconnect ||
+          pl->room->IsGameOver())
+        continue;
+
+      // TODO: Clean up after user disconnects (remove them from the list)
       auto msg = pl->player->conn->Receive();
       if (!msg.has_value()) {
-        pl->room->Disconnect(pl->player);
-
-        // Delete the user from the epoll
-        epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, events[i].data.fd, nullptr);
-
-        // Since the player most likely drops an atomic bomb in the event of
-        // leaving here, let's notify them when it goes off
-        epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
-        epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
-                  &event);
+        LOG << "Marked person for disconnecting";
+        pl->player->marked_for_disconnect = true;
+        int bombs_num = pl->room->DisconnectPlayers();
+        for (int i = 0; i < bombs_num; i++) {
+          epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
+          epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
+                    &event);
+        }
         continue;
       }
 
@@ -189,17 +191,28 @@ void Server::RunRooms() {
                   &event);
       }
 
-      while (pl->player->conn->HasMoreMessages()) {
-        LOG << "Received a message of type: " << msg.value()->type();
-        auto authored = std::make_unique<AuthoredMessage>(
-            AuthoredMessage{std::move(msg.value()), pl->player});
-        bool place_bomb = pl->room->HandleMessage(std::move(authored));
-        if (place_bomb) {
-          // Create a timer based on the timestamp and set a watch for it
-          epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
-          epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
-                    &event);
+      if (!pl->player->marked_for_disconnect)
+        while (pl->player->conn->HasMoreMessages()) {
+          LOG << "Received a message of type: " << msg.value()->type();
+          auto authored = std::make_unique<AuthoredMessage>(
+              AuthoredMessage{std::move(msg.value()), pl->player});
+          bool place_bomb = pl->room->HandleMessage(std::move(authored));
+          if (place_bomb) {
+            // Create a timer based on the timestamp and set a watch for it
+            epoll_event event = {EPOLLIN | EPOLLET,
+                                 epoll_data{.ptr = pl->room}};
+            epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
+                      &event);
+          }
         }
+
+      // Here we force the room to disconnect all the marked players
+      // we should get back the number of atomic bombs to place
+      int bombs_num = pl->room->DisconnectPlayers();
+      for (int i = 0; i < bombs_num; i++) {
+        epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
+        epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
+                  &event);
       }
     }
   }

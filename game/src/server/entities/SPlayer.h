@@ -19,6 +19,7 @@ public:
   std::string username;
   PlayerColor color;
   Timestamp immunityEndTimestamp;
+  bool marked_for_disconnect = false;
 
   SPlayer(Connection *conn, std::string username, PlayerColor color);
 };

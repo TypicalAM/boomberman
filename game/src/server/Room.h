@@ -4,11 +4,13 @@
 #include "../shared/game/Bomb.h"
 #include "../shared/game/Map.h"
 #include "../shared/proto/messages.pb.h"
+#include "entities/Primitives.h"
 #include "entities/SPlayer.h"
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/sources/record_ostream.hpp>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <queue>
 #include <vector>
 
@@ -35,13 +37,13 @@ class Room {
 public:
   Room(boost::log::sources::logger roomLoggger, int epollSock);
   int PlayerCount();
-  void Disconnect(SPlayer *player);
   bool CanJoin(const std::string &username);
   SPlayer *JoinPlayer(Connection *conn, const std::string &username);
   bool IsGameOver();
   std::vector<std::unique_ptr<SPlayer>> players;
   bool HandleMessage(std::unique_ptr<AuthoredMessage> msg);
   void NotifyExplosion();
+  int DisconnectPlayers(); // returns the number of bombs to place
 
 private:
   std::queue<Bomb> bombs;
@@ -53,11 +55,11 @@ private:
   int epollSock;
 
   template <typename Function, typename... Args>
-  void SendSpecific(Connection *conn, Function &&builderFunc,
+  void SendSpecific(SPlayer *player, Function &&builderFunc,
                     Args &&...builderArgs);
 
   template <typename Function, typename... Args>
-  void SendExcept(Connection *conn, Function &&builderFunc,
+  void SendExcept(SPlayer *player, Function &&builderFunc,
                   Args &&...builderArgs);
 
   template <typename Function, typename... Args>

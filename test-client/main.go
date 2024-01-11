@@ -66,10 +66,9 @@ func joinFirstGame(names []string) {
 	leaveMsg := &pb.GameMessage{Type: pb.MessageType_I_LEAVE,
 		Message: &pb.GameMessage_ILeave{&pb.ILeave{}}}
 	clients[0].Send(leaveMsg)
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	clients[1].Send(leaveMsg)
-
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
 	for _, client := range clients {
 		<-client.Done()
