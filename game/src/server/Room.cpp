@@ -186,6 +186,9 @@ int Room::DisconnectPlayers() {
     state.store(WAIT_FOR_END);
     std::this_thread::sleep_for(std::chrono::seconds(3));
     LOG << "Closing other connections and ending the game";
+    epoll_ctl(epollSock, EPOLL_CTL_DEL, players[0]->conn->sock, nullptr);
+    shutdown(players[0]->conn->sock, SHUT_RDWR);
+    close(players[0]->conn->sock);
     players.erase(players.begin());
     state.store(GAME_OVER);
     return bombs_to_place;
