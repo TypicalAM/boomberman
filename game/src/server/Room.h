@@ -29,6 +29,11 @@ struct AuthoredMessage {
   SPlayer *author;
 };
 
+// the first is the number of bombs that should be exploded
+// the second is the connections that should be deleted (releasing room
+// assignments, connectiion objects)
+typedef std::pair<int, std::vector<int>> PlayerDestructionInfo;
+
 /**
  * @class Room
  * Contains logic connected to handling a room gamestate
@@ -43,7 +48,7 @@ public:
   std::vector<std::unique_ptr<SPlayer>> players;
   bool HandleMessage(std::unique_ptr<AuthoredMessage> msg);
   void NotifyExplosion();
-  int DisconnectPlayers(); // returns the number of bombs to place
+  PlayerDestructionInfo DisconnectPlayers();
 
 private:
   std::queue<Bomb> bombs;

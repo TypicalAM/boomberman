@@ -1,4 +1,5 @@
 #include "Server.h"
+#include "Room.h"
 #include <boost/log/attributes/constant.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup/console.hpp>
@@ -171,12 +172,19 @@ void Server::RunRooms() {
       if (!msg.has_value()) {
         LOG << "Marked person for disconnecting";
         pl->player->marked_for_disconnect = true;
-        int bombs_num = pl->room->DisconnectPlayers();
-        for (int i = 0; i < bombs_num; i++) {
+        const auto &[bombCount, playersToCleanup] =
+            pl->room->DisconnectPlayers();
+        for (int i = 0; i < bombCount; i++) {
           epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
           epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
                     &event);
         }
+
+        for (const auto &sock : playersToCleanup) {
+          roomConns.erase(sock);
+          roomAssignments.erase(sock);
+        }
+
         continue;
       }
 
@@ -208,11 +216,16 @@ void Server::RunRooms() {
 
       // Here we force the room to disconnect all the marked players
       // we should get back the number of atomic bombs to place
-      int bombs_num = pl->room->DisconnectPlayers();
-      for (int i = 0; i < bombs_num; i++) {
+      const auto &[bombCount, playersToCleanup] = pl->room->DisconnectPlayers();
+      for (int i = 0; i < bombCount; i++) {
         epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
         epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
                   &event);
+      }
+
+      for (const auto &sock : playersToCleanup) {
+        roomConns.erase(sock);
+        roomAssignments.erase(sock);
       }
     }
   }

@@ -143,8 +143,9 @@ int Room::PlayerCount() {
   return clientCount;
 }
 
-int Room::DisconnectPlayers() {
+PlayerDestructionInfo Room::DisconnectPlayers() {
   int bombs_to_place = 0;
+  std::vector<int> sockets_to_delete;
 
   std::lock_guard<std::mutex> lock(playerMtx);
   std::vector<SPlayer *> players_to_destroy;
@@ -154,6 +155,7 @@ int Room::DisconnectPlayers() {
       epoll_ctl(epollSock, EPOLL_CTL_DEL, player->conn->sock, nullptr);
       shutdown(player->conn->sock, SHUT_RDWR);
       close(player->conn->sock);
+      sockets_to_delete.push_back(player->conn->sock);
       players_to_destroy.push_back(player.get());
 
       if (state.load() == PLAY && player->livesRemaining != 0) {
@@ -179,7 +181,7 @@ int Room::DisconnectPlayers() {
   switch (players.size()) {
   case 0:
     state.store(GAME_OVER);
-    return bombs_to_place;
+    return std::make_pair(bombs_to_place, sockets_to_delete);
 
   case 1:
     SendBroadcast(&Connection::SendGameWon, players[0]->username);
@@ -189,12 +191,13 @@ int Room::DisconnectPlayers() {
     epoll_ctl(epollSock, EPOLL_CTL_DEL, players[0]->conn->sock, nullptr);
     shutdown(players[0]->conn->sock, SHUT_RDWR);
     close(players[0]->conn->sock);
+    sockets_to_delete.push_back(players[0]->conn->sock);
     players.erase(players.begin());
     state.store(GAME_OVER);
-    return bombs_to_place;
+    return std::make_pair(bombs_to_place, sockets_to_delete);
 
   default:
-    return bombs_to_place;
+    return std::make_pair(bombs_to_place, sockets_to_delete);
   }
 }
 
