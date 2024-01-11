@@ -156,7 +156,7 @@ int Room::DisconnectPlayers() {
       close(player->conn->sock);
       players_to_destroy.push_back(player.get());
 
-      if (state.load() == PLAY) {
+      if (state.load() == PLAY && player->livesRemaining != 0) {
         bombs_to_place++;
         int x = std::floor(player->coords.x);
         int y = std::floor(player->coords.y);
@@ -212,8 +212,6 @@ void Room::NotifyExplosion() {
     return;
 
   Bomb bomb = bombs.front();
-  if (bomb.ShouldExplode())
-    return; // Since we are notified by a timer, this shouldn't happen
   bombs.pop();
 
   // The bomb explodes
