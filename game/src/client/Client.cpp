@@ -41,9 +41,6 @@ void Client::Run() const {
             ->pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy ==
         true_local_name) {
       if (IsKeyPressed(KEY_SPACE)) {
-        entityHandler.placeBomb(local_boomberman_position[0],
-                                local_boomberman_position[1], 3, 25,
-                                Util::TimestampMillis(), 3, false);
         serverHandler.conn->SendIPlaceBomb(local_boomberman_position[0],
                                            local_boomberman_position[1]);
       }

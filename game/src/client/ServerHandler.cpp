@@ -25,10 +25,9 @@ void ServerHandler::connect2Server(const char *ip, int port) const {
 }
 
 void ServerHandler::handleMessage(EntityHandler &eh) {
-
-    printf("Client handling message of type: %d\n", msg.value()->type());
     switch (this->msg.value()->type()) {
         case OTHER_MOVE: {
+            std::cout<<"Client handling OTHER_MOVE"<<std::endl;
             std::string username = this->msg.value()->othermove().username();
             auto found = ServerHandler::findPlayer(eh, username);
             if (found != eh.players.end()) {
@@ -44,6 +43,7 @@ void ServerHandler::handleMessage(EntityHandler &eh) {
             break;
         }
         case OTHER_LEAVE: {
+            std::cout<<"Client handling OTHER_LEAVE"<<std::endl;
             std::string username = msg.value()->otherleave().username();
             auto found = ServerHandler::findPlayer(eh, username);
             if (found != eh.players.end())
@@ -51,6 +51,7 @@ void ServerHandler::handleMessage(EntityHandler &eh) {
             break;
         }
         case GOT_HIT: {
+            std::cout<<"Client handling GOT_HIT"<<std::endl;
             std::string username = msg.value()->gothit().username();
             auto found = ServerHandler::findPlayer(eh, username);
             if (found != eh.players.end()) {
@@ -64,6 +65,7 @@ void ServerHandler::handleMessage(EntityHandler &eh) {
             break;
         }
         case OTHER_BOMB_PLACE: {
+            std::cout<<"Client handling OTHER_BOMB_PLACE"<<std::endl;
             if (msg.value()->otherbombplace().username() == "Server") {
                 eh.bombs.emplace_back(
                         this->msg.value()->otherbombplace().x(), this->msg.value()->otherbombplace().y(),
@@ -114,6 +116,15 @@ std::string ServerHandler::selectUsername(float screen_width,
   std::string username;
   Rectangle textBox = {screen_width / 2 - 100, screen_height / 2 - 100, 200,
                        40};
+  int invalid_chars[]={32, 256, 257, 258,
+                       259, 260, 261, 262,
+                       263, 264, 265, 266,
+                       267, 268, 269, 280,
+                       281, 282, 283, 284,
+                       340, 341, 342, 343,
+                       344, 345, 346, 347, 348};
+
+  bool invalid_found;
   while (!WindowShouldClose()) {
     int key = GetKeyPressed();
 
@@ -124,8 +135,16 @@ std::string ServerHandler::selectUsername(float screen_width,
       } else if (key == KEY_ENTER) {
         if (strlen(username.c_str()) > 0)
           break;
-      } else
-        username += (char)key;
+      } else {
+          invalid_found = false;
+          for(int invalid_char : invalid_chars){
+              if(key == invalid_char){
+                  invalid_found = true;
+                  break;
+              }
+          }
+          if(!invalid_found) username += (char)key;
+      }
     }
 
     BeginDrawing();
