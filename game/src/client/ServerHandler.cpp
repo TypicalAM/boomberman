@@ -28,19 +28,13 @@ void ServerHandler::handleMessage(EntityHandler &eh) {
     std::cout<<"Got msg of type: "<<this->msg.value()->type()<<std::endl;
     switch (this->msg.value()->type()) {
         case OTHER_MOVE: {
-            std::cout<<"Client handling OTHER_MOVE"<<std::endl;
             std::string username = this->msg.value()->othermove().username();
+            std::cout<<"Client handling OTHER_MOVE for "<<username<<std::endl;
             auto found = ServerHandler::findPlayer(eh, username);
             if (found != eh.players.end()) {
                 found->setBoombermanPos(int(this->msg.value()->othermove().x()),
                                         int(this->msg.value()->othermove().y()));
             }
-            printf(
-                    "Player %s moved\n",
-                    found
-                            ->pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy
-                            .c_str());
-
             break;
         }
         case OTHER_LEAVE: {
@@ -286,6 +280,11 @@ void ServerHandler::wait4Game(EntityHandler &eh, float width, float height) {
     }
     if (this->msg.value()->type() == GAME_START) {
       printf("Starting game with %zu players\n", eh.players.size());
+      std::cout<<"PLayers in room: ";
+      for(auto player: eh.players){
+          std::cout<<player.pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy<<" ";
+      }
+      std::cout<<std::endl;
       break;
     }
     else if (this->msg.value()->type() == WELCOME_TO_ROOM)
