@@ -73,8 +73,8 @@ bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
     Timestamp ts = Util::TimestampMillis();
     bombs.emplace(std::floor(ipb.x()), std::floor(ipb.y()), 3, 25,
                   Util::TimestampMillis(), 3.0f, false);
-    SendBroadcast(&Connection::SendOtherBombPlace, msg->author->username, ts,
-                  ipb.x(), ipb.y());
+    SendExcept(msg->author->conn, &Connection::SendOtherBombPlace,
+               msg->author->username, ts, ipb.x(), ipb.y());
     return true;
   }
 
