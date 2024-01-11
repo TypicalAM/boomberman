@@ -25,85 +25,89 @@ void ServerHandler::connect2Server(const char *ip, int port) const {
 }
 
 void ServerHandler::handleMessage(EntityHandler &eh) {
-    std::cout<<"Got msg of type: "<<this->msg.value()->type()<<std::endl;
-    switch (this->msg.value()->type()) {
-        case OTHER_MOVE: {
-            std::string username = this->msg.value()->othermove().username();
-            std::cout<<"Client handling OTHER_MOVE for "<<username<<std::endl;
-            auto found = ServerHandler::findPlayer(eh, username);
-            if (found != eh.players.end()) {
-                found->setBoombermanPos(int(this->msg.value()->othermove().x()),
-                                        int(this->msg.value()->othermove().y()));
-            }
-            break;
-        }
-        case OTHER_LEAVE: {
-            std::cout<<"Client handling OTHER_LEAVE"<<std::endl;
-            std::string username = msg.value()->otherleave().username();
-            auto found = ServerHandler::findPlayer(eh, username);
-            if (found != eh.players.end())
-                eh.players.erase(found);
-            break;
-        }
-        case GOT_HIT: {
-            std::string username = msg.value()->gothit().username();
-            std::cout<<"Client handling GOT_HIT for player "<<username<<std::endl;
-            auto found = ServerHandler::findPlayer(eh, username);
-            if (found != eh.players.end()) {
-                found->gotHit(
-                        msg.value()->gothit()
-                                .timestamp()); // TODO: Adamie, server side iframe'y poproszę
-                // TODO: Już są
-                if (msg.value()->gothit().livesremaining() <= 0)
-                    eh.players.erase(found);
-            }
-            break;
-        }
-        case OTHER_BOMB_PLACE: {
-            std::cout<<"Client handling OTHER_BOMB_PLACE"<<std::endl;
-            if (msg.value()->otherbombplace().username() == "Server") {
-                eh.bombs.emplace_back(
-                        this->msg.value()->otherbombplace().x(), this->msg.value()->otherbombplace().y(),
-                        9, 25, this->msg.value()->otherbombplace().timestamp(), 3, true);
-            } else {
-                eh.bombs.emplace_back(
-                        this->msg.value()->otherbombplace().x(), this->msg.value()->otherbombplace().y(),
-                        3, 25, this->msg.value()->otherbombplace().timestamp(), 3, false);
-            }
-            break;
-        }
+  std::cout << "Got msg of type: " << this->msg.value()->type() << std::endl;
+  switch (this->msg.value()->type()) {
+  case OTHER_MOVE: {
+    std::string username = this->msg.value()->othermove().username();
+    std::cout << "Client handling OTHER_MOVE for " << username << std::endl;
+    auto found = ServerHandler::findPlayer(eh, username);
+    if (found != eh.players.end()) {
+      found->setBoombermanPos(int(this->msg.value()->othermove().x()),
+                              int(this->msg.value()->othermove().y()));
     }
+    break;
+  }
+  case OTHER_LEAVE: {
+    std::cout << "Client handling OTHER_LEAVE" << std::endl;
+    std::string username = msg.value()->otherleave().username();
+    auto found = ServerHandler::findPlayer(eh, username);
+    if (found != eh.players.end())
+      eh.players.erase(found);
+    break;
+  }
+  case GOT_HIT: {
+    std::string username = msg.value()->gothit().username();
+    std::cout << "Client handling GOT_HIT for player " << username << std::endl;
+    auto found = ServerHandler::findPlayer(eh, username);
+    if (found != eh.players.end()) {
+      found->gotHit(
+          msg.value()
+              ->gothit()
+              .timestamp()); // TODO: Adamie, server side iframe'y poproszę
+      // TODO: Już są
+      if (msg.value()->gothit().livesremaining() <= 0)
+        eh.players.erase(found);
+    }
+    break;
+  }
+  case OTHER_BOMB_PLACE: {
+    std::cout << "Client handling OTHER_BOMB_PLACE" << std::endl;
+    if (msg.value()->otherbombplace().username() == "Server") {
+      eh.bombs.emplace_back(this->msg.value()->otherbombplace().x(),
+                            this->msg.value()->otherbombplace().y(), 9, 25,
+                            this->msg.value()->otherbombplace().timestamp(), 3,
+                            true);
+    } else {
+      eh.bombs.emplace_back(this->msg.value()->otherbombplace().x(),
+                            this->msg.value()->otherbombplace().y(), 3, 25,
+                            this->msg.value()->otherbombplace().timestamp(), 3,
+                            false);
+    }
+    break;
+  }
+  }
 }
 
 void ServerHandler::ensureReceivedMsg() {
-    this->msg = this->conn->Receive();
-    if(msg == std::nullopt){
-        std::cout<<"Server has thanked us for our services... goodbye :)"<<std::endl;
-        exit(0);
-    }
+  this->msg = this->conn->Receive();
+  if (msg == std::nullopt) {
+    std::cout << "Server has thanked us for our services... goodbye :)"
+              << std::endl;
+    exit(0);
+  }
 }
 
 void ServerHandler::receiveLoop(EntityHandler &eh) {
-    printf("Receive loop running\n");
-    // if (fcntl(this->sock, F_SETFL, O_NONBLOCK)) perror("fcntl");
-    while (1) {
-        int ready = poll(this->polling, 1, -1);
-        if (ready == -1) {
-            shutdown(this->conn->sock, SHUT_RDWR);
-            close(this->conn->sock);
-            error(1, errno, "poll failed");
-        }
-
-        if (polling[0].revents & POLLIN) {
-            this->ensureReceivedMsg();
-            this->handleMessage(eh);
-
-            while (this->conn->HasMoreMessages()) {
-                this->ensureReceivedMsg();
-                this->handleMessage(eh);
-            }
-        }
+  printf("Receive loop running\n");
+  // if (fcntl(this->sock, F_SETFL, O_NONBLOCK)) perror("fcntl");
+  while (1) {
+    int ready = poll(this->polling, 1, -1);
+    if (ready == -1) {
+      shutdown(this->conn->sock, SHUT_RDWR);
+      close(this->conn->sock);
+      error(1, errno, "poll failed");
     }
+
+    if (polling[0].revents & POLLIN) {
+      this->ensureReceivedMsg();
+      this->handleMessage(eh);
+
+      while (this->conn->HasMoreMessages()) {
+        this->ensureReceivedMsg();
+        this->handleMessage(eh);
+      }
+    }
+  }
 }
 
 std::string ServerHandler::selectUsername(float screen_width,
@@ -111,13 +115,9 @@ std::string ServerHandler::selectUsername(float screen_width,
   std::string username;
   Rectangle textBox = {screen_width / 2 - 100, screen_height / 2 - 100, 200,
                        40};
-  int invalid_chars[]={32, 256, 257, 258,
-                       259, 260, 261, 262,
-                       263, 264, 265, 266,
-                       267, 268, 269, 280,
-                       281, 282, 283, 284,
-                       340, 341, 342, 343,
-                       344, 345, 346, 347, 348};
+  int invalid_chars[] = {32,  256, 257, 258, 259, 260, 261, 262, 263, 264,
+                         265, 266, 267, 268, 269, 280, 281, 282, 283, 284,
+                         340, 341, 342, 343, 344, 345, 346, 347, 348};
 
   bool invalid_found;
   while (!WindowShouldClose()) {
@@ -131,14 +131,15 @@ std::string ServerHandler::selectUsername(float screen_width,
         if (strlen(username.c_str()) > 0)
           break;
       } else {
-          invalid_found = false;
-          for(int invalid_char : invalid_chars){
-              if(key == invalid_char){
-                  invalid_found = true;
-                  break;
-              }
+        invalid_found = false;
+        for (int invalid_char : invalid_chars) {
+          if (key == invalid_char) {
+            invalid_found = true;
+            break;
           }
-          if(!invalid_found) username += (char)key;
+        }
+        if (!invalid_found)
+          username += (char)key;
       }
     }
 
@@ -154,8 +155,7 @@ std::string ServerHandler::selectUsername(float screen_width,
   return username;
 }
 
-void ServerHandler::menu(float width,
-                         float height) {
+void ServerHandler::menu(float width, float height) {
   std::optional<int> bytes_sent = this->conn->SendGetRoomList();
   while (true) {
     this->ensureReceivedMsg();
@@ -280,20 +280,24 @@ void ServerHandler::wait4Game(EntityHandler &eh, float width, float height) {
     }
     if (this->msg.value()->type() == GAME_START) {
       printf("Starting game with %zu players\n", eh.players.size());
-      std::cout<<"PLayers in room: ";
-      for(auto player: eh.players){
-          std::cout<<player.pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy<<" ";
+      std::cout << "PLayers in room: ";
+      for (auto player : eh.players) {
+        std::cout
+            << player
+                   .pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy
+            << " ";
       }
-      std::cout<<std::endl;
+      std::cout << std::endl;
       break;
-    }
-    else if (this->msg.value()->type() == WELCOME_TO_ROOM)
+    } else if (this->msg.value()->type() == WELCOME_TO_ROOM)
       this->joinRoom(eh);
     else if (this->msg.value()->type() == GAME_JOIN) {
       printf("GOT GAME JOIN\n");
+      std::cout << "Player name: "
+                << this->msg.value()->gamejoin().player().username()
+                << std::endl;
       this->addPlayer(this->msg.value()->gamejoin().player(), eh);
-    }
-    else if (this->msg.value()->type() == ERROR) {
+    } else if (this->msg.value()->type() == ERROR) {
       Rectangle backButton = {10, 10, 80, 30};
       while (true) {
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {

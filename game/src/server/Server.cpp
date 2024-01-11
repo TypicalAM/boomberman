@@ -71,11 +71,15 @@ void Server::handleClientMessage(Connection *conn,
 
     if (!room->CanJoin(room_msg.username())) {
       // Close the connection if we can't send the message
-      if (conn->SendError("Cannot join this game").has_value())
-        return;
+      conn->SendError("Cannot join this game");
       epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
       shutdown(conn->sock, SHUT_RDWR);
       close(conn->sock);
+      int idx = -1;
+      for (int i = 0; i < lobbyConns.size(); i++)
+        if (lobbyConns[i]->sock == conn->sock)
+          idx = i;
+      lobbyConns.erase(lobbyConns.begin() + conn->sock);
       return;
     }
 
@@ -254,6 +258,23 @@ void Server::RunLobby() {
         int new_sock = accept(srvSock, nullptr, nullptr);
         if (new_sock == -1)
           continue;
+
+        // Just make sure we clean up room assignments (mistakes happen, just
+        // checking)
+        int idx = -1;
+        for (int i = 0; i < lobbyConns.size(); i++)
+          if (lobbyConns[i]->sock == new_sock)
+            idx = i;
+
+        if (idx != -1)
+          lobbyConns.erase(lobbyConns.begin() + idx);
+
+        if (roomConns.find(new_sock) != roomConns.end() ||
+            roomAssignments.find(new_sock) != roomAssignments.end()) {
+          roomConns.erase(new_sock);
+          roomAssignments.erase(new_sock);
+        }
+
         lobbyConns.push_back(std::make_unique<Connection>(new_sock));
         epoll_event event = {EPOLLIN | EPOLLET,
                              epoll_data{.ptr = lobbyConns.back().get()}};

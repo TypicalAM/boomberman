@@ -1,6 +1,7 @@
 #include "Connection.h"
 #include <csignal>
 #include <cstddef>
+#include <memory>
 #include <optional>
 
 std::optional<int> Connection::Send() {
