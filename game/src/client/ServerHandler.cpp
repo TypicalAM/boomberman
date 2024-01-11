@@ -25,6 +25,7 @@ void ServerHandler::connect2Server(const char *ip, int port) const {
 }
 
 void ServerHandler::handleMessage(EntityHandler &eh) {
+    std::cout<<"Got msg of type: "<<this->msg.value()->type()<<std::endl;
     switch (this->msg.value()->type()) {
         case OTHER_MOVE: {
             std::cout<<"Client handling OTHER_MOVE"<<std::endl;
@@ -51,8 +52,8 @@ void ServerHandler::handleMessage(EntityHandler &eh) {
             break;
         }
         case GOT_HIT: {
-            std::cout<<"Client handling GOT_HIT"<<std::endl;
             std::string username = msg.value()->gothit().username();
+            std::cout<<"Client handling GOT_HIT for player "<<username<<std::endl;
             auto found = ServerHandler::findPlayer(eh, username);
             if (found != eh.players.end()) {
                 found->gotHit(
@@ -166,7 +167,7 @@ void ServerHandler::menu(float width,
     this->ensureReceivedMsg();
     while (this->conn->HasMoreMessages()) {
       this->ensureReceivedMsg();
-  }
+    }
     if (this->msg.value()->type() == ROOM_LIST)
       break;
   }
@@ -279,15 +280,21 @@ void ServerHandler::listRooms(float width, float height) {
 void ServerHandler::wait4Game(EntityHandler &eh, float width, float height) {
   while (true) {
     this->ensureReceivedMsg();
+    while (this->conn->HasMoreMessages()) {
+      this->ensureReceivedMsg();
+      this->handleMessage(eh);
+    }
     if (this->msg.value()->type() == GAME_START) {
       printf("Starting game with %zu players\n", eh.players.size());
       break;
-    } else if (this->msg.value()->type() == WELCOME_TO_ROOM)
+    }
+    else if (this->msg.value()->type() == WELCOME_TO_ROOM)
       this->joinRoom(eh);
     else if (this->msg.value()->type() == GAME_JOIN) {
       printf("GOT GAME JOIN\n");
       this->addPlayer(this->msg.value()->gamejoin().player(), eh);
-    } else if (this->msg.value()->type() == ERROR) {
+    }
+    else if (this->msg.value()->type() == ERROR) {
       Rectangle backButton = {10, 10, 80, 30};
       while (true) {
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {

@@ -47,7 +47,7 @@ void Boomberman::decrementIframes() {
     this->state = 1;
 }
 
-void Boomberman::gotHit(double long when) {
+void Boomberman::gotHit(int64_t when) {
   this->health--;
   if (this->health <= 0)
     printf("YOU DIED\n");
@@ -56,7 +56,7 @@ void Boomberman::gotHit(double long when) {
 }
 
 void Boomberman::animateHit() {
-  double long now = Util::TimestampMillis();
+  int64_t now = Util::TimestampMillis();
   if (this->iframes == 0)
     return;
   if (now - this->animation_start >= 150.0f) {
