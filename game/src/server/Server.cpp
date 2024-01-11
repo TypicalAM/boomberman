@@ -99,6 +99,7 @@ void Server::handleClientMessage(Connection *conn,
     // Create the new player
     SPlayer *player = room->JoinPlayer(
         conn, room_msg.username()); // player is destructed along with the room
+    if(player == nullptr) std::cout<<"DOOOOOPA GOOOOWNO"<<std::endl;
     roomAssignments[conn->sock] = PlayerInRoom{player, room.get()};
     epoll_event event = {EPOLLIN | EPOLLET,
                          epoll_data{.ptr = &roomAssignments[conn->sock]}};
