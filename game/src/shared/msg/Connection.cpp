@@ -92,7 +92,7 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
 
   // Read until we get the message
   uint8_t read_total = bytes_received;
-  while (read_total < msg_size + 1) {
+  while (read_total <= msg_size + 1) {
     bytes_received = read(sock, buf + read_total, 256 - read_total - 1);
     if (bytes_received <= 0)
       return std::nullopt;
