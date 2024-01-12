@@ -112,7 +112,7 @@ bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
 
 SPlayer *Room::JoinPlayer(Connection *conn, const std::string &username) {
   if (state.load() != WAIT_FOR_START)
-    return nullptr; // TODO: This should never happen
+    return nullptr;
   std::lock_guard<std::mutex> lock(playerMtx);
 
   // Insert the player at the first pos
@@ -206,8 +206,7 @@ bool Room::IsGameOver() { return state.load() == GAME_OVER; }
 Room::Room(boost::log::sources::logger roomLogger, int epollSock) {
   this->epollSock = epollSock;
   logger = std::move(roomLogger);
-  map = std::make_unique<Map>(
-      25, MAP_WIDTH, MAP_HEIGHT); // TODO: This should just be constant???
+  map = std::make_unique<Map>(25, MAP_WIDTH, MAP_HEIGHT);
 }
 
 void Room::NotifyExplosion() {
@@ -216,6 +215,17 @@ void Room::NotifyExplosion() {
 
   Bomb bomb = bombs.front();
   bombs.pop();
+
+  int people_alive_before = 0;
+  int last_alive_index_before = -1;
+  std::vector<int> alive_before_explosion;
+  for (int i = 0; i < players.size(); ++i) {
+    if (players[i]->livesRemaining != 0) {
+      people_alive_before++;
+      last_alive_index_before = i;
+      alive_before_explosion.push_back(i);
+    }
+  }
 
   // The bomb explodes
   std::vector<TileOnFire> result = bomb.boom(map.get());
@@ -257,15 +267,13 @@ void Room::NotifyExplosion() {
 
   if (people_alive == 0 && state.load() == PLAY) {
     // This can happen in the unfortunate event that the last two players die
-    // from the same bomb. In this case we select the winner randomly (I don't
+    // from the same bomb. In this case we select the person randomly (I don't
     // think the person who set the bomb deserves to win) and also it would
     // require a message rewrite, so I ain't doing it.
-    // TODO: I don't think it does what I think, too late evening, brain not
-    // worky
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<> distrib(0, people_alive);
-    int winner_idx = distrib(gen);
+    std::uniform_int_distribution<> distrib(0, people_alive_before);
+    int winner_idx = alive_before_explosion[distrib(gen)];
 
     // This person has won the game, announce that and disconnect all clients
     LOG << "Player won by random mutual explosion: "

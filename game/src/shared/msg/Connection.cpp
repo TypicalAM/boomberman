@@ -21,7 +21,6 @@ std::optional<int> Connection::Send() {
   if (bytes_sent > 255) // peculiar situation
     return std::nullopt;
 
-  // TODO: Timeout while sending
   std::cerr << "[Connection] Couldn't send enough data, sent " << bytes_sent
             << "/" << msg_size + 1 << std::endl;
   std::cerr << "[Connection] Continuing to send" << std::endl;
@@ -66,8 +65,6 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
   // We can receive n full and a fraction of the next message (worst case), then
   // we wait for the other fraction of the message to appear?
 
-  // TODO: Store half of the message somewhere
-
   auto msg_size = static_cast<uint8_t>(buf[0]);
   if (bytes_received == msg_size + 1) {
     // Everything is fine, let's deserialize and return
@@ -96,8 +93,8 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
     return result;
   }
 
-  // TODO: I know this isn't the optimal solution, because there is the edge
-  // case of a timeout in the middle of sending a stream. This could potentially
+  // NOTE: I know this isn't the best solution, because there is the edge
+  // case of a timeout in the middle of receiving a stream. This could potentially
   // lag the read thread of the server until the client breaks the connection or
   // reconnects. NOTE: Connection doesn't intend to support non-blocking reads.
 

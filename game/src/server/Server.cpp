@@ -99,7 +99,16 @@ void Server::handleClientMessage(Connection *conn,
     // Create the new player
     SPlayer *player = room->JoinPlayer(
         conn, room_msg.username()); // player is destructed along with the room
-    if(player == nullptr) std::cout<<"DOOOOOPA GOOOOWNO"<<std::endl;
+    if (player == nullptr) {
+      conn->SendError("Cannot join room");
+      epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
+      shutdown(conn->sock, SHUT_RDWR);
+      close(conn->sock);
+
+      roomConns.erase(conn->sock);
+      return;
+    }
+
     roomAssignments[conn->sock] = PlayerInRoom{player, room.get()};
     epoll_event event = {EPOLLIN | EPOLLET,
                          epoll_data{.ptr = &roomAssignments[conn->sock]}};
@@ -172,7 +181,6 @@ void Server::RunRooms() {
           pl->room->IsGameOver())
         continue;
 
-      // TODO: Clean up after user disconnects (remove them from the list)
       auto msg = pl->player->conn->Receive();
       if (!msg.has_value()) {
         LOG << "Marked person for disconnecting";

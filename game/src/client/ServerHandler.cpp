@@ -19,8 +19,6 @@ void ServerHandler::connect2Server(const char *ip, int port) const {
       perror("Connection to the server failed!");
       exit(1);
     }
-    // TODO: Wait for the connect to finish when we detect EINPROGRESS, it might
-    // error
   }
 }
 
@@ -53,11 +51,7 @@ void ServerHandler::handleMessage(EntityHandler &eh) {
     std::cout << "Client handling GOT_HIT for player " << username << std::endl;
     auto found = ServerHandler::findPlayer(eh, username);
     if (found != eh.players.end()) {
-      found->gotHit(
-          msg.value()
-              ->gothit()
-              .timestamp()); // TODO: Adamie, server side iframe'y poproszę
-      // TODO: Już są
+      found->gotHit(msg.value()->gothit().timestamp());
       if (msg.value()->gothit().livesremaining() <= 0)
         eh.players.erase(found);
     }
