@@ -274,53 +274,61 @@ void ServerHandler::listRooms(float width, float height) {
 void ServerHandler::wait4Game(EntityHandler &eh, float width, float height) {
   while (true) {
     this->ensureReceivedMsg();
+    bool esc = fun(eh, width, height);
+    if (esc)
+      break;
+
     while (this->conn->HasMoreMessages()) {
       this->ensureReceivedMsg();
-      this->handleMessage(eh);
+      bool esc = fun(eh, width, height);
+      if (esc)
+        break;
     }
-    if (this->msg.value()->type() == GAME_START) {
-      printf("Starting game with %zu players\n", eh.players.size());
-      std::cout << "PLayers in room: ";
-      for (auto player : eh.players) {
-        std::cout
-            << player
-                   .pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy
-            << " ";
-      }
-      std::cout << std::endl;
-      break;
-    } else if (this->msg.value()->type() == WELCOME_TO_ROOM)
-      this->joinRoom(eh);
-    else if (this->msg.value()->type() == GAME_JOIN) {
-      printf("GOT GAME JOIN\n");
-      std::cout << "Player name: "
-                << this->msg.value()->gamejoin().player().username()
-                << std::endl;
-      this->addPlayer(this->msg.value()->gamejoin().player(), eh);
-    } else if (this->msg.value()->type() == ERROR) {
-      Rectangle backButton = {10, 10, 80, 30};
-      while (true) {
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-          Vector2 mousePoint = GetMousePosition();
-          if (CheckCollisionPointRec(mousePoint, backButton))
-            exit(0);
-        }
-
-        BeginDrawing();
-        ClearBackground(DARKGRAY);
-        DrawRectangleRec(backButton, LIGHTGRAY);
-        DrawText("Exit", backButton.x + 5, backButton.y + 2, 30, DARKGRAY);
-        DrawText("This username is already taken in this room!", 10, 50, 20,
-                 RED);
-        EndDrawing();
-      }
-    }
-
-    BeginDrawing();
-    ClearBackground(DARKGRAY);
-    DrawText("Waiting for game to start...", 10, 10, 20, LIGHTGRAY);
-    EndDrawing();
   }
+}
+
+bool ServerHandler::fun(EntityHandler &eh, float width, float height) {
+  if (this->msg.value()->type() == GAME_START) {
+    printf("Starting game with %zu players\n", eh.players.size());
+    std::cout << "PLayers in room: ";
+    for (auto player : eh.players) {
+      std::cout
+          << player
+                 .pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy
+          << " ";
+    }
+    std::cout << std::endl;
+    return true;
+  } else if (this->msg.value()->type() == WELCOME_TO_ROOM)
+    this->joinRoom(eh);
+  else if (this->msg.value()->type() == GAME_JOIN) {
+    printf("GOT GAME JOIN\n");
+    std::cout << "Player name: "
+              << this->msg.value()->gamejoin().player().username() << std::endl;
+    this->addPlayer(this->msg.value()->gamejoin().player(), eh);
+  } else if (this->msg.value()->type() == ERROR) {
+    Rectangle backButton = {10, 10, 80, 30};
+    while (true) {
+      if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+        Vector2 mousePoint = GetMousePosition();
+        if (CheckCollisionPointRec(mousePoint, backButton))
+          exit(0);
+      }
+
+      BeginDrawing();
+      ClearBackground(DARKGRAY);
+      DrawRectangleRec(backButton, LIGHTGRAY);
+      DrawText("Exit", backButton.x + 5, backButton.y + 2, 30, DARKGRAY);
+      DrawText("This username is already taken in this room!", 10, 50, 20, RED);
+      EndDrawing();
+    }
+  }
+
+  BeginDrawing();
+  ClearBackground(DARKGRAY);
+  DrawText("Waiting for game to start...", 10, 10, 20, LIGHTGRAY);
+  EndDrawing();
+  return false;
 }
 
 void ServerHandler::joinRoom(EntityHandler &eh) {
@@ -332,8 +340,8 @@ void ServerHandler::joinRoom(EntityHandler &eh) {
 
 void ServerHandler::addPlayer(const GamePlayer &player, EntityHandler &eh) {
   this->setPlayerParams(player);
-  eh.players.emplace_back(player.username(), this->start_color, this->start_x,
-                          this->start_y, 3);
+  eh.players.emplace_back(std::string(player.username()), this->start_color,
+                          this->start_x, this->start_y, 3);
   std::cout << "Added player to local vector: " << player.username()
             << " with start pos (x,y): (" << this->start_x << ","
             << this->start_y << ")" << std::endl;

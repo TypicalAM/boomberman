@@ -29,6 +29,8 @@ private:
   [[nodiscard]] std::optional<int> Send();
 
 public:
+  explicit Connection(int sock);
+
   int sock;
 
   std::optional<std::unique_ptr<GameMessage>> Receive();
@@ -70,8 +72,6 @@ public:
   std::optional<int> SendOtherLeave(const std::string &username);
 
   std::optional<int> SendGameWon(std::string winnerUsername);
-
-  explicit Connection(int sock);
 };
 
 #endif

@@ -17,6 +17,8 @@ void Client::Run() const {
   serverHandler.menu(this->width, this->height);
   serverHandler.wait4Game(entityHandler, this->width, this->height);
 
+  return;
+
   Boomberman *local_boomberman = &entityHandler.players[0];
   Color tutorial_color = local_boomberman->color;
   std::string true_local_name =
@@ -41,10 +43,10 @@ void Client::Run() const {
             ->pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy ==
         true_local_name) {
       if (IsKeyPressed(KEY_SPACE)) {
-          entityHandler.bombs.emplace_back(
-                  local_boomberman_position[0], local_boomberman_position[1],
-                  3, 25, Util::TimestampMillis(), 3, false);
-          serverHandler.conn->SendIPlaceBomb(local_boomberman_position[0],
+        entityHandler.bombs.emplace_back(local_boomberman_position[0],
+                                         local_boomberman_position[1], 3, 25,
+                                         Util::TimestampMillis(), 3, false);
+        serverHandler.conn->SendIPlaceBomb(local_boomberman_position[0],
                                            local_boomberman_position[1]);
       }
       if (IsKeyPressed(KEY_RIGHT)) {
