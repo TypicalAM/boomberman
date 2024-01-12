@@ -179,9 +179,9 @@ void Server::runLobby() {
         // Just make sure we clean up room assignments (mistakes happen, just
         // checking)
         int idx = -1;
-        for (int i = 0; i < lobbyConns.size(); i++)
+        for (size_t i = 0; i < lobbyConns.size(); i++)
           if (lobbyConns[i]->sock == new_sock)
-            idx = i;
+            idx = int(i);
 
         if (idx != -1)
           lobbyConns.erase(lobbyConns.begin() + idx);
@@ -386,9 +386,9 @@ void Server::handleLobbyMessage(Connection *conn,
 
     // Find the index and move the connection from the lobby into the room
     int idx = -1;
-    for (int i = 0; i < lobbyConns.size(); i++)
+    for (size_t i = 0; i < lobbyConns.size(); i++)
       if (lobbyConns[i]->sock == conn->sock)
-        idx = i;
+        idx = int(i);
     roomConns[conn->sock] = std::move(lobbyConns[idx]);
     lobbyConns.erase(lobbyConns.begin() + idx);
 
@@ -454,7 +454,7 @@ void Server::cleanupSock(int sock) {
   shutdown(sock, SHUT_RDWR);
   close(sock);
 
-  for (int i = 0; i < lobbyConns.size(); i++)
+  for (size_t i = 0; i < lobbyConns.size(); i++)
     if (lobbyConns[i]->sock == sock) {
       lobbyConns.erase(lobbyConns.begin() + i);
       break;

@@ -53,7 +53,7 @@ set(SOURCES
 )
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS messages.proto)
 add_executable(${PROJECT_NAME} ${SOURCES})
-set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "-g -Og")
+set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "-g -Og -Wall -Wextra")
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17)
 target_link_libraries(${PROJECT_NAME} PUBLIC raylib protobuf Boost::log_setup Boost::log)
 target_link_options(${PROJECT_NAME} PUBLIC "-Wl,--copy-dt-needed-entries")

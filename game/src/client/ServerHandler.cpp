@@ -77,8 +77,8 @@ void ServerHandler::handleMessage(EntityHandler &eh,
   }
 
   case GAME_WON: {
-      winner = msg->gamewon().winnerusername();
-      std::cout<<"Game won by "<<winner<<std::endl;
+    winner = msg->gamewon().winnerusername();
+    std::cout << "Game won by " << winner << std::endl;
   }
   default:
     break;
@@ -165,9 +165,10 @@ std::string ServerHandler::selectUsername(float screen_width,
 }
 
 void ServerHandler::menu(float width, float height) {
-  std::optional<int> bytes_sent = this->conn->SendGetRoomList();
+  this->conn->SendGetRoomList();
+
   std::unique_ptr<GameMessage> msg;
-    while (true) {
+  while (true) {
     auto opt_msg = this->conn->Receive();
     if (!opt_msg.has_value()) {
       std::cout << "The server has thanked us, grace to him and the party"
