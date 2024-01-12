@@ -71,7 +71,8 @@ int main(int argc, char *argv[]) {
 
     int port;
     try {
-      port = std::stoi(argv[2]);
+      std::cout << argv[3] << std::endl;
+      port = std::stoi(argv[3]);
     } catch (std::exception const &e) {
       std::cerr << "Expected a valid port bumber" << std::endl;
       std::cerr << "Usage: " << argv[0] << " client 127.0.0.1 1234"
