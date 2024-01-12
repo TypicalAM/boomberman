@@ -21,7 +21,7 @@ void Client::Run() const {
   serverHandler.connect2Server("127.0.0.1", 2137);
   serverHandler.menu(this->width, this->height);
   std::cout << "Going at menu" << std::endl;
-  serverHandler.wait4Game(entityHandler, this->width, this->height);
+  serverHandler.wait4Game(entityHandler);
   std::cout << "Going at 4 for game" << std::endl;
 
   Boomberman *local_boomberman = &entityHandler.players[0];

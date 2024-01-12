@@ -244,7 +244,7 @@ void ServerHandler::listRooms(float width, float height,
                        rl.rooms(i).name(), rl.rooms(i).playercount());
   }
 
-  Camera2D camera = {0};
+  Camera2D camera;
   camera.target = {width / 2, height / 2};
   camera.offset = {width / 2, height / 2};
   camera.rotation = 0.0f;
@@ -298,7 +298,7 @@ void ServerHandler::listRooms(float width, float height,
   }
 }
 
-void ServerHandler::wait4Game(EntityHandler &eh, float width, float height) {
+void ServerHandler::wait4Game(EntityHandler &eh) {
   while (true) {
     auto opt_msg = this->conn->Receive();
     if (!opt_msg.has_value()) {
@@ -307,13 +307,13 @@ void ServerHandler::wait4Game(EntityHandler &eh, float width, float height) {
       exit(0);
     }
 
-    bool esc = handleLobbyMsg(eh, width, height, std::move(opt_msg.value()));
+    bool esc = handleLobbyMsg(eh, std::move(opt_msg.value()));
     if (esc)
       break;
   }
 }
 
-bool ServerHandler::handleLobbyMsg(EntityHandler &eh, float width, float height,
+bool ServerHandler::handleLobbyMsg(EntityHandler &eh,
                                    std::unique_ptr<GameMessage> msg) {
   std::cout << " HANDLIGN A MESSAGE" << std::endl;
   if (msg->type() == GAME_START) {

@@ -28,12 +28,11 @@ public:
   static std::string selectUsername(float width, float height);
   void menu(float width, float height);
   void setPlayerParams(const GamePlayer &player);
-  void wait4Game(EntityHandler &eh, float width, float height);
+  void wait4Game(EntityHandler &eh);
   void addPlayer(const GamePlayer &player, EntityHandler &eh);
   void joinRoom(EntityHandler &eh, std::unique_ptr<GameMessage> msg);
   void listRooms(float width, float height, std::unique_ptr<GameMessage> msg);
-  bool handleLobbyMsg(EntityHandler &eh, float width, float height,
-                      std::unique_ptr<GameMessage> msg);
+  bool handleLobbyMsg(EntityHandler &eh, std::unique_ptr<GameMessage> msg);
 
   [[noreturn]] void receiveLoop(EntityHandler &eh);
   static std::vector<Boomberman>::iterator
