@@ -120,7 +120,7 @@ void Server::handleLobbyMessage(Connection *conn,
     lobbyConns.erase(lobbyConns.begin() + idx);
 
     // Create the new player
-    SPlayer *player = room->JoinPlayer(
+    Player *player = room->JoinPlayer(
         conn,
         room_msg.username()); // player is destructed along with the room
     if (player == nullptr) {

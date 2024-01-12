@@ -9,7 +9,7 @@
 #define MAX_EVENTS 25
 
 struct PlayerInRoom {
-  SPlayer *player;
+  Player *player;
   Room *room;
 };
 

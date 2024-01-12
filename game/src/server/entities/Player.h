@@ -11,7 +11,7 @@
 #define STARTER_LIVES 3
 #define IMMUNITY_TIME_MILLIS 500
 
-class SPlayer {
+class Player {
 public:
   Connection *conn;
   int livesRemaining;
@@ -21,7 +21,7 @@ public:
   Timestamp immunityEndTimestamp;
   bool marked_for_disconnect = false;
 
-  SPlayer(Connection *conn, std::string username, PlayerColor color);
+  Player(Connection *conn, std::string username, PlayerColor color);
 };
 
 #endif

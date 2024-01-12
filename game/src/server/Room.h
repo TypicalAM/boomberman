@@ -4,7 +4,7 @@
 #include "../shared/game/Bomb.h"
 #include "../shared/game/Map.h"
 #include "../shared/proto/messages.pb.h"
-#include "entities/SPlayer.h"
+#include "entities/Player.h"
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/sources/record_ostream.hpp>
 #include <memory>
@@ -25,7 +25,7 @@ enum GameState {
 
 struct AuthoredMessage {
   std::unique_ptr<GameMessage> payload;
-  SPlayer *author;
+  Player *author;
 };
 
 // the first is the number of bombs that should be exploded
@@ -42,9 +42,9 @@ public:
   Room(boost::log::sources::logger roomLoggger, int epollSock);
   int PlayerCount();
   std::optional<std::string> CanJoin(const std::string &username);
-  SPlayer *JoinPlayer(Connection *conn, const std::string &username);
+  Player *JoinPlayer(Connection *conn, const std::string &username);
   bool IsGameOver();
-  std::vector<std::unique_ptr<SPlayer>> players;
+  std::vector<std::unique_ptr<Player>> players;
   bool HandleMessage(std::unique_ptr<AuthoredMessage> msg);
   void NotifyExplosion();
   PlayerDestructionInfo DisconnectPlayers();
@@ -59,11 +59,11 @@ private:
   int epollSock;
 
   template <typename Function, typename... Args>
-  void SendSpecific(SPlayer *player, Function &&builderFunc,
+  void SendSpecific(Player *player, Function &&builderFunc,
                     Args &&...builderArgs);
 
   template <typename Function, typename... Args>
-  void SendExcept(SPlayer *player, Function &&builderFunc,
+  void SendExcept(Player *player, Function &&builderFunc,
                   Args &&...builderArgs);
 
   template <typename Function, typename... Args>

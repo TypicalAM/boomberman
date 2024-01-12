@@ -7,7 +7,7 @@
 #include <utility>
 
 template <typename Function, typename... Args>
-void Room::SendSpecific(SPlayer *player, Function &&builderFunc,
+void Room::SendSpecific(Player *player, Function &&builderFunc,
                         Args &&...builderArgs) {
   std::optional<int> bytes_sent =
       std::invoke(std::forward<Function>(builderFunc), player->conn,
@@ -17,7 +17,7 @@ void Room::SendSpecific(SPlayer *player, Function &&builderFunc,
 }
 
 template <typename Function, typename... Args>
-void Room::SendExcept(SPlayer *player, Function &&builderFunc,
+void Room::SendExcept(Player *player, Function &&builderFunc,
                       Args &&...builderArgs) {
   for (auto &game_player : players)
     if (game_player.get() != player)
@@ -116,7 +116,7 @@ bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
   }
 }
 
-SPlayer *Room::JoinPlayer(Connection *conn, const std::string &username) {
+Player *Room::JoinPlayer(Connection *conn, const std::string &username) {
   if (state.load() != WAIT_FOR_START)
     return nullptr;
   std::lock_guard<std::mutex> lock(playerMtx);
@@ -124,7 +124,7 @@ SPlayer *Room::JoinPlayer(Connection *conn, const std::string &username) {
   // Insert the player at the first pos
   auto color = static_cast<PlayerColor>(players.size());
   players.insert(players.begin(),
-                 std::make_unique<SPlayer>(conn, username, color));
+                 std::make_unique<Player>(conn, username, color));
   clientCount++;
 
   // Send the current connected player list to the new player
@@ -154,7 +154,7 @@ PlayerDestructionInfo Room::DisconnectPlayers() {
   std::vector<int> sockets_to_delete;
 
   std::lock_guard<std::mutex> lock(playerMtx);
-  std::vector<SPlayer *> players_to_destroy;
+  std::vector<Player *> players_to_destroy;
   for (const auto &player : players)
     if (player->marked_for_disconnect) {
       SendExcept(player.get(), &Connection::SendOtherLeave, player->username);

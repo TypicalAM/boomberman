@@ -1,9 +1,9 @@
-#include "SPlayer.h"
+#include "Player.h"
 #include "../../shared/Util.h"
 
 #include <utility>
 
-SPlayer::SPlayer(Connection *conn, std::string username, PlayerColor color) {
+Player::Player(Connection *conn, std::string username, PlayerColor color) {
   this->conn = conn;
   this->username = std::move(username);
   this->color = color;

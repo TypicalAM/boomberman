@@ -32,8 +32,8 @@ set(SOURCES
         src/shared/Util.h
         src/shared/proto/messages.pb.cc
 
-        src/server/entities/SPlayer.cpp
-        src/server/entities/SPlayer.h
+        src/server/entities/Player.cpp
+        src/server/entities/Player.h
         src/server/entities/Primitives.h
         src/shared/game/Map.cpp
         src/shared/game/Map.h
