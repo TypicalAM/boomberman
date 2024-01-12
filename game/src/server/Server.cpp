@@ -12,326 +12,8 @@
 #include <thread>
 #include <unistd.h>
 
-void Server::handleRoomPostEvent(Room *room) {
-  const auto &[bombCount, playersToCleanup] = room->DisconnectPlayers();
-  for (int i = 0; i < bombCount; i++) {
-    epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = room}};
-    epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(), &event);
-  }
-
-  for (const auto &sock : playersToCleanup) {
-    roomConns.erase(sock);
-    roomAssignments.erase(sock);
-  }
-}
-
-void Server::cleanupSock(int sock) {
-  LOG << "Cleaning up on sock " << sock;
-  epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, sock, nullptr);
-  epoll_ctl(roomEpollSock, EPOLL_CTL_DEL, sock, nullptr);
-  shutdown(sock, SHUT_RDWR);
-  close(sock);
-
-  for (int i = 0; i < lobbyConns.size(); i++)
-    if (lobbyConns[i]->sock == sock) {
-      lobbyConns.erase(lobbyConns.begin() + i);
-      break;
-    }
-
-  roomConns.erase(sock);
-  roomAssignments.erase(sock);
-}
-
-void Server::handleLobbyMessage(Connection *conn,
-                                std::unique_ptr<GameMessage> msg) {
-  std::lock_guard<std::mutex> lock(roomsMtx);
-  switch (msg->type()) {
-  case GET_ROOM_LIST: {
-    // Create a room list and send it to the user
-    std::vector<Builder::Room> room_list;
-    std::vector<std::string> rooms_finished;
-    for (const auto &pair : rooms) {
-      if (pair.second->IsGameOver())
-        rooms_finished.push_back(pair.first);
-      int player_count = pair.second->PlayerCount();
-      if (player_count != MAX_PLAYERS)
-        room_list.push_back(
-            Builder::Room{pair.first, player_count, MAX_PLAYERS});
-    }
-
-    for (const auto &key : rooms_finished) {
-      LOG << "Destroyed a finished room: " << key;
-      rooms.erase(key);
-    }
-
-    // Close the connection if we can't send the message
-    if (!conn->SendRoomList(room_list).has_value())
-      cleanupSock(conn->sock);
-    return;
-  }
-
-  case JOIN_ROOM: {
-    // Join a user to a room (if he specified the room) or create a new one
-    auto room_msg = msg->joinroom();
-
-    std::shared_ptr<Room> room;
-    if (!room_msg.has_roomname()) {
-      auto new_room_name = Util::RandomString(10);
-      room = std::make_shared<Room>(createNamedLogger(new_room_name),
-                                    roomEpollSock);
-      rooms[new_room_name] = room;
-    } else {
-      if (rooms.find(room_msg.roomname()) == rooms.end()) {
-        // Close the connection if we can't send the message
-        LOG << "Client requested a room which doesn't exist: "
-            << room_msg.roomname();
-        if (conn->SendError("There is no room with that name man").has_value())
-          return;
-        cleanupSock(conn->sock);
-        return;
-      }
-
-      room = rooms[room_msg.roomname()];
-    }
-
-    std::optional<std::string> reason = room->CanJoin(room_msg.username());
-    if (reason.has_value()) {
-      // Close the connection if we can't send the message
-      LOG << room_msg.username() << " cant join the room";
-      char format_buf[256];
-      sprintf(format_buf, "Cannot join room, reason: %s",
-              reason.value().c_str()); // we are using C++17 so no std::format
-      if (!conn->SendError(std::string(format_buf)).has_value())
-        cleanupSock(conn->sock);
-      return;
-    }
-
-    LOG << "Joining player to game: " << room_msg.username();
-
-    // Delete the old epoll
-    epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
-
-    // Find the index and move the connection from the lobby into the room
-    int idx = -1;
-    for (int i = 0; i < lobbyConns.size(); i++)
-      if (lobbyConns[i]->sock == conn->sock)
-        idx = i;
-    roomConns[conn->sock] = std::move(lobbyConns[idx]);
-    lobbyConns.erase(lobbyConns.begin() + idx);
-
-    // Create the new player
-    Player *player = room->JoinPlayer(
-        conn,
-        room_msg.username()); // player is destructed along with the room
-    if (player == nullptr) {
-      LOG << room_msg.username() << " cant join the room LATER";
-      conn->SendError("Cannot join room");
-      epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
-      shutdown(conn->sock, SHUT_RDWR);
-      close(conn->sock);
-
-      roomConns.erase(conn->sock);
-      return;
-    }
-
-    roomAssignments[conn->sock] = PlayerInRoom{player, room.get()};
-    epoll_event event = {EPOLLIN | EPOLLET,
-                         epoll_data{.ptr = &roomAssignments[conn->sock]}};
-    epoll_ctl(roomEpollSock, EPOLL_CTL_ADD, conn->sock, &event);
-    return;
-  }
-
-  default: {
-    // Close the connection if we can't send the message
-    LOG << "Unexpected message type: " << msg->type();
-    if (!conn->SendError("Unexpected message").has_value())
-      cleanupSock(conn->sock);
-  }
-  }
-}
-
-bool Server::shouldEnd(epoll_event &event) {
-  if (event.data.fd != sigSock)
-    return false;
-
-  // NOTE: We aren't going to read the signal, the mask indicates that it's a
-  // SIGINT and if we read it, only one epoll could successfully exit. Deal
-  // with it.
-  LOG << "SIGINT has been trapped, exiting poll";
-  return true;
-}
-
-void Server::RunBombs() {
-  LOG << "Serving bombs";
-
-  epoll_event events[MAX_EVENTS];
-  while (!end.load()) {
-    int event_num = epoll_wait(bombEpollSock, events, MAX_EVENTS, -1);
-    for (int i = 0; i < event_num; i++) {
-      if (shouldEnd(events[i])) {
-        end.store(true);
-        continue;
-      }
-
-      auto room = static_cast<Room *>(events[i].data.ptr);
-      std::lock_guard<std::mutex> lock(roomsMtx);
-      room->NotifyExplosion();
-      handleRoomPostEvent(room);
-    }
-  }
-}
-
-void Server::RunRooms() {
-  LOG << "Serving rooms";
-
-  epoll_event events[MAX_EVENTS];
-  while (!end.load()) {
-    int event_num = epoll_wait(roomEpollSock, events, MAX_EVENTS, -1);
-    for (int i = 0; i < event_num; i++) {
-      if (shouldEnd(events[i])) {
-        end.store(true);
-        continue;
-      }
-
-      std::lock_guard<std::mutex> lock(roomsMtx);
-      auto pl = static_cast<PlayerInRoom *>(events[i].data.ptr);
-      if (!pl->player->conn || pl->player->marked_for_disconnect ||
-          pl->room->IsGameOver())
-        continue;
-
-      auto msg = pl->player->conn->Receive();
-      if (!msg.has_value()) {
-        LOG << "Marked person for disconnecting";
-        pl->player->marked_for_disconnect = true;
-        handleRoomPostEvent(pl->room);
-        continue;
-      }
-
-      auto authored = std::make_unique<AuthoredMessage>(
-          AuthoredMessage{std::move(msg.value()), pl->player});
-      bool place_bomb = pl->room->HandleMessage(std::move(authored));
-      if (place_bomb) {
-        // Create a timer based on the timestamp and set a watch for it
-        epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
-        epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
-                  &event);
-      }
-
-      handleRoomPostEvent(pl->room);
-
-      if (!pl->player->marked_for_disconnect)
-        while (pl->player->conn->HasMoreMessages()) {
-          auto msg = pl->player->conn->Receive();
-          if (!msg.has_value()) {
-            LOG << "Marked person for disconnecting";
-            pl->player->marked_for_disconnect = true;
-            handleRoomPostEvent(pl->room);
-            continue;
-          }
-
-          LOG << "Received a message of type: " << msg.value()->type();
-          auto authored = std::make_unique<AuthoredMessage>(
-              AuthoredMessage{std::move(msg.value()), pl->player});
-          bool place_bomb = pl->room->HandleMessage(std::move(authored));
-          if (place_bomb) {
-            // Create a timer based on the timestamp and set a watch for it
-            epoll_event event = {EPOLLIN | EPOLLET,
-                                 epoll_data{.ptr = pl->room}};
-            epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
-                      &event);
-          }
-        }
-
-      handleRoomPostEvent(pl->room);
-    }
-  }
-}
-
-void Server::RunLobby() {
-  LOG << "Serving lobby";
-
-  epoll_event events[MAX_EVENTS];
-  while (!end.load()) {
-    int event_num = epoll_wait(lobbyEpollSock, events, MAX_EVENTS, -1);
-    for (int i = 0; i < event_num; i++) {
-      if (shouldEnd(events[i])) {
-        end.store(true);
-        continue;
-      }
-
-      // If this isn't an in event, ignore it
-      if (!(events[i].events & EPOLLIN))
-        continue;
-
-      // Check if server event
-      if (events[i].data.fd == srvSock) {
-        int new_sock = accept(srvSock, nullptr, nullptr);
-        if (new_sock == -1)
-          continue;
-
-        // Just make sure we clean up room assignments (mistakes happen, just
-        // checking)
-        int idx = -1;
-        for (int i = 0; i < lobbyConns.size(); i++)
-          if (lobbyConns[i]->sock == new_sock)
-            idx = i;
-
-        if (idx != -1)
-          lobbyConns.erase(lobbyConns.begin() + idx);
-
-        if (roomConns.find(new_sock) != roomConns.end() ||
-            roomAssignments.find(new_sock) != roomAssignments.end()) {
-          roomConns.erase(new_sock);
-          roomAssignments.erase(new_sock);
-        }
-
-        lobbyConns.push_back(std::make_unique<Connection>(new_sock));
-        epoll_event event = {EPOLLIN | EPOLLET,
-                             epoll_data{.ptr = lobbyConns.back().get()}};
-        if (epoll_ctl(lobbyEpollSock, EPOLL_CTL_ADD, new_sock, &event) == -1)
-          continue;
-        continue;
-      }
-
-      // We got a message from a client
-      auto conn = static_cast<Connection *>(events[i].data.ptr);
-      auto msg = conn->Receive();
-      if (!msg.has_value()) {
-        LOG << "Closing connection since we can't receive data: " << conn->sock;
-        cleanupSock(conn->sock);
-        continue;
-      }
-
-      // Handle the message
-      handleLobbyMessage(conn, std::move(msg.value()));
-
-      // If we have more messages, handle them too
-      while (conn->HasMoreMessages()) {
-        auto msg = conn->Receive();
-        if (!msg.has_value()) {
-          LOG << "Closing connection since we can't receive data: "
-              << conn->sock;
-          cleanupSock(conn->sock);
-          continue;
-        }
-
-        // Handle the message
-        handleLobbyMessage(conn, std::move(msg.value()));
-      }
-    }
-  }
-}
-
-boost::log::sources::logger Server::createNamedLogger(const std::string &name) {
-  boost::log::sources::logger room_logger;
-  room_logger.add_attribute(
-      "Prefix",
-      boost::log::attributes::constant<std::string>("[" + name + "] "));
-  return room_logger;
-}
-
 Server::Server(int port) {
-  logger = createNamedLogger("Server");
+  logger = CreateNamedLogger("Server");
 
   sockaddr_in localAddress{AF_INET, htons(port), htonl(INADDR_ANY)};
   int one = 1;
@@ -437,9 +119,9 @@ Server::Server(int port) {
 }
 
 void Server::Run() {
-  std::thread rooms(&Server::RunRooms, this);
-  std::thread bombs(&Server::RunBombs, this);
-  std::thread lobby(&Server::RunLobby, this);
+  std::thread rooms(&Server::runRooms, this);
+  std::thread bombs(&Server::runBombs, this);
+  std::thread lobby(&Server::runLobby, this);
 
   rooms.join();
   bombs.join();
@@ -462,4 +144,322 @@ void Server::Cleanup() {
   }
 
   close(srvSock);
+}
+
+boost::log::sources::logger Server::CreateNamedLogger(const std::string &name) {
+  boost::log::sources::logger room_logger;
+  room_logger.add_attribute(
+      "Prefix",
+      boost::log::attributes::constant<std::string>("[" + name + "] "));
+  return room_logger;
+}
+
+void Server::runLobby() {
+  LOG << "Serving lobby";
+
+  epoll_event events[MAX_EVENTS];
+  while (!end.load()) {
+    int event_num = epoll_wait(lobbyEpollSock, events, MAX_EVENTS, -1);
+    for (int i = 0; i < event_num; i++) {
+      if (shouldEnd(events[i])) {
+        end.store(true);
+        continue;
+      }
+
+      // If this isn't an in event, ignore it
+      if (!(events[i].events & EPOLLIN))
+        continue;
+
+      // Check if server event
+      if (events[i].data.fd == srvSock) {
+        int new_sock = accept(srvSock, nullptr, nullptr);
+        if (new_sock == -1)
+          continue;
+
+        // Just make sure we clean up room assignments (mistakes happen, just
+        // checking)
+        int idx = -1;
+        for (int i = 0; i < lobbyConns.size(); i++)
+          if (lobbyConns[i]->sock == new_sock)
+            idx = i;
+
+        if (idx != -1)
+          lobbyConns.erase(lobbyConns.begin() + idx);
+
+        if (roomConns.find(new_sock) != roomConns.end() ||
+            roomAssignments.find(new_sock) != roomAssignments.end()) {
+          roomConns.erase(new_sock);
+          roomAssignments.erase(new_sock);
+        }
+
+        lobbyConns.push_back(std::make_unique<Connection>(new_sock));
+        epoll_event event = {EPOLLIN | EPOLLET,
+                             epoll_data{.ptr = lobbyConns.back().get()}};
+        if (epoll_ctl(lobbyEpollSock, EPOLL_CTL_ADD, new_sock, &event) == -1)
+          continue;
+        continue;
+      }
+
+      // We got a message from a client
+      auto conn = static_cast<Connection *>(events[i].data.ptr);
+      auto msg = conn->Receive();
+      if (!msg.has_value()) {
+        LOG << "Closing connection since we can't receive data: " << conn->sock;
+        cleanupSock(conn->sock);
+        continue;
+      }
+
+      // Handle the message
+      handleLobbyMessage(conn, std::move(msg.value()));
+
+      // If we have more messages, handle them too
+      while (conn->HasMoreMessages()) {
+        auto msg = conn->Receive();
+        if (!msg.has_value()) {
+          LOG << "Closing connection since we can't receive data: "
+              << conn->sock;
+          cleanupSock(conn->sock);
+          continue;
+        }
+
+        // Handle the message
+        handleLobbyMessage(conn, std::move(msg.value()));
+      }
+    }
+  }
+}
+
+void Server::runRooms() {
+  LOG << "Serving rooms";
+
+  epoll_event events[MAX_EVENTS];
+  while (!end.load()) {
+    int event_num = epoll_wait(roomEpollSock, events, MAX_EVENTS, -1);
+    for (int i = 0; i < event_num; i++) {
+      if (shouldEnd(events[i])) {
+        end.store(true);
+        continue;
+      }
+
+      std::lock_guard<std::mutex> lock(roomsMtx);
+      auto pl = static_cast<PlayerInRoom *>(events[i].data.ptr);
+      if (!pl->player->conn || pl->player->markedForDisconnect ||
+          pl->room->IsGameOver())
+        continue;
+
+      auto msg = pl->player->conn->Receive();
+      if (!msg.has_value()) {
+        LOG << "Marked person for disconnecting";
+        pl->player->markedForDisconnect = true;
+        handleRoomPostEvent(pl->room);
+        continue;
+      }
+
+      auto authored = std::make_unique<AuthoredMessage>(
+          AuthoredMessage{std::move(msg.value()), pl->player});
+      bool place_bomb = pl->room->HandleMessage(std::move(authored));
+      if (place_bomb) {
+        // Create a timer based on the timestamp and set a watch for it
+        epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
+        epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
+                  &event);
+      }
+
+      handleRoomPostEvent(pl->room);
+
+      if (!pl->player->markedForDisconnect)
+        while (pl->player->conn->HasMoreMessages()) {
+          auto msg = pl->player->conn->Receive();
+          if (!msg.has_value()) {
+            LOG << "Marked person for disconnecting";
+            pl->player->markedForDisconnect = true;
+            handleRoomPostEvent(pl->room);
+            continue;
+          }
+
+          LOG << "Received a message of type: " << msg.value()->type();
+          auto authored = std::make_unique<AuthoredMessage>(
+              AuthoredMessage{std::move(msg.value()), pl->player});
+          bool place_bomb = pl->room->HandleMessage(std::move(authored));
+          if (place_bomb) {
+            // Create a timer based on the timestamp and set a watch for it
+            epoll_event event = {EPOLLIN | EPOLLET,
+                                 epoll_data{.ptr = pl->room}};
+            epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
+                      &event);
+          }
+        }
+
+      handleRoomPostEvent(pl->room);
+    }
+  }
+}
+
+void Server::runBombs() {
+  LOG << "Serving bombs";
+
+  epoll_event events[MAX_EVENTS];
+  while (!end.load()) {
+    int event_num = epoll_wait(bombEpollSock, events, MAX_EVENTS, -1);
+    for (int i = 0; i < event_num; i++) {
+      if (shouldEnd(events[i])) {
+        end.store(true);
+        continue;
+      }
+
+      auto room = static_cast<Room *>(events[i].data.ptr);
+      std::lock_guard<std::mutex> lock(roomsMtx);
+      room->NotifyExplosion();
+      handleRoomPostEvent(room);
+    }
+  }
+}
+
+void Server::handleLobbyMessage(Connection *conn,
+                                std::unique_ptr<GameMessage> msg) {
+  std::lock_guard<std::mutex> lock(roomsMtx);
+  switch (msg->type()) {
+  case GET_ROOM_LIST: {
+    // Create a room list and send it to the user
+    std::vector<Builder::Room> room_list;
+    std::vector<std::string> rooms_finished;
+    for (const auto &pair : rooms) {
+      if (pair.second->IsGameOver())
+        rooms_finished.push_back(pair.first);
+      int player_count = pair.second->PlayerCount();
+      if (player_count != MAX_PLAYERS)
+        room_list.push_back(
+            Builder::Room{pair.first, player_count, MAX_PLAYERS});
+    }
+
+    for (const auto &key : rooms_finished) {
+      LOG << "Destroyed a finished room: " << key;
+      rooms.erase(key);
+    }
+
+    // Close the connection if we can't send the message
+    if (!conn->SendRoomList(room_list).has_value())
+      cleanupSock(conn->sock);
+    return;
+  }
+
+  case JOIN_ROOM: {
+    // Join a user to a room (if he specified the room) or create a new one
+    auto room_msg = msg->joinroom();
+
+    std::shared_ptr<Room> room;
+    if (!room_msg.has_roomname()) {
+      auto new_room_name = Util::RandomString(10);
+      room = std::make_shared<Room>(CreateNamedLogger(new_room_name),
+                                    roomEpollSock);
+      rooms[new_room_name] = room;
+    } else {
+      if (rooms.find(room_msg.roomname()) == rooms.end()) {
+        // Close the connection if we can't send the message
+        LOG << "Client requested a room which doesn't exist: "
+            << room_msg.roomname();
+        if (conn->SendError("There is no room with that name man").has_value())
+          return;
+        cleanupSock(conn->sock);
+        return;
+      }
+
+      room = rooms[room_msg.roomname()];
+    }
+
+    std::optional<std::string> reason = room->CanJoin(room_msg.username());
+    if (reason.has_value()) {
+      // Close the connection if we can't send the message
+      LOG << room_msg.username() << " cant join the room";
+      char format_buf[256];
+      sprintf(format_buf, "Cannot join room, reason: %s",
+              reason.value().c_str()); // we are using C++17 so no std::format
+      if (!conn->SendError(std::string(format_buf)).has_value())
+        cleanupSock(conn->sock);
+      return;
+    }
+
+    LOG << "Joining player to game: " << room_msg.username();
+
+    // Delete the old epoll
+    epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
+
+    // Find the index and move the connection from the lobby into the room
+    int idx = -1;
+    for (int i = 0; i < lobbyConns.size(); i++)
+      if (lobbyConns[i]->sock == conn->sock)
+        idx = i;
+    roomConns[conn->sock] = std::move(lobbyConns[idx]);
+    lobbyConns.erase(lobbyConns.begin() + idx);
+
+    // Create the new player
+    Player *player = room->JoinPlayer(
+        conn,
+        room_msg.username()); // player is destructed along with the room
+    if (player == nullptr) {
+      LOG << room_msg.username() << " cant join the room LATER";
+      conn->SendError("Cannot join room");
+      epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
+      shutdown(conn->sock, SHUT_RDWR);
+      close(conn->sock);
+
+      roomConns.erase(conn->sock);
+      return;
+    }
+
+    roomAssignments[conn->sock] = PlayerInRoom{player, room.get()};
+    epoll_event event = {EPOLLIN | EPOLLET,
+                         epoll_data{.ptr = &roomAssignments[conn->sock]}};
+    epoll_ctl(roomEpollSock, EPOLL_CTL_ADD, conn->sock, &event);
+    return;
+  }
+
+  default: {
+    // Close the connection if we can't send the message
+    LOG << "Unexpected message type: " << msg->type();
+    if (!conn->SendError("Unexpected message").has_value())
+      cleanupSock(conn->sock);
+  }
+  }
+}
+
+bool Server::shouldEnd(epoll_event &event) {
+  if (event.data.fd != sigSock)
+    return false;
+
+  // NOTE: We aren't going to read the signal, the mask indicates that it's a
+  // SIGINT and if we read it, only one epoll could successfully exit. Deal
+  // with it.
+  LOG << "SIGINT has been trapped, exiting poll";
+  return true;
+}
+
+void Server::handleRoomPostEvent(Room *room) {
+  const auto &[bombCount, playersToCleanup] = room->DisconnectPlayers();
+  for (int i = 0; i < bombCount; i++) {
+    epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = room}};
+    epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(), &event);
+  }
+
+  for (const auto &sock : playersToCleanup) {
+    roomConns.erase(sock);
+    roomAssignments.erase(sock);
+  }
+}
+
+void Server::cleanupSock(int sock) {
+  LOG << "Cleaning up on sock " << sock;
+  epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, sock, nullptr);
+  epoll_ctl(roomEpollSock, EPOLL_CTL_DEL, sock, nullptr);
+  shutdown(sock, SHUT_RDWR);
+  close(sock);
+
+  for (int i = 0; i < lobbyConns.size(); i++)
+    if (lobbyConns[i]->sock == sock) {
+      lobbyConns.erase(lobbyConns.begin() + i);
+      break;
+    }
+
+  roomConns.erase(sock);
+  roomAssignments.erase(sock);
 }

@@ -1,6 +1,4 @@
 #include "Bomb.h"
-#include <chrono>
-#include <cstdio>
 #include <cstring>
 #include <ctime>
 #include <stdexcept>

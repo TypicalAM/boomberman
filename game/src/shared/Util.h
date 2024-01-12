@@ -6,6 +6,10 @@
 
 typedef int64_t Timestamp;
 
+/**
+ * \namespace util
+ * \brief The random utilities namespace
+ */
 namespace Util {
 Timestamp TimestampMillis();
 

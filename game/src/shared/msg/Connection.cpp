@@ -9,37 +9,19 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-std::optional<int> Connection::Send() {
-  char buf[256]{};
-  size_t msg_size = msg->ByteSizeLong();
-  if (msg_size > 255)
-    throw std::runtime_error(
-        "incorrect message size"); // We handle this just in case, we don't send
-                                   // that big of a message
-  buf[0] = static_cast<uint8_t>(msg_size);
-  msg->SerializeToArray(buf + 1, msg_size);
-  size_t bytes_sent = write(sock, buf, msg_size + 1);
-  if (bytes_sent <= 0 || bytes_sent > 255)
-    return std::nullopt;
+Connection::Connection(int sock) {
+  struct timeval timeout;
+  timeout.tv_sec = CONN_TIMEOUT_MILLIS % 1000;
+  timeout.tv_usec = 1000 * (CONN_TIMEOUT_MILLIS % 1000);
 
-  if (bytes_sent == msg_size + 1) // best situation
-    return bytes_sent;
+  if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout) < 0)
+    throw std::runtime_error("set read timeout on sock");
 
-  std::cerr << "[Connection] Couldn't send enough data, sent " << bytes_sent
-            << "/" << msg_size + 1 << std::endl;
-  std::cerr << "[Connection] Continuing to send" << std::endl;
+  if (setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof timeout) < 0)
+    throw std::runtime_error("set write timeout on sock");
 
-  size_t total_sent = bytes_sent;
-  while (total_sent != msg_size + 1) {
-    size_t bytes_sent =
-        write(sock, buf + total_sent, msg_size + 1 - total_sent);
-    if (bytes_sent <= 0)
-      return std::nullopt;
-
-    total_sent += bytes_sent;
-  }
-
-  return total_sent;
+  this->sock = sock;
+  this->msg = std::make_unique<GameMessage>();
 }
 
 std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
@@ -122,34 +104,19 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
 
 bool Connection::HasMoreMessages() { return !inboundQueue.empty(); }
 
-Connection::Connection(int sock) {
-  struct timeval timeout;
-  timeout.tv_sec = CONN_TIMEOUT_MILLIS % 1000;
-  timeout.tv_usec = 1000 * (CONN_TIMEOUT_MILLIS % 1000);
-
-  if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout) < 0)
-    throw std::runtime_error("set read timeout on sock");
-
-  if (setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof timeout) < 0)
-    throw std::runtime_error("set write timeout on sock");
-
-  this->sock = sock;
-  this->msg = std::make_unique<GameMessage>();
-}
-
 std::optional<int> Connection::SendError(std::string error) {
   auto e = std::make_unique<Error>();
   e->set_error(error);
   msg->set_type(ERROR);
   msg->set_allocated_error(e.release());
-  return Send();
+  return send();
 }
 
 std::optional<int> Connection::SendGetRoomList() {
   auto grl = std::make_unique<GetRoomList>();
   msg->set_type(GET_ROOM_LIST);
   msg->set_allocated_getroomlist(grl.release());
-  return Send();
+  return send();
 }
 
 std::optional<int>
@@ -161,7 +128,7 @@ Connection::SendJoinRoom(const std::string &name,
     jr->set_roomname(roomName.value());
   msg->set_type(JOIN_ROOM);
   msg->set_allocated_joinroom(jr.release());
-  return Send();
+  return send();
 }
 
 std::optional<int> Connection::SendIPlaceBomb(float x, float y) {
@@ -171,7 +138,7 @@ std::optional<int> Connection::SendIPlaceBomb(float x, float y) {
 
   msg->set_type(I_PLACE_BOMB);
   msg->set_allocated_iplacebomb(ipb.release());
-  return Send();
+  return send();
 }
 
 std::optional<int> Connection::SendIMove(float x, float y) {
@@ -181,12 +148,12 @@ std::optional<int> Connection::SendIMove(float x, float y) {
 
   msg->set_type(I_MOVE);
   msg->set_allocated_imove(im.release());
-  return Send();
+  return send();
 }
 
 std::optional<int> Connection::SendILeave() {
   msg->set_type(I_LEAVE);
-  return Send();
+  return send();
 }
 
 std::optional<int>
@@ -201,7 +168,7 @@ Connection::SendRoomList(const std::vector<Builder::Room> &rooms) {
 
   msg->set_type(ROOM_LIST);
   msg->set_allocated_roomlist(rl.release());
-  return Send();
+  return send();
 }
 
 std::optional<int>
@@ -215,7 +182,7 @@ Connection::SendWelcomeToRoom(const std::vector<Builder::Player> &players) {
 
   msg->set_type(WELCOME_TO_ROOM);
   msg->set_allocated_welcometoroom(wtr.release());
-  return Send();
+  return send();
 }
 
 std::optional<int> Connection::SendGameJoin(Builder::Player player) {
@@ -228,12 +195,12 @@ std::optional<int> Connection::SendGameJoin(Builder::Player player) {
 
   msg->set_type(GAME_JOIN);
   msg->set_allocated_gamejoin(gj.release());
-  return Send();
+  return send();
 }
 
 std::optional<int> Connection::SendGameStart() {
   msg->set_type(GAME_START);
-  return Send();
+  return send();
 }
 
 std::optional<int> Connection::SendOtherBombPlace(std::string username,
@@ -247,7 +214,7 @@ std::optional<int> Connection::SendOtherBombPlace(std::string username,
 
   msg->set_type(OTHER_BOMB_PLACE);
   msg->set_allocated_otherbombplace(obp.release());
-  return Send();
+  return send();
 }
 
 std::optional<int> Connection::SendGotHit(const std::string &username,
@@ -260,7 +227,7 @@ std::optional<int> Connection::SendGotHit(const std::string &username,
 
   msg->set_type(GOT_HIT);
   msg->set_allocated_gothit(gh.release());
-  return Send();
+  return send();
 }
 
 std::optional<int> Connection::SendOtherMove(std::string name, float x,
@@ -272,7 +239,7 @@ std::optional<int> Connection::SendOtherMove(std::string name, float x,
 
   msg->set_type(OTHER_MOVE);
   msg->set_allocated_othermove(om.release());
-  return Send();
+  return send();
 }
 
 std::optional<int> Connection::SendOtherLeave(const std::string &username) {
@@ -281,7 +248,7 @@ std::optional<int> Connection::SendOtherLeave(const std::string &username) {
 
   msg->set_type(OTHER_LEAVE);
   msg->set_allocated_otherleave(ol.release());
-  return Send();
+  return send();
 }
 
 std::optional<int> Connection::SendGameWon(std::string winnerUsername) {
@@ -290,7 +257,7 @@ std::optional<int> Connection::SendGameWon(std::string winnerUsername) {
 
   msg->set_type(GAME_WON);
   msg->set_allocated_gamewon(gw.release());
-  return Send();
+  return send();
 }
 
 std::optional<int> Connection::SendMovementCorrection(float x, float y) {
@@ -300,5 +267,38 @@ std::optional<int> Connection::SendMovementCorrection(float x, float y) {
 
   msg->set_type(MOVEMENT_CORRECTION);
   msg->set_allocated_movementcorrection(mc.release());
-  return Send();
+  return send();
+}
+
+std::optional<int> Connection::send() {
+  char buf[256]{};
+  size_t msg_size = msg->ByteSizeLong();
+  if (msg_size > 255)
+    throw std::runtime_error(
+        "incorrect message size"); // We handle this just in case, we don't send
+                                   // that big of a message
+  buf[0] = static_cast<uint8_t>(msg_size);
+  msg->SerializeToArray(buf + 1, msg_size);
+  size_t bytes_sent = write(sock, buf, msg_size + 1);
+  if (bytes_sent <= 0 || bytes_sent > 255)
+    return std::nullopt;
+
+  if (bytes_sent == msg_size + 1) // best situation
+    return bytes_sent;
+
+  std::cerr << "[Connection] Couldn't send enough data, sent " << bytes_sent
+            << "/" << msg_size + 1 << std::endl;
+  std::cerr << "[Connection] Continuing to send" << std::endl;
+
+  size_t total_sent = bytes_sent;
+  while (total_sent != msg_size + 1) {
+    size_t bytes_sent =
+        write(sock, buf + total_sent, msg_size + 1 - total_sent);
+    if (bytes_sent <= 0)
+      return std::nullopt;
+
+    total_sent += bytes_sent;
+  }
+
+  return total_sent;
 }

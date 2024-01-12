@@ -3,6 +3,31 @@
 #include <cmath>
 #include <optional>
 
+Player::Player(Connection *conn, std::string username, PlayerColor color) {
+  this->conn = conn;
+  this->username = std::move(username);
+  this->color = color;
+  this->livesRemaining = STARTER_LIVES;
+  this->immunityEndTimestamp = Util::TimestampMillis();
+
+  switch (color) {
+  case PLAYER_RED:
+    this->coords = Coords{1.0f, 1.0f};
+    break;
+  case PLAYER_GREEN:
+    this->coords = Coords{15.0f, 1.0f};
+    break;
+  case PLAYER_BLUE:
+    this->coords = Coords{1.0f, 9.0f};
+    break;
+  case PLAYER_YELLOW:
+    this->coords = Coords{15.0f, 9.0f};
+    break;
+  default:
+    throw std::runtime_error("unhandled color starting position");
+  }
+}
+
 Coords Player::GetCoords() { return coords; }
 
 std::optional<Coords> Player::MoveCheckSus(int x, int y) {
@@ -31,29 +56,4 @@ std::optional<Coords> Player::MoveCheckSus(int x, int y) {
   coords.y = y;
   moveHistory[step % 5] = MovementEntry{ts, coords};
   return std::nullopt; // No need to correct
-}
-
-Player::Player(Connection *conn, std::string username, PlayerColor color) {
-  this->conn = conn;
-  this->username = std::move(username);
-  this->color = color;
-  this->livesRemaining = STARTER_LIVES;
-  this->immunityEndTimestamp = Util::TimestampMillis();
-
-  switch (color) {
-  case PLAYER_RED:
-    this->coords = Coords{1.0f, 1.0f};
-    break;
-  case PLAYER_GREEN:
-    this->coords = Coords{15.0f, 1.0f};
-    break;
-  case PLAYER_BLUE:
-    this->coords = Coords{1.0f, 9.0f};
-    break;
-  case PLAYER_YELLOW:
-    this->coords = Coords{15.0f, 9.0f};
-    break;
-  default:
-    throw std::runtime_error("unhandled color starting position");
-  }
 }

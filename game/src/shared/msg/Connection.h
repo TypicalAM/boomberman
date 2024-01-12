@@ -10,36 +10,60 @@
 
 #define CONN_TIMEOUT_MILLIS 1500
 
+/**
+ * \namespace builder
+ * \brief building messages one brick at a time
+ */
 namespace Builder {
+/*
+ * @struct Room
+ * building a room representation for protobuf
+ */
 struct Room {
   std::string name;
   int32_t players;
   int32_t maxPlayers;
 };
 
+/*
+ * @struct Player
+ * building a player representation for protobuf
+ */
 struct Player {
   std::string username;
   PlayerColor color;
 };
 } // namespace Builder
 
-// Send and receive messages from sockets
+/*
+ * @class Connection
+ * manages the tcp connection, doesn't support non-blocking sockets
+ */
 class Connection {
-private:
-  std::unique_ptr<GameMessage> msg;
-  std::queue<std::unique_ptr<GameMessage>> inboundQueue;
-
-  [[nodiscard]] std::optional<int> Send();
-
 public:
+  /*
+   * Constructor for the connection
+   * @param a connected socket
+   */
   explicit Connection(int sock);
 
-  int sock;
-
+  /*
+   * Receive a message
+   * @return GameMessage from queue if there are messages in the queue (see @ref
+   * HasMoreMessages), otherwise block on read from the socket connection. If
+   * there is an error/timeout while reading return nothing
+   */
   std::optional<std::unique_ptr<GameMessage>> Receive();
 
-  bool
-  HasMoreMessages(); // Tells us if we have more messages in the inbound queue
+  /*
+   * Tells if there are messages in the inbound queue, needs to be called after
+   * every receive
+   * @return True if there are messsages in the queue, False otherwise
+   */
+  bool HasMoreMessages();
+
+  // NOTE: For specific message types and what they mean, check out the
+  // messages.proto definitions in the root of the repository
 
   std::optional<int> SendError(std::string error);
 
@@ -77,6 +101,14 @@ public:
   std::optional<int> SendGameWon(std::string winnerUsername);
 
   std::optional<int> SendMovementCorrection(float x, float y);
+
+  int sock;
+
+private:
+  std::unique_ptr<GameMessage> msg;
+  std::queue<std::unique_ptr<GameMessage>> inboundQueue;
+
+  [[nodiscard]] std::optional<int> send();
 };
 
 #endif
