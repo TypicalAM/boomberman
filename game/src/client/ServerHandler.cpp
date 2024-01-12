@@ -77,6 +77,12 @@ void ServerHandler::handleMessage(EntityHandler &eh,
     break;
   }
 
+  case MOVEMENT_CORRECTION: {
+      std::cout<<"Got movement correction orders. I could have been much speedy... Sir yes Sir!"<<std::endl;
+      eh.players[0].setBoombermanPos(std::floor(msg->movementcorrection().x()),std::floor(msg->movementcorrection().y()));
+      break;
+  }
+
   case GAME_WON: {
     winner = msg->gamewon().winnerusername();
     std::cout << "Game won by " << winner << std::endl;
