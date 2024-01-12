@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <ratio>
+#include <thread>
 
 std::optional<int> Connection::Send() {
   char buf[256];
@@ -26,10 +28,16 @@ std::optional<int> Connection::Send() {
 
   size_t total_sent = bytes_sent;
   while (total_sent != msg_size + 1) {
-    bytes_sent =
-        write(sock, buf + total_sent,
-              msg_size + 1 - total_sent); // Can't really test if this works
-                                          // correctly for now unfortunately
+    bool already_sent = false;
+    std::thread([this, already_sent]() {
+      std::this_thread::sleep_for(
+          std::chrono::duration<int, std::milli>(CONN_TIMEOUT_MILLIS));
+      if (!already_sent)
+        close(sock); // NOTE: we trap SIGPIPE
+    }).detach();
+    bytes_sent = write(sock, buf + total_sent, msg_size + 1 - total_sent);
+    already_sent = true;
+
     if (bytes_sent <= 0)
       return std::nullopt;
     total_sent += bytes_sent;
@@ -68,7 +76,7 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
     return std::make_unique<GameMessage>(new_msg);
   }
 
-  while (bytes_received > msg_size + 1) {
+  while (bytes_received >= msg_size + 1) {
     // We received more than one message (maybe one is partial)
     GameMessage new_msg;
     new_msg.ParseFromArray(buf + 1, msg_size);
@@ -81,12 +89,17 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
     msg_size = static_cast<uint8_t>(buf[0]);
   }
 
+  if (bytes_received == 0) {
+    // We've read n full messages
+    auto result = std::move(inboundQueue.front());
+    inboundQueue.pop();
+    return result;
+  }
+
   // TODO: I know this isn't the optimal solution, because there is the edge
   // case of a timeout in the middle of sending a stream. This could potentially
   // lag the read thread of the server until the client breaks the connection or
-  // reconnects. We could implement a timeout mechanism here or a partial
-  // message buffer, but I'm just too tired. NOTE: Connection doesn't intend
-  // to support non-blocking reads.
+  // reconnects. NOTE: Connection doesn't intend to support non-blocking reads.
 
   std::cerr << "[Connection] Couldn't read enough data, read " << bytes_received
             << "/" << msg_size + 1 << std::endl;
@@ -95,7 +108,16 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
   // Read until we get the message
   uint8_t read_total = bytes_received;
   while (read_total <= msg_size + 1) {
+    bool already_read = false;
+    std::thread([this, already_read]() {
+      std::this_thread::sleep_for(
+          std::chrono::duration<int, std::milli>(CONN_TIMEOUT_MILLIS));
+      if (!already_read)
+        close(sock);
+    }).detach();
     bytes_received = read(sock, buf + read_total, 256 - read_total - 1);
+    already_read = true;
+
     if (bytes_received <= 0)
       return std::nullopt;
     read_total += bytes_received;

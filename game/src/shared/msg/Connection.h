@@ -7,6 +7,8 @@
 #include <optional>
 #include <queue>
 
+#define CONN_TIMEOUT_MILLIS 1500
+
 namespace Builder {
 struct Room {
   std::string name;
