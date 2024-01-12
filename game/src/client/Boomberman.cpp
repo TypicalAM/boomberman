@@ -27,9 +27,9 @@ void Boomberman::setBoombermanPos(int new_x, int new_y) {
   this->position[1] = new_y;
 }
 
-bool Boomberman::move(Map *map, std::shared_ptr<float[]> curr_pos, int x, int y) {
-  int new_x = curr_pos[0] + x;
-  int new_y = curr_pos[1] + y;
+bool Boomberman::move(Map *map, const std::shared_ptr<float[]>& curr_pos, int x, int y) {
+  float new_x = curr_pos[0] + x;
+  float new_y = curr_pos[1] + y;
   int is_wall = map->getSquareState(new_x, new_y);
   if (is_wall != 1 && is_wall != 2) {
     this->setBoombermanPos(new_x, new_y);

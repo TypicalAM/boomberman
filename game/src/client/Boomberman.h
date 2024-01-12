@@ -24,7 +24,7 @@ public:
       Color color, int start_x, int start_y, int health);
   std::unique_ptr<int[]> getBoombermanPos();
   void setBoombermanPos(int new_x, int new_y);
-  bool move(Map *map, std::shared_ptr<float[]> curr_pos, int x, int y);
+  bool move(Map *map, const std::shared_ptr<float[]>& curr_pos, int x, int y);
   void cleanUp();
   void gotHit(int64_t when);
   void decrementIframes();
