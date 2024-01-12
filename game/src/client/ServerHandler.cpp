@@ -29,7 +29,8 @@ void ServerHandler::handleMessage(EntityHandler &eh) {
   switch (this->msg.value()->type()) {
   case OTHER_MOVE: {
     std::string username = this->msg.value()->othermove().username();
-    if(username.empty()) return;
+    if (username.empty())
+      return;
     std::cout << "Client handling OTHER_MOVE for " << username << std::endl;
     auto found = ServerHandler::findPlayer(eh, username);
     if (found != eh.players.end()) {
@@ -41,6 +42,7 @@ void ServerHandler::handleMessage(EntityHandler &eh) {
   case OTHER_LEAVE: {
     std::cout << "Client handling OTHER_LEAVE" << std::endl;
     std::string username = msg.value()->otherleave().username();
+    std::cout << "Client: " << username << std::endl;
     auto found = ServerHandler::findPlayer(eh, username);
     if (found != eh.players.end())
       eh.players.erase(found);
@@ -165,7 +167,8 @@ void ServerHandler::menu(float width, float height) {
       this->ensureReceivedMsg();
       esc = this->msg.value()->type() == ROOM_LIST;
     }
-    if(esc) break;
+    if (esc)
+      break;
   }
 
   auto rl = this->msg.value()->roomlist();
@@ -179,7 +182,13 @@ void ServerHandler::menu(float width, float height) {
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
       Vector2 mousePoint = GetMousePosition();
       if (CheckCollisionPointRec(mousePoint, newGameButton)) {
-        this->conn->SendJoinRoom(ServerHandler::selectUsername(width, height));
+        std::string username = ServerHandler::selectUsername(width, height);
+        if (!username.empty()) {
+          this->conn->SendJoinRoom(username);
+        } else {
+          std::cout << "USERNAME NOT PROVIDED" << std::endl;
+        }
+
         return;
       }
     }
@@ -244,8 +253,12 @@ void ServerHandler::listRooms(float width, float height) {
 
       for (const auto &room : rooms) {
         if (CheckCollisionPointRec(mousePoint, room.rect)) {
-          this->conn->SendJoinRoom(ServerHandler::selectUsername(width, height),
-                                   room.label);
+          std::string username = ServerHandler::selectUsername(width, height);
+          if (!username.empty()) {
+            this->conn->SendJoinRoom(username, room.label);
+          } else {
+            std::cout << "USERNAME NOT PROVIDED" << std::endl;
+          }
           return;
         } else if (CheckCollisionPointRec(mousePoint, backButton))
           return this->menu(width, height);
@@ -289,7 +302,8 @@ void ServerHandler::wait4Game(EntityHandler &eh, float width, float height) {
   }
 }
 
-bool ServerHandler::handleLobbyMsg(EntityHandler &eh, float width, float height) {
+bool ServerHandler::handleLobbyMsg(EntityHandler &eh, float width,
+                                   float height) {
   if (this->msg.value()->type() == GAME_START) {
     printf("Starting game with %zu players\n", eh.players.size());
     std::cout << "PLayers in room: ";
