@@ -15,7 +15,11 @@
 Server::Server(int port) {
   logger = CreateNamedLogger("Server");
 
-  sockaddr_in localAddress{AF_INET, htons(port), htonl(INADDR_ANY)};
+  sockaddr_in localAddr{};
+  localAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+  localAddr.sin_port = htons(port);
+  localAddr.sin_family = AF_INET;
+
   int one = 1;
   // Socket creation
   if ((srvSock = socket(PF_INET, SOCK_STREAM, 0)) == -1) {
@@ -29,7 +33,7 @@ Server::Server(int port) {
   }
 
   // Bind the socket
-  if (bind(srvSock, (sockaddr *)&localAddress, sizeof(localAddress)) == -1) {
+  if (bind(srvSock, (sockaddr *)&localAddr, sizeof(localAddr)) == -1) {
     close(srvSock); // Clean up on failure
     throw std::runtime_error("bind failed");
   }
@@ -179,9 +183,9 @@ void Server::runLobby() {
         // Just make sure we clean up room assignments (mistakes happen, just
         // checking)
         int idx = -1;
-        for (size_t i = 0; i < lobbyConns.size(); i++)
+        for (int i = 0; i < int(lobbyConns.size()); i++)
           if (lobbyConns[i]->sock == new_sock)
-            idx = int(i);
+            idx = i;
 
         if (idx != -1)
           lobbyConns.erase(lobbyConns.begin() + idx);
@@ -386,9 +390,9 @@ void Server::handleLobbyMessage(Connection *conn,
 
     // Find the index and move the connection from the lobby into the room
     int idx = -1;
-    for (size_t i = 0; i < lobbyConns.size(); i++)
+    for (int i = 0; i < int(lobbyConns.size()); i++)
       if (lobbyConns[i]->sock == conn->sock)
-        idx = int(i);
+        idx = i;
     roomConns[conn->sock] = std::move(lobbyConns[idx]);
     lobbyConns.erase(lobbyConns.begin() + idx);
 
@@ -454,7 +458,7 @@ void Server::cleanupSock(int sock) {
   shutdown(sock, SHUT_RDWR);
   close(sock);
 
-  for (size_t i = 0; i < lobbyConns.size(); i++)
+  for (int i = 0; i < int(lobbyConns.size()); i++)
     if (lobbyConns[i]->sock == sock) {
       lobbyConns.erase(lobbyConns.begin() + i);
       break;

@@ -44,7 +44,7 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
   // We can receive n full and a fraction of the next message (worst case), then
   // we wait for the other fraction of the message to appear?
 
-  auto msg_size = static_cast<uint8_t>(buf[0]);
+  auto msg_size = static_cast<size_t>(buf[0]);
   if (bytes_received == msg_size + 1) {
     // Everything is fine, let's deserialize and return
     GameMessage new_msg;
@@ -64,7 +64,7 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
     if (bytes_received == 0)
       break;
     memmove(buf, buf + msg_size + 1, 256 - msg_size - 1);
-    msg_size = static_cast<uint8_t>(buf[0]);
+    msg_size = static_cast<size_t>(buf[0]);
   }
 
   if (bytes_received == 0) {
@@ -85,7 +85,7 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
   std::cerr << "[Connection] Continuing to read" << std::endl;
 
   // Read until we get the message
-  uint8_t read_total = bytes_received;
+  size_t read_total = bytes_received;
   while (read_total < msg_size + 1) {
     bytes_received = read(sock, buf + read_total, 1);
     if (bytes_received <= 0)
@@ -277,7 +277,7 @@ std::optional<int> Connection::send() {
     throw std::runtime_error(
         "incorrect message size"); // We handle this just in case, we don't send
                                    // that big of a message
-  buf[0] = static_cast<uint8_t>(msg_size);
+  buf[0] = static_cast<size_t>(msg_size);
   msg->SerializeToArray(buf + 1, msg_size);
   size_t bytes_sent = write(sock, buf, msg_size + 1);
   if (bytes_sent <= 0 || bytes_sent > 255)

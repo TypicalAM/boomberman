@@ -152,7 +152,7 @@ void Room::NotifyExplosion() {
 
   int people_alive_before = 0;
   std::vector<int> alive_before_explosion;
-  for (int i = 0; i < players.size(); i++)
+  for (int i = 0; i < int(players.size()); i++)
     if (players[i]->livesRemaining > 0) {
       people_alive_before++;
       alive_before_explosion.push_back(i);
@@ -190,7 +190,7 @@ void Room::NotifyExplosion() {
 
   int people_alive = 0;
   int last_alive_index = -1;
-  for (int i = 0; i < players.size(); i++)
+  for (int i = 0; i < int(players.size()); i++)
     if (players[i]->livesRemaining > 0) {
       people_alive++;
       last_alive_index = i;
@@ -260,7 +260,7 @@ PlayerDestructionInfo Room::DisconnectPlayers() {
 
   // Erase elements at specified indices
   for (auto to_destroy : players_to_destroy)
-    for (int i = 0; i < players.size(); i++)
+    for (int i = 0; i < int(players.size()); i++)
       if (players[i].get() == to_destroy) {
         LOG << "Disconnecting player " << players[i]->username;
         players.erase(players.begin() + i);
