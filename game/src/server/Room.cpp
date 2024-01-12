@@ -5,11 +5,6 @@
 #include <thread>
 #include <utility>
 
-// tenks chatgptpt
-void eraseIndices(std::vector<int> &vec, const std::vector<int> &indices) {
-  // Ensure indices are sorted in descending order
-}
-
 template <typename Function, typename... Args>
 void Room::SendSpecific(SPlayer *player, Function &&builderFunc,
                         Args &&...builderArgs) {
