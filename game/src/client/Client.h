@@ -14,7 +14,7 @@ private:
 public:
   Client(float width, float height);
   static void drawMap(Map *map);
-  void Run() const;
+  void Run(const std::string&, int port) const;
 
   ~Client();
 };

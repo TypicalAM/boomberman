@@ -63,8 +63,12 @@ int main(int argc, char *argv[]) {
     server.Run();
     server.Cleanup();
   } else {
+    if (argc < 3) {
+      std::cerr << "Usage: " << argv[0] << " server port" << std::endl;
+      return 1;
+    }
     Client client(screenWidth, screenHeight);
-    client.Run();
+    client.Run(argv[2], std::stoi(argv[3]));
   };
 
   return 0;

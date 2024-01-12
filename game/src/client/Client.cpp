@@ -10,7 +10,7 @@ void waitThreeSeconds(ServerHandler *sh) {
   close(sh->conn->sock);
   CloseWindow();
 }
-void Client::Run() const {
+void Client::Run(const std::string& server, int port) const {
   EntityHandler entityHandler;
   ServerHandler serverHandler;
 
@@ -18,7 +18,7 @@ void Client::Run() const {
 
   std::shared_ptr<float[]> local_boomberman_position(new float[2]);
 
-  serverHandler.connect2Server("127.0.0.1", 2137);
+  serverHandler.connect2Server(server.c_str(), port);
   serverHandler.menu(this->width, this->height);
   std::cout << "Going at menu" << std::endl;
   serverHandler.wait4Game(entityHandler);
