@@ -9,7 +9,6 @@
 #include <sys/socket.h>
 
 #include "../shared/msg/Connection.h"
-#include "Client.h"
 #include "EntityHandler.h"
 #include "raylib.h"
 
@@ -18,7 +17,6 @@ private:
   int start_x{}, start_y{};
   pollfd polling[1]{};
   Color start_color{};
-  std::optional<std::unique_ptr<GameMessage>> msg;
 
 public:
   std::unique_ptr<Connection> conn;
@@ -29,15 +27,15 @@ public:
   void setPlayerParams(const GamePlayer &player);
   void wait4Game(EntityHandler &eh, float width, float height);
   void addPlayer(const GamePlayer &player, EntityHandler &eh);
-  void joinRoom(EntityHandler &eh);
-  void listRooms(float width, float height);
-  bool handleLobbyMsg(EntityHandler &eh, float width, float height);
+  void joinRoom(EntityHandler &eh, std::unique_ptr<GameMessage> msg);
+  void listRooms(float width, float height, std::unique_ptr<GameMessage> msg);
+  bool handleLobbyMsg(EntityHandler &eh, float width, float height,
+                      std::unique_ptr<GameMessage> msg);
 
   [[noreturn]] void receiveLoop(EntityHandler &eh);
   static std::vector<Boomberman>::iterator
   findPlayer(EntityHandler &eh, const std::string &username);
-  void handleMessage(EntityHandler &eh);
-  void ensureReceivedMsg();
+  void handleMessage(EntityHandler &eh, std::unique_ptr<GameMessage> msg);
 };
 
 #endif // BOOMBERMAN_SERVERHANDLER_H

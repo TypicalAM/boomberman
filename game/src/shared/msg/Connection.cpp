@@ -1,25 +1,29 @@
 #include "Connection.h"
-#include <csignal>
+#include <asm-generic/socket.h>
 #include <cstddef>
+#include <cstdint>
+#include <error.h>
 #include <memory>
 #include <optional>
-#include <ratio>
-#include <thread>
+#include <stdexcept>
+#include <sys/socket.h>
+#include <unistd.h>
 
 std::optional<int> Connection::Send() {
-  char buf[256];
+  char buf[256]{};
   size_t msg_size = msg->ByteSizeLong();
-  buf[0] = static_cast<unsigned int>(msg_size);
+  if (msg_size > 255)
+    throw std::runtime_error(
+        "incorrect message size"); // We handle this just in case, we don't send
+                                   // that big of a message
+  buf[0] = static_cast<uint8_t>(msg_size);
   msg->SerializeToArray(buf + 1, msg_size);
   size_t bytes_sent = write(sock, buf, msg_size + 1);
-  if (bytes_sent <= 0)
+  if (bytes_sent <= 0 || bytes_sent > 255)
     return std::nullopt;
 
   if (bytes_sent == msg_size + 1) // best situation
     return bytes_sent;
-
-  if (bytes_sent > 255) // peculiar situation
-    return std::nullopt;
 
   std::cerr << "[Connection] Couldn't send enough data, sent " << bytes_sent
             << "/" << msg_size + 1 << std::endl;
@@ -27,18 +31,11 @@ std::optional<int> Connection::Send() {
 
   size_t total_sent = bytes_sent;
   while (total_sent != msg_size + 1) {
-    bool already_sent = false;
-    std::thread([this, already_sent]() {
-      std::this_thread::sleep_for(
-          std::chrono::duration<int, std::milli>(CONN_TIMEOUT_MILLIS));
-      if (!already_sent)
-        close(sock); // NOTE: we trap SIGPIPE
-    }).detach();
-    bytes_sent = write(sock, buf + total_sent, msg_size + 1 - total_sent);
-    already_sent = true;
-
+    size_t bytes_sent =
+        write(sock, buf + total_sent, msg_size + 1 - total_sent);
     if (bytes_sent <= 0)
       return std::nullopt;
+
     total_sent += bytes_sent;
   }
 
@@ -48,13 +45,13 @@ std::optional<int> Connection::Send() {
 std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
   // The queue first
   if (!inboundQueue.empty()) {
-    auto msg = std::move(inboundQueue.front());
+    auto new_msg = std::move(inboundQueue.front());
     inboundQueue.pop();
-    return msg;
+    return new_msg;
   }
 
-  char buf[256];
-  int bytes_received = read(sock, buf, 256);
+  char buf[256]{};
+  size_t bytes_received = read(sock, buf, 256);
   if (bytes_received <= 0)
     return std::nullopt;
 
@@ -69,7 +66,7 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
   if (bytes_received == msg_size + 1) {
     // Everything is fine, let's deserialize and return
     GameMessage new_msg;
-    new_msg.ParseFromArray(buf + 1, bytes_received);
+    new_msg.ParseFromArray(buf + 1, msg_size);
     return std::make_unique<GameMessage>(new_msg);
   }
 
@@ -82,6 +79,8 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
     // Now we decrement the bytes received for the second message and
     // recalculate the size
     bytes_received -= msg_size + 1;
+    if (bytes_received == 0)
+      break;
     memmove(buf, buf + msg_size + 1, 256 - msg_size - 1);
     msg_size = static_cast<uint8_t>(buf[0]);
   }
@@ -94,9 +93,10 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
   }
 
   // NOTE: I know this isn't the best solution, because there is the edge
-  // case of a timeout in the middle of receiving a stream. This could potentially
-  // lag the read thread of the server until the client breaks the connection or
-  // reconnects. NOTE: Connection doesn't intend to support non-blocking reads.
+  // case of a timeout in the middle of receiving a stream. This could
+  // potentially lag the read thread of the server until the client breaks the
+  // connection or reconnects. NOTE: Connection doesn't intend to support
+  // non-blocking reads.
 
   std::cerr << "[Connection] Couldn't read enough data, read " << bytes_received
             << "/" << msg_size + 1 << std::endl;
@@ -104,17 +104,8 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
 
   // Read until we get the message
   uint8_t read_total = bytes_received;
-  while (read_total <= msg_size + 1) {
-    bool already_read = false;
-    std::thread([this, already_read]() {
-      std::this_thread::sleep_for(
-          std::chrono::duration<int, std::milli>(CONN_TIMEOUT_MILLIS));
-      if (!already_read)
-        close(sock);
-    }).detach();
-    bytes_received = read(sock, buf + read_total, 256 - read_total - 1);
-    already_read = true;
-
+  while (read_total < msg_size + 1) {
+    bytes_received = read(sock, buf + read_total, 1);
     if (bytes_received <= 0)
       return std::nullopt;
     read_total += bytes_received;
@@ -132,6 +123,16 @@ std::optional<std::unique_ptr<GameMessage>> Connection::Receive() {
 bool Connection::HasMoreMessages() { return !inboundQueue.empty(); }
 
 Connection::Connection(int sock) {
+  struct timeval timeout;
+  timeout.tv_sec = CONN_TIMEOUT_MILLIS % 1000;
+  timeout.tv_usec = 1000 * (CONN_TIMEOUT_MILLIS % 1000);
+
+  if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout) < 0)
+    throw std::runtime_error("set read timeout on sock");
+
+  if (setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof timeout) < 0)
+    throw std::runtime_error("set write timeout on sock");
+
   this->sock = sock;
   this->msg = std::make_unique<GameMessage>();
 }

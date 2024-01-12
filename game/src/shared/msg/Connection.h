@@ -3,6 +3,7 @@
 
 #include "../Util.h"
 #include "../proto/messages.pb.h"
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <queue>

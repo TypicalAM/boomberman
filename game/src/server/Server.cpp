@@ -216,6 +216,27 @@ void Server::RunRooms() {
 
       if (!pl->player->marked_for_disconnect)
         while (pl->player->conn->HasMoreMessages()) {
+          auto msg = pl->player->conn->Receive();
+          if (!msg.has_value()) {
+            LOG << "Marked person for disconnecting";
+            pl->player->marked_for_disconnect = true;
+            const auto &[bombCount, playersToCleanup] =
+                pl->room->DisconnectPlayers();
+            for (int i = 0; i < bombCount; i++) {
+              epoll_event event = {EPOLLIN | EPOLLET,
+                                   epoll_data{.ptr = pl->room}};
+              epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
+                        &event);
+            }
+
+            for (const auto &sock : playersToCleanup) {
+              roomConns.erase(sock);
+              roomAssignments.erase(sock);
+            }
+
+            continue;
+          }
+
           LOG << "Received a message of type: " << msg.value()->type();
           auto authored = std::make_unique<AuthoredMessage>(
               AuthoredMessage{std::move(msg.value()), pl->player});

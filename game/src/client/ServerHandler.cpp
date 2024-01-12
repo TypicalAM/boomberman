@@ -1,6 +1,8 @@
 #include "ServerHandler.h"
 #include "RoomBox.h"
-#include <csignal>
+#include <algorithm>
+#include <memory>
+#include <unistd.h>
 
 ServerHandler::ServerHandler() {
   this->conn =
@@ -22,24 +24,25 @@ void ServerHandler::connect2Server(const char *ip, int port) const {
   }
 }
 
-void ServerHandler::handleMessage(EntityHandler &eh) {
-  std::cout << "Got msg of type: " << this->msg.value()->type() << std::endl;
-  switch (this->msg.value()->type()) {
+void ServerHandler::handleMessage(EntityHandler &eh,
+                                  std::unique_ptr<GameMessage> msg) {
+  std::cout << "Got msg of type: " << msg->type() << std::endl;
+  switch (msg->type()) {
   case OTHER_MOVE: {
-    std::string username = this->msg.value()->othermove().username();
+    std::string username = msg->othermove().username();
     if (username.empty())
       return;
     std::cout << "Client handling OTHER_MOVE for " << username << std::endl;
     auto found = ServerHandler::findPlayer(eh, username);
     if (found != eh.players.end()) {
-      found->setBoombermanPos(int(this->msg.value()->othermove().x()),
-                              int(this->msg.value()->othermove().y()));
+      found->setBoombermanPos(int(msg->othermove().x()),
+                              int(msg->othermove().y()));
     }
     break;
   }
   case OTHER_LEAVE: {
     std::cout << "Client handling OTHER_LEAVE" << std::endl;
-    std::string username = msg.value()->otherleave().username();
+    std::string username = msg->otherleave().username();
     std::cout << "Client: " << username << std::endl;
     auto found = ServerHandler::findPlayer(eh, username);
     if (found != eh.players.end())
@@ -47,40 +50,31 @@ void ServerHandler::handleMessage(EntityHandler &eh) {
     break;
   }
   case GOT_HIT: {
-    std::string username = msg.value()->gothit().username();
+    std::string username = msg->gothit().username();
     std::cout << "Client handling GOT_HIT for player " << username << std::endl;
     auto found = ServerHandler::findPlayer(eh, username);
     if (found != eh.players.end()) {
-      found->gotHit(msg.value()->gothit().timestamp());
-      if (msg.value()->gothit().livesremaining() <= 0)
+      found->gotHit(msg->gothit().timestamp());
+      if (msg->gothit().livesremaining() <= 0)
         eh.players.erase(found);
     }
     break;
   }
   case OTHER_BOMB_PLACE: {
     std::cout << "Client handling OTHER_BOMB_PLACE" << std::endl;
-    if (msg.value()->otherbombplace().username() == "Server") {
-      eh.bombs.emplace_back(this->msg.value()->otherbombplace().x(),
-                            this->msg.value()->otherbombplace().y(), 9, 25,
-                            this->msg.value()->otherbombplace().timestamp(), 3,
-                            true);
+    if (msg->otherbombplace().username() == "Server") {
+      eh.bombs.emplace_back(msg->otherbombplace().x(),
+                            msg->otherbombplace().y(), 9, 25,
+                            msg->otherbombplace().timestamp(), 3, true);
     } else {
-      eh.bombs.emplace_back(this->msg.value()->otherbombplace().x(),
-                            this->msg.value()->otherbombplace().y(), 3, 25,
-                            this->msg.value()->otherbombplace().timestamp(), 3,
-                            false);
+      eh.bombs.emplace_back(msg->otherbombplace().x(),
+                            msg->otherbombplace().y(), 3, 25,
+                            msg->otherbombplace().timestamp(), 3, false);
     }
     break;
   }
-  }
-}
-
-void ServerHandler::ensureReceivedMsg() {
-  this->msg = std::move(this->conn->Receive());
-  if (msg == std::nullopt) {
-    std::cout << "Server has thanked us for our services... goodbye :)"
-              << std::endl;
-    exit(0);
+  default:
+    break;
   }
 }
 
@@ -96,12 +90,24 @@ void ServerHandler::receiveLoop(EntityHandler &eh) {
     }
 
     if (polling[0].revents & POLLIN) {
-      this->ensureReceivedMsg();
-      this->handleMessage(eh);
+      auto msg = this->conn->Receive();
+      if (!msg.has_value()) {
+        std::cout << "The server has thanked us, grace to him and the party"
+                  << std::endl;
+        exit(0);
+      }
+
+      this->handleMessage(eh, std::move(msg.value()));
 
       while (this->conn->HasMoreMessages()) {
-        this->ensureReceivedMsg();
-        this->handleMessage(eh);
+        auto msg = this->conn->Receive();
+        if (!msg.has_value()) {
+          std::cout << "The server has thanked us, grace to him and the party"
+                    << std::endl;
+          exit(0);
+        }
+
+        this->handleMessage(eh, std::move(msg.value()));
       }
     }
   }
@@ -154,13 +160,21 @@ std::string ServerHandler::selectUsername(float screen_width,
 
 void ServerHandler::menu(float width, float height) {
   std::optional<int> bytes_sent = this->conn->SendGetRoomList();
+  std::unique_ptr<GameMessage> msg;
   while (true) {
-    this->ensureReceivedMsg();
-    if (this->msg.value()->type() == ROOM_LIST)
+    auto opt_msg = this->conn->Receive();
+    if (!opt_msg.has_value()) {
+      std::cout << "The server has thanked us, grace to him and the party"
+                << std::endl;
+      exit(0);
+    }
+
+    msg = std::move(opt_msg.value());
+    if (msg->type() == ROOM_LIST)
       break;
   }
 
-  auto rl = this->msg.value()->roomlist();
+  auto rl = msg->roomlist();
   int rooms_total = rl.rooms_size();
 
   Rectangle newGameButton = {(width / 2) - 95, 110, 190, 60};
@@ -196,7 +210,7 @@ void ServerHandler::menu(float width, float height) {
         Vector2 mousePoint = GetMousePosition();
         if (CheckCollisionPointRec(mousePoint, joinGameButton)) {
           EndDrawing();
-          return listRooms(width, height);
+          return listRooms(width, height, std::move(msg));
         }
       }
     }
@@ -207,9 +221,10 @@ void ServerHandler::menu(float width, float height) {
   }
 }
 
-void ServerHandler::listRooms(float width, float height) {
+void ServerHandler::listRooms(float width, float height,
+                              std::unique_ptr<GameMessage> msg) {
   std::vector<RoomBox> rooms;
-  auto rl = this->msg.value()->roomlist();
+  auto rl = msg->roomlist();
 
   int current_row = -1;
   float offset_from_top = 70;
@@ -278,35 +293,23 @@ void ServerHandler::listRooms(float width, float height) {
 
 void ServerHandler::wait4Game(EntityHandler &eh, float width, float height) {
   while (true) {
-    this->ensureReceivedMsg();
-    std::cout << " RECEIVED A MESSAGAE " << std::endl;
-    if (this->msg && this->msg->get()->type() == GAME_JOIN) {
-      std::cout << "AAAAAAAAAAAAAAAAAAAAAAAAA: "
-                << this->msg->get()->gamejoin().player().username()
+    auto opt_msg = this->conn->Receive();
+    if (!opt_msg.has_value()) {
+      std::cout << "The server has thanked us, grace to him and the party"
                 << std::endl;
-    } else if (this->msg && this->msg->get()->type() == WELCOME_TO_ROOM) {
-      for (const auto &player : this->msg->get()->welcometoroom().players()) {
-        std::cout << player.username() << std::endl;
-      }
+      exit(0);
     }
-    bool esc = handleLobbyMsg(eh, width, height);
+
+    bool esc = handleLobbyMsg(eh, width, height, std::move(opt_msg.value()));
     if (esc)
       break;
   }
 }
 
-bool ServerHandler::handleLobbyMsg(EntityHandler &eh, float width,
-                                   float height) {
+bool ServerHandler::handleLobbyMsg(EntityHandler &eh, float width, float height,
+                                   std::unique_ptr<GameMessage> msg) {
   std::cout << " HANDLIGN A MESSAGE" << std::endl;
-  if (this->msg && this->msg->get()->type() == GAME_JOIN) {
-    std::cout << "gj player: "
-              << this->msg->get()->gamejoin().player().username() << std::endl;
-  } else if (this->msg && this->msg->get()->type() == WELCOME_TO_ROOM) {
-    for (const auto &player : this->msg->get()->welcometoroom().players()) {
-      std::cout << "Username: " << player.username() << std::endl;
-    }
-  }
-  if (this->msg.value()->type() == GAME_START) {
+  if (msg->type() == GAME_START) {
     printf("Starting game with %zu players\n", eh.players.size());
     std::cout << "PLayers in room: ";
     for (auto player : eh.players) {
@@ -317,16 +320,15 @@ bool ServerHandler::handleLobbyMsg(EntityHandler &eh, float width,
     }
     std::cout << std::endl;
     return true;
-  } else if (this->msg.value()->type() == WELCOME_TO_ROOM)
-    this->joinRoom(eh);
-  else if (this->msg.value()->type() == GAME_JOIN) {
+  } else if (msg->type() == WELCOME_TO_ROOM) {
+    this->joinRoom(eh, std::move(msg));
+  } else if (msg->type() == GAME_JOIN) {
     printf("GOT GAME JOIN\n");
-    std::cout << "Player name: "
-              << this->msg.value()->gamejoin().player().username() << std::endl;
-    this->addPlayer(this->msg.value()->gamejoin().player(), eh);
-  } else if (this->msg.value()->type() == ERROR) {
-    std::cout << "GOT EREROR: " << this->msg.value()->error().error()
+    std::cout << "Player name: " << msg->gamejoin().player().username()
               << std::endl;
+    this->addPlayer(msg->gamejoin().player(), eh);
+  } else if (msg->type() == ERROR) {
+    std::cout << "GOT EREROR: " << msg->error().error() << std::endl;
     Rectangle backButton = {10, 10, 80, 30};
     while (true) {
       if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
@@ -351,8 +353,9 @@ bool ServerHandler::handleLobbyMsg(EntityHandler &eh, float width,
   return false;
 }
 
-void ServerHandler::joinRoom(EntityHandler &eh) {
-  auto wtr = this->msg.value()->welcometoroom();
+void ServerHandler::joinRoom(EntityHandler &eh,
+                             std::unique_ptr<GameMessage> msg) {
+  auto wtr = msg->welcometoroom();
   for (const auto &player : wtr.players()) {
     this->addPlayer(player, eh);
   }
@@ -398,5 +401,8 @@ void ServerHandler::setPlayerParams(const GamePlayer &player) {
     this->start_x = 15;
     this->start_y = 9;
     this->start_color = YELLOW;
+    break;
+  default:
+    break;
   }
 }
