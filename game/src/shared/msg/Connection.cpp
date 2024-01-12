@@ -292,3 +292,13 @@ std::optional<int> Connection::SendGameWon(std::string winnerUsername) {
   msg->set_allocated_gamewon(gw.release());
   return Send();
 }
+
+std::optional<int> Connection::SendMovementCorrection(float x, float y) {
+  auto mc = std::make_unique<MovementCorrection>();
+  mc->set_x(x);
+  mc->set_y(y);
+
+  msg->set_type(MOVEMENT_CORRECTION);
+  msg->set_allocated_movementcorrection(mc.release());
+  return Send();
+}

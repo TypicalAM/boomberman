@@ -75,6 +75,8 @@ public:
   std::optional<int> SendOtherLeave(const std::string &username);
 
   std::optional<int> SendGameWon(std::string winnerUsername);
+
+  std::optional<int> SendMovementCorrection(float x, float y);
 };
 
 #endif

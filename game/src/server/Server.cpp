@@ -195,8 +195,6 @@ void Server::RunRooms() {
 
       std::lock_guard<std::mutex> lock(roomsMtx);
       auto pl = static_cast<PlayerInRoom *>(events[i].data.ptr);
-      LOG << "Got new message from guy: " << pl->player->username;
-
       if (!pl->player->conn || pl->player->marked_for_disconnect ||
           pl->room->IsGameOver())
         continue;
@@ -209,7 +207,6 @@ void Server::RunRooms() {
         continue;
       }
 
-      LOG << "Received a message of type: " << msg.value()->type();
       auto authored = std::make_unique<AuthoredMessage>(
           AuthoredMessage{std::move(msg.value()), pl->player});
       bool place_bomb = pl->room->HandleMessage(std::move(authored));

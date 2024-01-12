@@ -88,18 +88,28 @@ bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
   case I_MOVE: {
     // Check if the movement is valid and move the players character
     IMove im = msg->payload->imove();
-    int tile_state =
-        map->getSquareState(std::floor(im.x()), std::floor(im.y()));
+    int adjusted_x = std::floor(im.x());
+    int adjusted_y = std::floor(im.y());
+    int tile_state = map->getSquareState(adjusted_x, adjusted_y);
     if (tile_state != NOTHIN) {
-      SendSpecific(msg->author, &Connection::SendError, "Invalid movement");
+      LOG << "Correcting movement for " << msg->author->username;
+      SendSpecific(msg->author, &Connection::SendMovementCorrection,
+                   msg->author->GetCoords().x, msg->author->GetCoords().y);
       return false;
     }
 
-    // The movement was valid, let's roll
-    msg->author->coords.x = im.x();
-    msg->author->coords.y = im.y();
+    // Double check the movement
+    std::optional<Coords> correction =
+        msg->author->MoveCheckSus(adjusted_x, adjusted_y);
+    if (correction.has_value()) {
+      LOG << "Correcting movement for " << msg->author->username;
+      SendSpecific(msg->author, &Connection::SendMovementCorrection,
+                   correction->x, correction->y);
+      return false;
+    }
+
     SendExcept(msg->author, &Connection::SendOtherMove, msg->author->username,
-               im.x(), im.y());
+               adjusted_x, adjusted_y);
     return false;
   }
 
@@ -166,8 +176,8 @@ PlayerDestructionInfo Room::DisconnectPlayers() {
 
       if (state.load() == PLAY && player->livesRemaining != 0) {
         bombs_to_place++;
-        int x = std::floor(player->coords.x);
-        int y = std::floor(player->coords.y);
+        int x = std::floor(player->GetCoords().x);
+        int y = std::floor(player->GetCoords().y);
         bombs.emplace(x, y, 9, 25, Util::TimestampMillis(), 3.0f, true);
         SendExcept(player.get(), &Connection::SendOtherBombPlace, "Server",
                    Util::TimestampMillis(), x, y);
@@ -236,8 +246,8 @@ void Room::NotifyExplosion() {
   std::lock_guard<std::mutex> lock(playerMtx);
   for (auto &player : players) {
     // Let's check if the player was in radius of the bomb
-    int adjusted_x = std::floor(player->coords.x);
-    int adjusted_y = std::floor(player->coords.y);
+    int adjusted_x = std::floor(player->GetCoords().x);
+    int adjusted_y = std::floor(player->GetCoords().y);
     for (const auto &tile : result) {
       if (adjusted_x == tile.x && adjusted_y == tile.y &&
           player->livesRemaining > 0) {

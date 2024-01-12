@@ -108,6 +108,13 @@ message OtherLeave { string username = 1; }
 // GameWon is sent to all players when a player wins the game.
 message GameWon { string winnerUsername = 1; }
 
+// MovementCorrection is sent to a player when he moves in a sus way (too fast)
+// or is jumping like a "propa roadman"
+message MovementCorrection {
+  float x = 1;
+  float y = 2;
+}
+
 // Message types
 enum MessageType {
   ERROR = 0;
@@ -125,6 +132,7 @@ enum MessageType {
   OTHER_MOVE = 12;
   OTHER_LEAVE = 13;
   GAME_WON = 14;
+  MOVEMENT_CORRECTION = 15;
 }
 
 // Wrapper Message
@@ -146,5 +154,6 @@ message GameMessage {
     OtherMove otherMove = 14;
     OtherLeave otherLeave = 15;
     GameWon gameWon = 16;
+    MovementCorrection movementCorrection = 17;
   }
 }
