@@ -27,7 +27,8 @@ void Boomberman::setBoombermanPos(int new_x, int new_y) {
   this->position[1] = new_y;
 }
 
-bool Boomberman::move(Map *map, const std::shared_ptr<float[]>& curr_pos, int x, int y) {
+bool Boomberman::move(Map *map, const std::shared_ptr<float[]> &curr_pos, int x,
+                      int y) {
   float new_x = curr_pos[0] + x;
   float new_y = curr_pos[1] + y;
   int is_wall = map->getSquareState(new_x, new_y);
@@ -56,7 +57,7 @@ void Boomberman::gotHit(int64_t when) {
 }
 
 void Boomberman::animateHit() {
-  int64_t now = Util::TimestampMillis();
+  int64_t now = util::TimestampMillis();
   if (this->iframes == 0)
     return;
   if (now - this->animation_start >= 150.0f) {

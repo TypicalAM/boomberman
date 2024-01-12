@@ -1,15 +1,14 @@
 #include "Client.h"
-#include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <thread>
 
 #include "ServerHandler.h"
 
-
 void waitThreeSeconds(ServerHandler *sh) {
-    std::this_thread::sleep_for(std::chrono::seconds(3));
-    close(sh->conn->sock);
-    CloseWindow();
+  std::this_thread::sleep_for(std::chrono::seconds(3));
+  close(sh->conn->sock);
+  CloseWindow();
 }
 void Client::Run() const {
   EntityHandler entityHandler;
@@ -21,9 +20,9 @@ void Client::Run() const {
 
   serverHandler.connect2Server("127.0.0.1", 2137);
   serverHandler.menu(this->width, this->height);
-  std::cout<<"Going at menu"<<std::endl;
+  std::cout << "Going at menu" << std::endl;
   serverHandler.wait4Game(entityHandler, this->width, this->height);
-  std::cout<<"Going at 4 for game"<<std::endl;
+  std::cout << "Going at 4 for game" << std::endl;
 
   Boomberman *local_boomberman = &entityHandler.players[0];
   Color tutorial_color = local_boomberman->color;
@@ -37,11 +36,12 @@ void Client::Run() const {
   });
   socketReaderThread.detach();
 
-   
   SetTargetFPS(30);
   while (!WindowShouldClose()) {
-    local_boomberman_position[0] = std::floor(local_boomberman->getBoombermanPos()[0]);
-    local_boomberman_position[1] = std::floor(local_boomberman->getBoombermanPos()[1]);
+    local_boomberman_position[0] =
+        std::floor(local_boomberman->getBoombermanPos()[0]);
+    local_boomberman_position[1] =
+        std::floor(local_boomberman->getBoombermanPos()[1]);
 
     entityHandler.tryExtinguish();
     if (local_boomberman
@@ -50,7 +50,7 @@ void Client::Run() const {
       if (IsKeyPressed(KEY_SPACE)) {
         entityHandler.bombs.emplace_back(local_boomberman_position[0],
                                          local_boomberman_position[1], 3, 25,
-                                         Util::TimestampMillis(), 3, false);
+                                         util::TimestampMillis(), 3, false);
         serverHandler.conn->SendIPlaceBomb(local_boomberman_position[0],
                                            local_boomberman_position[1]);
       }
@@ -78,9 +78,9 @@ void Client::Run() const {
                                         local_boomberman_position[1] + 1);
         }
       }
-      if(IsKeyPressed(KEY_ESCAPE)){
-          close(serverHandler.conn->sock);
-          CloseWindow();
+      if (IsKeyPressed(KEY_ESCAPE)) {
+        close(serverHandler.conn->sock);
+        CloseWindow();
       }
     }
 
@@ -93,11 +93,11 @@ void Client::Run() const {
     entityHandler.drawBombs(&map);
     DrawText("Use Arrow Keys to ", 10, 10, 20, LIGHTGRAY);
     DrawText("MOVE", 213, 10, 20, tutorial_color);
-    if(!serverHandler.winner.empty()){
-        std::string winText = "Player "+serverHandler.winner+" won!";
-        DrawText(winText.c_str(),10, int(height)-30, 30, GREEN);
-        std::thread waitThread(waitThreeSeconds, &serverHandler);
-        waitThread.detach();
+    if (!serverHandler.winner.empty()) {
+      std::string winText = "Player " + serverHandler.winner + " won!";
+      DrawText(winText.c_str(), 10, int(height) - 30, 30, GREEN);
+      std::thread waitThread(waitThreeSeconds, &serverHandler);
+      waitThread.detach();
     }
     EndDrawing();
   }

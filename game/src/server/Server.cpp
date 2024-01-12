@@ -321,7 +321,7 @@ void Server::handleLobbyMessage(Connection *conn,
   switch (msg->type()) {
   case GET_ROOM_LIST: {
     // Create a room list and send it to the user
-    std::vector<Builder::Room> room_list;
+    std::vector<builder::Room> room_list;
     std::vector<std::string> rooms_finished;
     for (const auto &pair : rooms) {
       if (pair.second->IsGameOver())
@@ -329,7 +329,7 @@ void Server::handleLobbyMessage(Connection *conn,
       int player_count = pair.second->PlayerCount();
       if (player_count != MAX_PLAYERS)
         room_list.push_back(
-            Builder::Room{pair.first, player_count, MAX_PLAYERS});
+            builder::Room{pair.first, player_count, MAX_PLAYERS});
     }
 
     for (const auto &key : rooms_finished) {
@@ -349,7 +349,7 @@ void Server::handleLobbyMessage(Connection *conn,
 
     std::shared_ptr<Room> room;
     if (!room_msg.has_roomname()) {
-      auto new_room_name = Util::RandomString(10);
+      auto new_room_name = util::RandomString(10);
       room = std::make_shared<Room>(CreateNamedLogger(new_room_name),
                                     roomEpollSock);
       rooms[new_room_name] = room;

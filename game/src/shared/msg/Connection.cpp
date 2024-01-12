@@ -157,7 +157,7 @@ std::optional<int> Connection::SendILeave() {
 }
 
 std::optional<int>
-Connection::SendRoomList(const std::vector<Builder::Room> &rooms) {
+Connection::SendRoomList(const std::vector<builder::Room> &rooms) {
   auto rl = std::make_unique<RoomList>();
   for (const auto &room : rooms) {
     GameRoom *r = rl->add_rooms();
@@ -172,7 +172,7 @@ Connection::SendRoomList(const std::vector<Builder::Room> &rooms) {
 }
 
 std::optional<int>
-Connection::SendWelcomeToRoom(const std::vector<Builder::Player> &players) {
+Connection::SendWelcomeToRoom(const std::vector<builder::Player> &players) {
   auto wtr = std::make_unique<WelcomeToRoom>();
   for (const auto &player : players) {
     GamePlayer *gp = wtr->add_players();
@@ -185,7 +185,7 @@ Connection::SendWelcomeToRoom(const std::vector<Builder::Player> &players) {
   return send();
 }
 
-std::optional<int> Connection::SendGameJoin(Builder::Player player) {
+std::optional<int> Connection::SendGameJoin(builder::Player player) {
   auto p = std::make_unique<GamePlayer>();
   p->set_username(player.username);
   p->set_color(player.color);

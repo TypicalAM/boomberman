@@ -48,12 +48,12 @@ Player *Room::JoinPlayer(Connection *conn, const std::string &username) {
   clientCount++;
 
   // Send the current connected player list to the new player
-  std::vector<Builder::Player> player_list;
+  std::vector<builder::Player> player_list;
   for (const auto &player : players)
-    player_list.emplace_back(Builder::Player{player->username, player->color});
+    player_list.emplace_back(builder::Player{player->username, player->color});
   sendSpecific(players[0].get(), &Connection::SendWelcomeToRoom, player_list);
   sendExcept(players[0].get(), &Connection::SendGameJoin,
-             Builder::Player{username, color});
+             builder::Player{username, color});
 
   if (MAX_PLAYERS - clientCount == 0) {
     LOG << "Starting game";
@@ -94,9 +94,9 @@ bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
   case I_PLACE_BOMB: {
     // Place the bomb at the specified location
     IPlaceBomb ipb = msg->payload->iplacebomb();
-    Timestamp ts = Util::TimestampMillis();
+    Timestamp ts = util::TimestampMillis();
     bombs.emplace(std::floor(ipb.x()), std::floor(ipb.y()), 3, 25,
-                  Util::TimestampMillis(), 3.0f, false);
+                  util::TimestampMillis(), 3.0f, false);
     sendExcept(msg->author, &Connection::SendOtherBombPlace,
                msg->author->username, ts, ipb.x(), ipb.y());
     return true;
@@ -169,19 +169,19 @@ void Room::NotifyExplosion() {
       if (adjusted_x == tile.x && adjusted_y == tile.y &&
           player->livesRemaining > 0) {
         // Check if we are in iframes
-        if (player->immunityEndTimestamp > Util::TimestampMillis()) {
+        if (player->immunityEndTimestamp > util::TimestampMillis()) {
           LOG << player->username << " is immune since "
               << player->immunityEndTimestamp << " > "
-              << Util::TimestampMillis();
+              << util::TimestampMillis();
           continue;
         }
 
         // The person was hit by the bomb, cool
         player->immunityEndTimestamp =
-            Util::TimestampMillis() + IMMUNITY_TIME_MILLIS;
+            util::TimestampMillis() + IMMUNITY_TIME_MILLIS;
         player->livesRemaining--;
         sendBroadcast(&Connection::SendGotHit, player->username,
-                      player->livesRemaining, Util::TimestampMillis());
+                      player->livesRemaining, util::TimestampMillis());
         LOG << "Player: " << player->username
             << " got hit. Lives remaining: " << player->livesRemaining;
       }
@@ -252,9 +252,9 @@ PlayerDestructionInfo Room::DisconnectPlayers() {
         bombs_to_place++;
         int x = std::floor(player->GetCoords().x);
         int y = std::floor(player->GetCoords().y);
-        bombs.emplace(x, y, 9, 25, Util::TimestampMillis(), 3.0f, true);
+        bombs.emplace(x, y, 9, 25, util::TimestampMillis(), 3.0f, true);
         sendExcept(player.get(), &Connection::SendOtherBombPlace, "Server",
-                   Util::TimestampMillis(), x, y);
+                   util::TimestampMillis(), x, y);
       }
     }
 

@@ -8,7 +8,7 @@ Player::Player(Connection *conn, std::string username, PlayerColor color) {
   this->username = std::move(username);
   this->color = color;
   this->livesRemaining = STARTER_LIVES;
-  this->immunityEndTimestamp = Util::TimestampMillis();
+  this->immunityEndTimestamp = util::TimestampMillis();
 
   switch (color) {
   case PLAYER_RED:
@@ -44,7 +44,7 @@ std::optional<Coords> Player::MoveCheckSus(int x, int y) {
   }
 
   // check if the movement 4 moves ago
-  Timestamp ts = Util::TimestampMillis();
+  Timestamp ts = util::TimestampMillis();
   int oldest_step = (step % 5) == 4 ? 0 : step + 1;
   int diff = ts - moveHistory[oldest_step].ts < PLAYER_SUS_TRESHHOLD_MILLIS;
   if (diff > 0 && diff < PLAYER_SUS_TRESHHOLD_MILLIS) {

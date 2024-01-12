@@ -18,11 +18,11 @@ Bomb::Bomb(int pos_x, int pos_y, int explosion, int size, long double timestamp,
 }
 
 bool Bomb::ShouldExplode() const {
-  return Util::TimestampMillis() > this->plant_time + this->ttl * 1000;
+  return util::TimestampMillis() > this->plant_time + this->ttl * 1000;
 }
 
 void Bomb::animate() {
-  double long now = Util::TimestampMillis();
+  double long now = util::TimestampMillis();
   if (now - this->animation_start >= 500.0f) {
     this->state *= -1;
     this->animation_start = now;

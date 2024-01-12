@@ -14,7 +14,7 @@
  * \namespace builder
  * \brief building messages one brick at a time
  */
-namespace Builder {
+namespace builder {
 /*
  * @struct Room
  * building a room representation for protobuf
@@ -33,7 +33,7 @@ struct Player {
   std::string username;
   PlayerColor color;
 };
-} // namespace Builder
+} // namespace builder
 
 /*
  * @class Connection
@@ -79,12 +79,12 @@ public:
 
   std::optional<int> SendILeave();
 
-  std::optional<int> SendRoomList(const std::vector<Builder::Room> &rooms);
+  std::optional<int> SendRoomList(const std::vector<builder::Room> &rooms);
 
   std::optional<int>
-  SendWelcomeToRoom(const std::vector<Builder::Player> &players);
+  SendWelcomeToRoom(const std::vector<builder::Player> &players);
 
-  std::optional<int> SendGameJoin(Builder::Player player);
+  std::optional<int> SendGameJoin(builder::Player player);
 
   std::optional<int> SendGameStart();
 
