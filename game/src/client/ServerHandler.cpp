@@ -76,7 +76,7 @@ void ServerHandler::handleMessage(EntityHandler &eh) {
 }
 
 void ServerHandler::ensureReceivedMsg() {
-  this->msg = this->conn->Receive();
+  this->msg = std::move(this->conn->Receive());
   if (msg == std::nullopt) {
     std::cout << "Server has thanked us for our services... goodbye :)"
               << std::endl;
@@ -156,12 +156,7 @@ void ServerHandler::menu(float width, float height) {
   std::optional<int> bytes_sent = this->conn->SendGetRoomList();
   while (true) {
     this->ensureReceivedMsg();
-    bool esc = this->msg.value()->type() == ROOM_LIST;
-    while (this->conn->HasMoreMessages()) {
-      this->ensureReceivedMsg();
-      esc = this->msg.value()->type() == ROOM_LIST;
-    }
-    if (esc)
+    if (this->msg.value()->type() == ROOM_LIST)
       break;
   }
 
@@ -178,6 +173,7 @@ void ServerHandler::menu(float width, float height) {
       if (CheckCollisionPointRec(mousePoint, newGameButton)) {
         std::string username = ServerHandler::selectUsername(width, height);
         if (!username.empty()) {
+          std::cout << "Sending join room with username: " << username;
           this->conn->SendJoinRoom(username);
         } else {
           std::cout << "USERNAME NOT PROVIDED" << std::endl;
@@ -283,21 +279,33 @@ void ServerHandler::listRooms(float width, float height) {
 void ServerHandler::wait4Game(EntityHandler &eh, float width, float height) {
   while (true) {
     this->ensureReceivedMsg();
+    std::cout << " RECEIVED A MESSAGAE " << std::endl;
+    if (this->msg && this->msg->get()->type() == GAME_JOIN) {
+      std::cout << "AAAAAAAAAAAAAAAAAAAAAAAAA: "
+                << this->msg->get()->gamejoin().player().username()
+                << std::endl;
+    } else if (this->msg && this->msg->get()->type() == WELCOME_TO_ROOM) {
+      for (const auto &player : this->msg->get()->welcometoroom().players()) {
+        std::cout << player.username() << std::endl;
+      }
+    }
     bool esc = handleLobbyMsg(eh, width, height);
     if (esc)
       break;
-
-    while (this->conn->HasMoreMessages()) {
-      this->ensureReceivedMsg();
-      esc = handleLobbyMsg(eh, width, height);
-      if (esc)
-        break;
-    }
   }
 }
 
 bool ServerHandler::handleLobbyMsg(EntityHandler &eh, float width,
                                    float height) {
+  std::cout << " HANDLIGN A MESSAGE" << std::endl;
+  if (this->msg && this->msg->get()->type() == GAME_JOIN) {
+    std::cout << "gj player: "
+              << this->msg->get()->gamejoin().player().username() << std::endl;
+  } else if (this->msg && this->msg->get()->type() == WELCOME_TO_ROOM) {
+    for (const auto &player : this->msg->get()->welcometoroom().players()) {
+      std::cout << "Username: " << player.username() << std::endl;
+    }
+  }
   if (this->msg.value()->type() == GAME_START) {
     printf("Starting game with %zu players\n", eh.players.size());
     std::cout << "PLayers in room: ";
@@ -317,6 +325,8 @@ bool ServerHandler::handleLobbyMsg(EntityHandler &eh, float width,
               << this->msg.value()->gamejoin().player().username() << std::endl;
     this->addPlayer(this->msg.value()->gamejoin().player(), eh);
   } else if (this->msg.value()->type() == ERROR) {
+    std::cout << "GOT EREROR: " << this->msg.value()->error().error()
+              << std::endl;
     Rectangle backButton = {10, 10, 80, 30};
     while (true) {
       if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {

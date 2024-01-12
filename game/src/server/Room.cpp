@@ -35,6 +35,9 @@ void Room::SendBroadcast(Function &&builderFunc, Args &&...builderArgs) {
 }
 
 bool Room::CanJoin(const std::string &username) {
+  if (username.empty())
+    return false;
+
   std::lock_guard<std::mutex> lock(playerMtx);
   bool already_exists = false;
   for (const auto &player : players)

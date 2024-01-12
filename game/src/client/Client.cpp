@@ -34,7 +34,7 @@ void Client::Run() const {
     local_boomberman_position[0] = local_boomberman->getBoombermanPos()[0];
     local_boomberman_position[1] = local_boomberman->getBoombermanPos()[1];
 
-    //entityHandler.players[0].decrementIframes();
+    // entityHandler.players[0].decrementIframes();
 
     entityHandler.tryExtinguish();
     if (local_boomberman

@@ -71,6 +71,7 @@ void Server::handleClientMessage(Connection *conn,
 
     if (!room->CanJoin(room_msg.username())) {
       // Close the connection if we can't send the message
+      LOG << room_msg.username() << " cant join the room";
       conn->SendError("Cannot join this game");
       epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
       shutdown(conn->sock, SHUT_RDWR);
@@ -100,6 +101,7 @@ void Server::handleClientMessage(Connection *conn,
     SPlayer *player = room->JoinPlayer(
         conn, room_msg.username()); // player is destructed along with the room
     if (player == nullptr) {
+      LOG << room_msg.username() << " cant join the room LATER";
       conn->SendError("Cannot join room");
       epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
       shutdown(conn->sock, SHUT_RDWR);
