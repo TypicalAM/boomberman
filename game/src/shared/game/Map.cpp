@@ -1,6 +1,6 @@
 #include "Map.h"
 
-Map::Map(int size, int width, int height) {
+Map::Map(int size, float width, float height) {
   this->size = size;
   this->offset = int((this->size * 4) / 3);
   this->start_x = int(width / 2 - (cols / 2) * offset);

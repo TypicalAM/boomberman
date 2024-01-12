@@ -5,18 +5,25 @@
 
 #include "ServerHandler.h"
 
-void Client::Run() const {
 
+void waitThreeSeconds(ServerHandler *sh) {
+    std::this_thread::sleep_for(std::chrono::seconds(3));
+    close(sh->conn->sock);
+    CloseWindow();
+}
+void Client::Run() const {
   EntityHandler entityHandler;
   ServerHandler serverHandler;
 
   Map map(25, this->width, this->height);
 
-  std::shared_ptr<int[]> local_boomberman_position(new int[2]);
+  std::shared_ptr<float[]> local_boomberman_position(new float[2]);
 
   serverHandler.connect2Server("127.0.0.1", 2137);
   serverHandler.menu(this->width, this->height);
+  std::cout<<"Going at menu"<<std::endl;
   serverHandler.wait4Game(entityHandler, this->width, this->height);
+  std::cout<<"Going at 4 for game"<<std::endl;
 
   Boomberman *local_boomberman = &entityHandler.players[0];
   Color tutorial_color = local_boomberman->color;
@@ -30,12 +37,11 @@ void Client::Run() const {
   });
   socketReaderThread.detach();
 
+   
   SetTargetFPS(30);
   while (!WindowShouldClose()) {
-    local_boomberman_position[0] = local_boomberman->getBoombermanPos()[0];
-    local_boomberman_position[1] = local_boomberman->getBoombermanPos()[1];
-
-    // entityHandler.players[0].decrementIframes();
+    local_boomberman_position[0] = std::floor(local_boomberman->getBoombermanPos()[0]);
+    local_boomberman_position[1] = std::floor(local_boomberman->getBoombermanPos()[1]);
 
     entityHandler.tryExtinguish();
     if (local_boomberman
@@ -72,6 +78,10 @@ void Client::Run() const {
                                         local_boomberman_position[1] + 1);
         }
       }
+      if(IsKeyPressed(KEY_ESCAPE)){
+          close(serverHandler.conn->sock);
+          CloseWindow();
+      }
     }
 
     BeginDrawing();
@@ -83,27 +93,23 @@ void Client::Run() const {
     entityHandler.drawBombs(&map);
     DrawText("Use Arrow Keys to ", 10, 10, 20, LIGHTGRAY);
     DrawText("MOVE", 213, 10, 20, tutorial_color);
+    if(!serverHandler.winner.empty()){
+        std::string winText = "Player "+serverHandler.winner+" won!";
+        DrawText(winText.c_str(),10, int(height)-30, 30, GREEN);
+        std::thread waitThread(waitThreeSeconds, &serverHandler);
+        waitThread.detach();
+    }
     EndDrawing();
   }
   serverHandler.conn->SendILeave();
   local_boomberman->cleanUp();
-  delete[] local_boomberman;
 }
 
-Client::Client(int width, int height) {
+Client::Client(float width, float height) {
   this->width = width;
   this->height = height;
 
-  InitWindow(width, height, "Boomberman client");
-}
-
-int Client::getDimension(const std::string &dimension) const {
-  if (dimension == "height")
-    return this->height;
-  else if (dimension == "width")
-    return this->width;
-  else
-    return -1;
+  InitWindow(std::floor(width), std::floor(height), "Boomberman client");
 }
 
 Client::~Client() {

@@ -5,8 +5,10 @@
 #include <unistd.h>
 
 ServerHandler::ServerHandler() {
+
   this->conn =
       std::make_unique<Connection>(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP));
+
   this->polling[0].fd = this->conn->sock;
   this->polling[0].events = POLLIN | POLLOUT;
 }
@@ -73,6 +75,11 @@ void ServerHandler::handleMessage(EntityHandler &eh,
     }
     break;
   }
+
+  case GAME_WON: {
+      winner = msg->gamewon().winnerusername();
+      std::cout<<"Game won by "<<winner<<std::endl;
+  }
   default:
     break;
   }
@@ -80,8 +87,7 @@ void ServerHandler::handleMessage(EntityHandler &eh,
 
 void ServerHandler::receiveLoop(EntityHandler &eh) {
   printf("Receive loop running\n");
-  // if (fcntl(this->sock, F_SETFL, O_NONBLOCK)) perror("fcntl");
-  while (1) {
+  while (true) {
     int ready = poll(this->polling, 1, -1);
     if (ready == -1) {
       shutdown(this->conn->sock, SHUT_RDWR);
@@ -161,7 +167,7 @@ std::string ServerHandler::selectUsername(float screen_width,
 void ServerHandler::menu(float width, float height) {
   std::optional<int> bytes_sent = this->conn->SendGetRoomList();
   std::unique_ptr<GameMessage> msg;
-  while (true) {
+    while (true) {
     auto opt_msg = this->conn->Receive();
     if (!opt_msg.has_value()) {
       std::cout << "The server has thanked us, grace to him and the party"
@@ -181,7 +187,7 @@ void ServerHandler::menu(float width, float height) {
   auto joinGameButtonColor = GRAY;
   Rectangle joinGameButton = {(width / 2) - 60, 190, 120, 60};
 
-  while (!WindowShouldClose()) {
+  while (true) {
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
       Vector2 mousePoint = GetMousePosition();
       if (CheckCollisionPointRec(mousePoint, newGameButton)) {
@@ -245,7 +251,7 @@ void ServerHandler::listRooms(float width, float height,
 
   Rectangle backButton = {10, 10, 80, 30};
 
-  while (!WindowShouldClose()) {
+  while (true) {
     // Update
     if (IsKeyPressed(KEY_UP) &&
         camera.offset.y <= (height / 2) - offset_from_top)

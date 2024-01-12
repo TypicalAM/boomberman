@@ -7,8 +7,6 @@
 #define MAP_HEIGHT 11
 
 #define NOTHIN 0
-#define HARD_WALL 1
-#define SOFT_WALL 2
 
 class Map {
 private:
@@ -29,7 +27,7 @@ public:
   int offset{}, start_x{}, start_y{};
   int size;
 
-  explicit Map(int size, int width, int height);
+  explicit Map(int size, float width, float height);
 
   int getSquareState(int x, int y);
 

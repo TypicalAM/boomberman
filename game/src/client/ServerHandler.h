@@ -7,6 +7,8 @@
 #include <netinet/in.h>
 #include <sys/poll.h>
 #include <sys/socket.h>
+#include <csignal>
+#include <sys/signalfd.h>
 
 #include "../shared/msg/Connection.h"
 #include "EntityHandler.h"
@@ -15,11 +17,12 @@
 class ServerHandler {
 private:
   int start_x{}, start_y{};
-  pollfd polling[1]{};
+  pollfd polling[2]{};
   Color start_color{};
 
 public:
   std::unique_ptr<Connection> conn;
+  std::string winner;
   ServerHandler();
   void connect2Server(const char *ip, int port) const;
   static std::string selectUsername(float width, float height);

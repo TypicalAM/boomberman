@@ -4,17 +4,17 @@
 #include "../shared/game/Map.h"
 #include "ServerHandler.h"
 #include <string>
+#include <csignal>
 
 class Client {
 private:
-  int width;
-  int height;
+  float width;
+  float height;
 
 public:
-  Client(int width, int height);
+  Client(float width, float height);
   static void drawMap(Map *map);
   void Run() const;
-  int getDimension(const std::string &dimension) const;
 
   ~Client();
 };
