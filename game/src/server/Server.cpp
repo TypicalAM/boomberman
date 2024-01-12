@@ -4,16 +4,46 @@
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <csignal>
+#include <cstdio>
 #include <netinet/in.h>
-#include <ratio>
 #include <sys/epoll.h>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
 
-void Server::handleClientMessage(Connection *conn,
-                                 std::unique_ptr<GameMessage> msg) {
+void Server::handleRoomPostEvent(Room *room) {
+  const auto &[bombCount, playersToCleanup] = room->DisconnectPlayers();
+  for (int i = 0; i < bombCount; i++) {
+    epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = room}};
+    epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(), &event);
+  }
+
+  for (const auto &sock : playersToCleanup) {
+    roomConns.erase(sock);
+    roomAssignments.erase(sock);
+  }
+}
+
+void Server::cleanupSock(int sock) {
+  LOG << "Cleaning up on sock " << sock;
+  epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, sock, nullptr);
+  epoll_ctl(roomEpollSock, EPOLL_CTL_DEL, sock, nullptr);
+  shutdown(sock, SHUT_RDWR);
+  close(sock);
+
+  for (int i = 0; i < lobbyConns.size(); i++)
+    if (lobbyConns[i]->sock == sock) {
+      lobbyConns.erase(lobbyConns.begin() + i);
+      break;
+    }
+
+  roomConns.erase(sock);
+  roomAssignments.erase(sock);
+}
+
+void Server::handleLobbyMessage(Connection *conn,
+                                std::unique_ptr<GameMessage> msg) {
   std::lock_guard<std::mutex> lock(roomsMtx);
   switch (msg->type()) {
   case GET_ROOM_LIST: {
@@ -35,11 +65,8 @@ void Server::handleClientMessage(Connection *conn,
     }
 
     // Close the connection if we can't send the message
-    if (!conn->SendRoomList(room_list).has_value()) {
-      epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
-      shutdown(conn->sock, SHUT_RDWR);
-      close(conn->sock);
-    }
+    if (!conn->SendRoomList(room_list).has_value())
+      cleanupSock(conn->sock);
     return;
   }
 
@@ -60,27 +87,22 @@ void Server::handleClientMessage(Connection *conn,
             << room_msg.roomname();
         if (conn->SendError("There is no room with that name man").has_value())
           return;
-        epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
-        shutdown(conn->sock, SHUT_RDWR);
-        close(conn->sock);
+        cleanupSock(conn->sock);
         return;
       }
 
       room = rooms[room_msg.roomname()];
     }
 
-    if (!room->CanJoin(room_msg.username())) {
+    std::optional<std::string> reason = room->CanJoin(room_msg.username());
+    if (reason.has_value()) {
       // Close the connection if we can't send the message
       LOG << room_msg.username() << " cant join the room";
-      conn->SendError("Cannot join this game");
-      epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
-      shutdown(conn->sock, SHUT_RDWR);
-      close(conn->sock);
-      int idx = -1;
-      for (int i = 0; i < lobbyConns.size(); i++)
-        if (lobbyConns[i]->sock == conn->sock)
-          idx = i;
-      lobbyConns.erase(lobbyConns.begin() + conn->sock);
+      char format_buf[256];
+      sprintf(format_buf, "Cannot join room, reason: %s",
+              reason.value().c_str()); // we are using C++17 so no std::format
+      if (!conn->SendError(std::string(format_buf)).has_value())
+        cleanupSock(conn->sock);
       return;
     }
 
@@ -99,7 +121,8 @@ void Server::handleClientMessage(Connection *conn,
 
     // Create the new player
     SPlayer *player = room->JoinPlayer(
-        conn, room_msg.username()); // player is destructed along with the room
+        conn,
+        room_msg.username()); // player is destructed along with the room
     if (player == nullptr) {
       LOG << room_msg.username() << " cant join the room LATER";
       conn->SendError("Cannot join room");
@@ -121,11 +144,8 @@ void Server::handleClientMessage(Connection *conn,
   default: {
     // Close the connection if we can't send the message
     LOG << "Unexpected message type: " << msg->type();
-    if (!conn->SendError("Unexpected message").has_value()) {
-      epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, conn->sock, nullptr);
-      shutdown(conn->sock, SHUT_RDWR);
-      close(conn->sock);
-    }
+    if (!conn->SendError("Unexpected message").has_value())
+      cleanupSock(conn->sock);
   }
   }
 }
@@ -147,20 +167,18 @@ void Server::RunBombs() {
   epoll_event events[MAX_EVENTS];
   while (!end.load()) {
     int event_num = epoll_wait(bombEpollSock, events, MAX_EVENTS, -1);
-    for (int i = 0; i < event_num; ++i) {
+    for (int i = 0; i < event_num; i++) {
       if (shouldEnd(events[i])) {
         end.store(true);
         continue;
       }
 
       auto room = static_cast<Room *>(events[i].data.ptr);
-      LOG << "Got new bomb timer expiry, notifying appropriate room";
-      std::lock_guard<std::mutex> lock(roomsMtx); // ptr read isn't atomic
+      std::lock_guard<std::mutex> lock(roomsMtx);
       room->NotifyExplosion();
+      handleRoomPostEvent(room);
     }
   }
-
-  LOG << "Bombs out";
 }
 
 void Server::RunRooms() {
@@ -169,7 +187,7 @@ void Server::RunRooms() {
   epoll_event events[MAX_EVENTS];
   while (!end.load()) {
     int event_num = epoll_wait(roomEpollSock, events, MAX_EVENTS, -1);
-    for (int i = 0; i < event_num; ++i) {
+    for (int i = 0; i < event_num; i++) {
       if (shouldEnd(events[i])) {
         end.store(true);
         continue;
@@ -187,19 +205,7 @@ void Server::RunRooms() {
       if (!msg.has_value()) {
         LOG << "Marked person for disconnecting";
         pl->player->marked_for_disconnect = true;
-        const auto &[bombCount, playersToCleanup] =
-            pl->room->DisconnectPlayers();
-        for (int i = 0; i < bombCount; i++) {
-          epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
-          epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
-                    &event);
-        }
-
-        for (const auto &sock : playersToCleanup) {
-          roomConns.erase(sock);
-          roomAssignments.erase(sock);
-        }
-
+        handleRoomPostEvent(pl->room);
         continue;
       }
 
@@ -214,26 +220,15 @@ void Server::RunRooms() {
                   &event);
       }
 
+      handleRoomPostEvent(pl->room);
+
       if (!pl->player->marked_for_disconnect)
         while (pl->player->conn->HasMoreMessages()) {
           auto msg = pl->player->conn->Receive();
           if (!msg.has_value()) {
             LOG << "Marked person for disconnecting";
             pl->player->marked_for_disconnect = true;
-            const auto &[bombCount, playersToCleanup] =
-                pl->room->DisconnectPlayers();
-            for (int i = 0; i < bombCount; i++) {
-              epoll_event event = {EPOLLIN | EPOLLET,
-                                   epoll_data{.ptr = pl->room}};
-              epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
-                        &event);
-            }
-
-            for (const auto &sock : playersToCleanup) {
-              roomConns.erase(sock);
-              roomAssignments.erase(sock);
-            }
-
+            handleRoomPostEvent(pl->room);
             continue;
           }
 
@@ -250,23 +245,9 @@ void Server::RunRooms() {
           }
         }
 
-      // Here we force the room to disconnect all the marked players
-      // we should get back the number of atomic bombs to place
-      const auto &[bombCount, playersToCleanup] = pl->room->DisconnectPlayers();
-      for (int i = 0; i < bombCount; i++) {
-        epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
-        epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
-                  &event);
-      }
-
-      for (const auto &sock : playersToCleanup) {
-        roomConns.erase(sock);
-        roomAssignments.erase(sock);
-      }
+      handleRoomPostEvent(pl->room);
     }
   }
-
-  LOG << "Rooms out";
 }
 
 void Server::RunLobby() {
@@ -275,7 +256,7 @@ void Server::RunLobby() {
   epoll_event events[MAX_EVENTS];
   while (!end.load()) {
     int event_num = epoll_wait(lobbyEpollSock, events, MAX_EVENTS, -1);
-    for (int i = 0; i < event_num; ++i) {
+    for (int i = 0; i < event_num; i++) {
       if (shouldEnd(events[i])) {
         end.store(true);
         continue;
@@ -312,7 +293,6 @@ void Server::RunLobby() {
                              epoll_data{.ptr = lobbyConns.back().get()}};
         if (epoll_ctl(lobbyEpollSock, EPOLL_CTL_ADD, new_sock, &event) == -1)
           continue;
-        LOG << "New connection accepted from: " << new_sock;
         continue;
       }
 
@@ -321,14 +301,12 @@ void Server::RunLobby() {
       auto msg = conn->Receive();
       if (!msg.has_value()) {
         LOG << "Closing connection since we can't receive data: " << conn->sock;
-        epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, events[i].data.fd, nullptr);
-        shutdown(events[i].data.fd, SHUT_RDWR);
-        close(events[i].data.fd);
+        cleanupSock(conn->sock);
         continue;
       }
 
       // Handle the message
-      handleClientMessage(conn, std::move(msg.value()));
+      handleLobbyMessage(conn, std::move(msg.value()));
 
       // If we have more messages, handle them too
       while (conn->HasMoreMessages()) {
@@ -336,16 +314,15 @@ void Server::RunLobby() {
         if (!msg.has_value()) {
           LOG << "Closing connection since we can't receive data: "
               << conn->sock;
-          epoll_ctl(lobbyEpollSock, EPOLL_CTL_DEL, events[i].data.fd, nullptr);
-          shutdown(events[i].data.fd, SHUT_RDWR);
-          close(events[i].data.fd);
+          cleanupSock(conn->sock);
           continue;
         }
+
+        // Handle the message
+        handleLobbyMessage(conn, std::move(msg.value()));
       }
     }
   }
-
-  LOG << "Lobby out";
 }
 
 boost::log::sources::logger Server::createNamedLogger(const std::string &name) {

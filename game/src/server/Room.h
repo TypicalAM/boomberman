@@ -4,7 +4,6 @@
 #include "../shared/game/Bomb.h"
 #include "../shared/game/Map.h"
 #include "../shared/proto/messages.pb.h"
-#include "entities/Primitives.h"
 #include "entities/SPlayer.h"
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/sources/record_ostream.hpp>
@@ -42,7 +41,7 @@ class Room {
 public:
   Room(boost::log::sources::logger roomLoggger, int epollSock);
   int PlayerCount();
-  bool CanJoin(const std::string &username);
+  std::optional<std::string> CanJoin(const std::string &username);
   SPlayer *JoinPlayer(Connection *conn, const std::string &username);
   bool IsGameOver();
   std::vector<std::unique_ptr<SPlayer>> players;

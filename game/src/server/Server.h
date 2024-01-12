@@ -3,7 +3,6 @@
 
 #include "Room.h"
 #include <mutex>
-#include <optional>
 #include <sys/epoll.h>
 #include <unordered_map>
 
@@ -23,7 +22,6 @@ private:
   int bombEpollSock;
 
   std::vector<std::unique_ptr<Connection>> lobbyConns;
-  std::vector<int> lobbySockets;
   std::mutex roomsMtx;
   int srvSock;
   int lobbyEpollSock;
@@ -33,9 +31,13 @@ private:
                // an epoll doesnt end its epoll_waits (xd)
   std::atomic<bool> end = false;
 
-  void handleClientMessage(Connection *conn, std::unique_ptr<GameMessage> msg);
+  void handleLobbyMessage(Connection *conn, std::unique_ptr<GameMessage> msg);
 
   bool shouldEnd(epoll_event &event);
+
+  void handleRoomPostEvent(Room *room);
+
+  void cleanupSock(int sock);
 
 public:
   static boost::log::sources::logger createNamedLogger(const std::string &name);

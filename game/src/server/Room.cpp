@@ -1,4 +1,5 @@
 #include "Room.h"
+#include <optional>
 #include <random>
 #include <sys/epoll.h>
 #include <sys/socket.h>
@@ -29,16 +30,23 @@ void Room::SendBroadcast(Function &&builderFunc, Args &&...builderArgs) {
     SendSpecific(player.get(), builderFunc, builderArgs...);
 }
 
-bool Room::CanJoin(const std::string &username) {
+std::optional<std::string> Room::CanJoin(const std::string &username) {
   if (username.empty())
-    return false;
+    return "Empty username";
 
   std::lock_guard<std::mutex> lock(playerMtx);
   bool already_exists = false;
   for (const auto &player : players)
     if (player->username == username)
       already_exists = true;
-  return !already_exists && MAX_PLAYERS - clientCount > 0;
+
+  if (already_exists)
+    return "There already is a nick like that";
+
+  if (MAX_PLAYERS - clientCount == 0)
+    return "Room is full";
+
+  return std::nullopt;
 }
 
 bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
@@ -167,14 +175,13 @@ PlayerDestructionInfo Room::DisconnectPlayers() {
     }
 
   // Erase elements at specified indices
-  for (auto to_destroy : players_to_destroy) {
+  for (auto to_destroy : players_to_destroy)
     for (int i = 0; i < players.size(); i++)
       if (players[i].get() == to_destroy) {
         LOG << "Disconnecting player " << players[i]->username;
         players.erase(players.begin() + i);
         break;
       }
-  }
 
   switch (players.size()) {
   case 0:
@@ -182,6 +189,8 @@ PlayerDestructionInfo Room::DisconnectPlayers() {
     return std::make_pair(bombs_to_place, sockets_to_delete);
 
   case 1:
+    LOG << "Player won by last person not-disconnected: "
+        << players[0]->username;
     SendBroadcast(&Connection::SendGameWon, players[0]->username);
     state.store(WAIT_FOR_END);
     std::this_thread::sleep_for(std::chrono::seconds(3));
@@ -215,15 +224,12 @@ void Room::NotifyExplosion() {
   bombs.pop();
 
   int people_alive_before = 0;
-  int last_alive_index_before = -1;
   std::vector<int> alive_before_explosion;
-  for (int i = 0; i < players.size(); ++i) {
-    if (players[i]->livesRemaining != 0) {
+  for (int i = 0; i < players.size(); i++)
+    if (players[i]->livesRemaining > 0) {
       people_alive_before++;
-      last_alive_index_before = i;
       alive_before_explosion.push_back(i);
     }
-  }
 
   // The bomb explodes
   std::vector<TileOnFire> result = bomb.boom(map.get());
@@ -233,10 +239,11 @@ void Room::NotifyExplosion() {
     int adjusted_x = std::floor(player->coords.x);
     int adjusted_y = std::floor(player->coords.y);
     for (const auto &tile : result) {
-      if (adjusted_x == tile.x && adjusted_y == tile.y) {
+      if (adjusted_x == tile.x && adjusted_y == tile.y &&
+          player->livesRemaining > 0) {
         // Check if we are in iframes
         if (player->immunityEndTimestamp > Util::TimestampMillis()) {
-          LOG << player->username << "is immune since "
+          LOG << player->username << " is immune since "
               << player->immunityEndTimestamp << " > "
               << Util::TimestampMillis();
           continue;
@@ -256,12 +263,11 @@ void Room::NotifyExplosion() {
 
   int people_alive = 0;
   int last_alive_index = -1;
-  for (int i = 0; i < players.size(); ++i) {
-    if (players[i]->livesRemaining != 0) {
+  for (int i = 0; i < players.size(); i++)
+    if (players[i]->livesRemaining > 0) {
       people_alive++;
       last_alive_index = i;
     }
-  }
 
   if (people_alive == 0 && state.load() == PLAY) {
     // This can happen in the unfortunate event that the last two players die
