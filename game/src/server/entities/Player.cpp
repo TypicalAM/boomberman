@@ -31,6 +31,9 @@ Player::Player(Connection *conn, std::string username, PlayerColor color) {
 Coords Player::GetCoords() { return coords; }
 
 std::optional<Coords> Player::MoveCheckSus(int x, int y) {
+  if (x < 0 || y < 0)
+    return coords;
+
   int move_x = std::abs(x - coords.x);
   int move_y = std::abs(y - coords.y);
   if (move_x && move_y)
@@ -45,7 +48,7 @@ std::optional<Coords> Player::MoveCheckSus(int x, int y) {
 
   // check if the movement 4 moves ago
   Timestamp ts = util::TimestampMillis();
-  int oldest_step = (step % 5) == 4 ? 0 : step + 1;
+  int oldest_step = (step % 5) == 4 ? 0 : (step % 5) + 1;
   int diff = ts - moveHistory[oldest_step].ts < PLAYER_SUS_TRESHHOLD_MILLIS;
   if (diff > 0 && diff < PLAYER_SUS_TRESHHOLD_MILLIS) {
     step = 0; // reset steps

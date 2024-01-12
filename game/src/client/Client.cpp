@@ -5,11 +5,14 @@
 #include <unistd.h>
 
 #include "ServerHandler.h"
+#include "raylib.h"
+
+std::atomic<bool> already_waiting = false;
 
 void waitThreeSeconds(ServerHandler *sh) {
   std::this_thread::sleep_for(std::chrono::seconds(3));
+  shutdown(sh->conn->sock, SHUT_RDWR);
   close(sh->conn->sock);
-  CloseWindow();
 }
 
 void Client::Run(const std::string &server, int port) const {
@@ -81,8 +84,9 @@ void Client::Run(const std::string &server, int port) const {
         }
       }
       if (IsKeyPressed(KEY_ESCAPE)) {
+        serverHandler.conn->SendILeave();
+        shutdown(serverHandler.conn->sock, SHUT_RDWR);
         close(serverHandler.conn->sock);
-        CloseWindow();
       }
     }
 
@@ -98,12 +102,13 @@ void Client::Run(const std::string &server, int port) const {
     if (!serverHandler.winner.empty()) {
       std::string winText = "Player " + serverHandler.winner + " won!";
       DrawText(winText.c_str(), 10, int(height) - 30, 30, GREEN);
-      std::thread waitThread(waitThreeSeconds, &serverHandler);
-      waitThread.detach();
+      if (!already_waiting) {
+        std::thread(&waitThreeSeconds, &serverHandler).detach();
+        already_waiting.store(true);
+      }
     }
     EndDrawing();
   }
-  serverHandler.conn->SendILeave();
   local_boomberman->cleanUp();
 }
 
@@ -114,10 +119,7 @@ Client::Client(float width, float height) {
   InitWindow(std::floor(width), std::floor(height), "Boomberman client");
 }
 
-Client::~Client() {
-  std::cout << "Closing window..." << std::endl;
-  CloseWindow();
-}
+Client::~Client() {}
 
 void Client::drawMap(Map *map) {
   Color c;

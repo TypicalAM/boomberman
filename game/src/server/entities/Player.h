@@ -10,7 +10,7 @@
 
 #define STARTER_LIVES 3
 #define IMMUNITY_TIME_MILLIS 500
-#define PLAYER_SUS_TRESHHOLD_MILLIS 150
+#define PLAYER_SUS_TRESHHOLD_MILLIS 50
 
 /**
  * @struct MovementEntry

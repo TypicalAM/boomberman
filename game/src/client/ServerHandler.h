@@ -33,7 +33,7 @@ public:
   void listRooms(float width, float height, std::unique_ptr<GameMessage> msg);
   bool handleLobbyMsg(EntityHandler &eh, std::unique_ptr<GameMessage> msg);
 
-  [[noreturn]] void receiveLoop(EntityHandler &eh);
+  void receiveLoop(EntityHandler &eh);
   static std::vector<Boomberman>::iterator
   findPlayer(EntityHandler &eh, const std::string &username);
   void handleMessage(EntityHandler &eh, std::unique_ptr<GameMessage> msg);

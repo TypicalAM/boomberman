@@ -109,7 +109,7 @@ bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
     int adjusted_y = std::floor(im.y());
     int tile_state = map->getSquareState(adjusted_x, adjusted_y);
     if (tile_state != NOTHIN) {
-      LOG << "Correcting movement for " << msg->author->username;
+      LOG << "Correcting movement from tilestate for " << msg->author->username;
       sendSpecific(msg->author, &Connection::SendMovementCorrection,
                    msg->author->GetCoords().x, msg->author->GetCoords().y);
       return false;
@@ -119,7 +119,8 @@ bool Room::HandleMessage(std::unique_ptr<AuthoredMessage> msg) {
     std::optional<Coords> correction =
         msg->author->MoveCheckSus(adjusted_x, adjusted_y);
     if (correction.has_value()) {
-      LOG << "Correcting movement for " << msg->author->username;
+      LOG << "Correcting movement for " << msg->author->username
+          << " to x: " << correction->x << " y " << correction->y;
       sendSpecific(msg->author, &Connection::SendMovementCorrection,
                    correction->x, correction->y);
       return false;
@@ -211,7 +212,7 @@ void Room::NotifyExplosion() {
         << players[winner_idx]->username;
     sendBroadcast(&Connection::SendGameWon, players[winner_idx]->username);
     state.store(WAIT_FOR_END);
-    std::this_thread::sleep_for(std::chrono::seconds(3));
+    std::this_thread::sleep_for(std::chrono::seconds(4));
     LOG << "Closing other connections and ending the game";
     for (auto &player : players)
       player->markedForDisconnect = true;
@@ -225,7 +226,7 @@ void Room::NotifyExplosion() {
     sendBroadcast(&Connection::SendGameWon,
                   players[last_alive_index]->username);
     state.store(WAIT_FOR_END);
-    std::this_thread::sleep_for(std::chrono::seconds(3));
+    std::this_thread::sleep_for(std::chrono::seconds(4));
     LOG << "Closing other connections and ending the game";
     for (auto &player : players)
       player->markedForDisconnect = true;
@@ -277,7 +278,7 @@ PlayerDestructionInfo Room::DisconnectPlayers() {
         << players[0]->username;
     sendBroadcast(&Connection::SendGameWon, players[0]->username);
     state.store(WAIT_FOR_END);
-    std::this_thread::sleep_for(std::chrono::seconds(3));
+    std::this_thread::sleep_for(std::chrono::seconds(4));
     LOG << "Closing other connections and ending the game";
     epoll_ctl(epollSock, EPOLL_CTL_DEL, players[0]->conn->sock, nullptr);
     shutdown(players[0]->conn->sock, SHUT_RDWR);

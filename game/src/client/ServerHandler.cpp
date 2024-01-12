@@ -1,7 +1,6 @@
 #include "ServerHandler.h"
 #include "RoomBox.h"
 #include <algorithm>
-#include <cmath>
 #include <memory>
 #include <unistd.h>
 
@@ -81,8 +80,8 @@ void ServerHandler::handleMessage(EntityHandler &eh,
     std::cout << "Got movement correction orders. I could have been much "
                  "speedy... Sir yes Sir!"
               << std::endl;
-    eh.players[0].setBoombermanPos(std::floor(msg->movementcorrection().x()),
-                                   std::floor(msg->movementcorrection().y()));
+    eh.players[0].setBoombermanPos(int(msg->movementcorrection().x()),
+                                   int(msg->movementcorrection().y()));
     break;
   }
 
@@ -106,6 +105,8 @@ void ServerHandler::receiveLoop(EntityHandler &eh) {
     }
 
     if (polling[0].revents & POLLIN) {
+      if (!this->conn)
+        return;
       auto msg = this->conn->Receive();
       if (!msg.has_value()) {
         std::cout << "The server has thanked us, grace to him and the party"
