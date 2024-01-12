@@ -31,7 +31,7 @@ public:
   void addPlayer(const GamePlayer &player, EntityHandler &eh);
   void joinRoom(EntityHandler &eh);
   void listRooms(float width, float height);
-  bool fun(EntityHandler &eh, float width, float height);
+  bool handleLobbyMsg(EntityHandler &eh, float width, float height);
 
   [[noreturn]] void receiveLoop(EntityHandler &eh);
   static std::vector<Boomberman>::iterator

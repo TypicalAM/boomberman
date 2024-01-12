@@ -29,6 +29,7 @@ void ServerHandler::handleMessage(EntityHandler &eh) {
   switch (this->msg.value()->type()) {
   case OTHER_MOVE: {
     std::string username = this->msg.value()->othermove().username();
+    if(username.empty()) return;
     std::cout << "Client handling OTHER_MOVE for " << username << std::endl;
     auto found = ServerHandler::findPlayer(eh, username);
     if (found != eh.players.end()) {
@@ -159,11 +160,12 @@ void ServerHandler::menu(float width, float height) {
   std::optional<int> bytes_sent = this->conn->SendGetRoomList();
   while (true) {
     this->ensureReceivedMsg();
+    bool esc = this->msg.value()->type() == ROOM_LIST;
     while (this->conn->HasMoreMessages()) {
       this->ensureReceivedMsg();
+      esc = this->msg.value()->type() == ROOM_LIST;
     }
-    if (this->msg.value()->type() == ROOM_LIST)
-      break;
+    if(esc) break;
   }
 
   auto rl = this->msg.value()->roomlist();
@@ -274,20 +276,20 @@ void ServerHandler::listRooms(float width, float height) {
 void ServerHandler::wait4Game(EntityHandler &eh, float width, float height) {
   while (true) {
     this->ensureReceivedMsg();
-    bool esc = fun(eh, width, height);
+    bool esc = handleLobbyMsg(eh, width, height);
     if (esc)
       break;
 
     while (this->conn->HasMoreMessages()) {
       this->ensureReceivedMsg();
-      bool esc = fun(eh, width, height);
+      esc = handleLobbyMsg(eh, width, height);
       if (esc)
         break;
     }
   }
 }
 
-bool ServerHandler::fun(EntityHandler &eh, float width, float height) {
+bool ServerHandler::handleLobbyMsg(EntityHandler &eh, float width, float height) {
   if (this->msg.value()->type() == GAME_START) {
     printf("Starting game with %zu players\n", eh.players.size());
     std::cout << "PLayers in room: ";

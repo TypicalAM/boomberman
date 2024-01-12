@@ -17,8 +17,6 @@ void Client::Run() const {
   serverHandler.menu(this->width, this->height);
   serverHandler.wait4Game(entityHandler, this->width, this->height);
 
-  return;
-
   Boomberman *local_boomberman = &entityHandler.players[0];
   Color tutorial_color = local_boomberman->color;
   std::string true_local_name =
@@ -36,7 +34,7 @@ void Client::Run() const {
     local_boomberman_position[0] = local_boomberman->getBoombermanPos()[0];
     local_boomberman_position[1] = local_boomberman->getBoombermanPos()[1];
 
-    entityHandler.players[0].decrementIframes();
+    //entityHandler.players[0].decrementIframes();
 
     entityHandler.tryExtinguish();
     if (local_boomberman
