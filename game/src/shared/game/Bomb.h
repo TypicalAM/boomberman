@@ -1,7 +1,6 @@
 #ifndef BOOMBERMAN_BOMB_H
 #define BOOMBERMAN_BOMB_H
 
-#include "../Util.h"
 #include "Map.h"
 #include "TileOnFire.h"
 #include <vector>

@@ -2,6 +2,7 @@
 #include <cmath>
 #include <iostream>
 #include <thread>
+#include <unistd.h>
 
 #include "ServerHandler.h"
 
@@ -10,7 +11,8 @@ void waitThreeSeconds(ServerHandler *sh) {
   close(sh->conn->sock);
   CloseWindow();
 }
-void Client::Run(const std::string& server, int port) const {
+
+void Client::Run(const std::string &server, int port) const {
   EntityHandler entityHandler;
   ServerHandler serverHandler;
 

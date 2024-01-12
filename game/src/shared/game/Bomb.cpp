@@ -1,4 +1,5 @@
 #include "Bomb.h"
+#include "../Util.h"
 #include <cstring>
 #include <ctime>
 #include <stdexcept>

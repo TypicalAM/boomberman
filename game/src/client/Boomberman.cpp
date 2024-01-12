@@ -1,4 +1,5 @@
 #include "Boomberman.h"
+#include "../shared/Util.h"
 
 Boomberman::Boomberman(
     const std::string &

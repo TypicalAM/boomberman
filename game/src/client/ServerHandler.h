@@ -6,9 +6,8 @@
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/poll.h>
-#include <sys/socket.h>
-#include <csignal>
 #include <sys/signalfd.h>
+#include <sys/socket.h>
 
 #include "../shared/msg/Connection.h"
 #include "EntityHandler.h"

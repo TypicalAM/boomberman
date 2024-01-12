@@ -13,7 +13,7 @@
 #include <queue>
 #include <vector>
 
-#define MAX_PLAYERS 3
+#define MAX_PLAYERS 4
 #define LOG BOOST_LOG(this->logger)
 
 /**

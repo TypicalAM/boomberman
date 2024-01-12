@@ -5,7 +5,6 @@
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <csignal>
-#include <cstdlib>
 #include <iostream>
 
 const int screenWidth = 800;
@@ -48,13 +47,13 @@ int main(int argc, char *argv[]) {
     try {
       port = std::stoi(argv[2]);
     } catch (std::exception const &e) {
-      std::cerr << "Expected nubmers" << std::endl;
+      std::cerr << "Expected a port number" << std::endl;
       std::cerr << "Usage: " << argv[0] << " server 1234" << std::endl;
       return 1;
     }
 
     if (port > 65535 || port < 1000) {
-      std::cerr << "Expected a valid port number" << std::endl;
+      std::cerr << "Expected a valid port bumber" << std::endl;
       std::cerr << "Usage: " << argv[0] << " server 1234" << std::endl;
       return 1;
     }
@@ -63,13 +62,25 @@ int main(int argc, char *argv[]) {
     server.Run();
     server.Cleanup();
   } else {
-    if (argc < 3) {
-      std::cerr << "Usage: " << argv[0] << " server port" << std::endl;
+    if (argc < 4) {
+      std::cerr << "Expected a server address and a port" << std::endl;
+      std::cerr << "Usage: " << argv[0] << " client 127.0.0.1 1234"
+                << std::endl;
       return 1;
     }
-    Client client(screenWidth, screenHeight);
-    client.Run(argv[2], std::stoi(argv[3]));
-  };
 
-  return 0;
+    int port;
+    try {
+      port = std::stoi(argv[2]);
+    } catch (std::exception const &e) {
+      std::cerr << "Expected a valid port bumber" << std::endl;
+      std::cerr << "Usage: " << argv[0] << " client 127.0.0.1 1234"
+                << std::endl;
+      return 1;
+    };
+
+    Client client(screenWidth, screenHeight);
+    client.Run(argv[2], port);
+    return 0;
+  }
 }

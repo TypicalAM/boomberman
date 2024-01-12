@@ -1,7 +1,6 @@
 #include "EntityHandler.h"
 #include "raylib.h"
 #include <algorithm>
-#include <iostream>
 
 void EntityHandler::placeBomb(int x, int y, int explosion, int size,
                               long double timestamp, int ttl, bool is_atomic) {
@@ -12,7 +11,6 @@ void EntityHandler::drawPlayers(Map *map) {
   for (auto &player : this->players) {
     player.animateHit();
     player.decrementIframes();
-    //std::cout<<player.pseudonim_artystyczny_według_którego_będzie_się_identyfikował_wśród_społeczności_graczy<<" iframes: "<<player.iframes<<std::endl;
     if (player.getState() == 1 && player.health >= 0)
       DrawRectangle(
           player.getBoombermanPos()[0] * map->offset + map->start_x + 3,

@@ -1,11 +1,11 @@
 #include "ServerHandler.h"
 #include "RoomBox.h"
 #include <algorithm>
+#include <cmath>
 #include <memory>
 #include <unistd.h>
 
 ServerHandler::ServerHandler() {
-
   this->conn =
       std::make_unique<Connection>(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP));
 
@@ -14,10 +14,10 @@ ServerHandler::ServerHandler() {
 }
 
 void ServerHandler::connect2Server(const char *ip, int port) const {
-    sockaddr_in addr{};
-    addr.sin_port = htons(port);
-    addr.sin_family = PF_INET;
-    addr.sin_addr.s_addr = inet_addr(ip);
+  sockaddr_in addr{};
+  addr.sin_port = htons(port);
+  addr.sin_family = PF_INET;
+  addr.sin_addr.s_addr = inet_addr(ip);
 
   if (connect(this->conn->sock, (sockaddr *)&addr, sizeof(addr))) {
     if (errno != EINPROGRESS) {
@@ -78,9 +78,12 @@ void ServerHandler::handleMessage(EntityHandler &eh,
   }
 
   case MOVEMENT_CORRECTION: {
-      std::cout<<"Got movement correction orders. I could have been much speedy... Sir yes Sir!"<<std::endl;
-      eh.players[0].setBoombermanPos(std::floor(msg->movementcorrection().x()),std::floor(msg->movementcorrection().y()));
-      break;
+    std::cout << "Got movement correction orders. I could have been much "
+                 "speedy... Sir yes Sir!"
+              << std::endl;
+    eh.players[0].setBoombermanPos(std::floor(msg->movementcorrection().x()),
+                                   std::floor(msg->movementcorrection().y()));
+    break;
   }
 
   case GAME_WON: {

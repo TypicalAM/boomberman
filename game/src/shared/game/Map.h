@@ -1,8 +1,6 @@
 #ifndef BOOMBERMAN_MAP_H
 #define BOOMBERMAN_MAP_H
 
-#include <vector>
-
 #define MAP_WIDTH 17
 #define MAP_HEIGHT 11
 

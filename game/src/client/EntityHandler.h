@@ -12,7 +12,6 @@ public:
 
   void placeBomb(int x, int y, int explosion, int size, long double timestamp,
                  int ttl, bool is_atomic);
-  // static std::vector<TileOnFire> setOnFire(Bomb* bomb, Map* map);
   int explodeBomb(Bomb *bomb, Map *map);
   void tryExtinguish();
 
