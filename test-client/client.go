@@ -113,22 +113,68 @@ func (c *Client) GameLoop() {
 func (c *Client) ReadLoop() error {
 	bytes := make([]byte, 512)
 	for {
-		n, err := c.conn.Read(bytes)
+		bytesRead, err := c.conn.Read(bytes)
 		if err != nil && !errors.Is(err, io.EOF) {
 			log.Printf("[%s] Failed to read from connection: %s\n", c.username, err)
 			return fmt.Errorf("failed to read from connection: %w", err)
 		}
 
-		if n == 0 {
+		if bytesRead == 0 {
 			log.Printf("[%s] Connection has been closed gracefully \n", c.username)
 			return fmt.Errorf("connection closed")
+
+		}
+		msgSize := int(bytes[0])
+		if bytesRead == msgSize+1 {
+			var msg pb.GameMessage
+			if err := proto.Unmarshal(bytes[1:bytesRead], &msg); err != nil {
+				log.Printf("[%s] Failed to unmarshall on exact: %v\n", c.username, err)
+				return fmt.Errorf("failed to unmarshal message: %w", err)
+			}
+
+			c.msgs <- &msg
+			continue
+		}
+
+		for bytesRead >= msgSize+1 {
+			var msg pb.GameMessage
+			if err := proto.Unmarshal(bytes[1:1+msgSize], &msg); err != nil {
+				log.Printf("[%s] Failed to unmarshall on more: %v\n", c.username, err)
+				return fmt.Errorf("failed to unmarshal message: %w", err)
+			}
+
+			c.msgs <- &msg
+			bytesRead -= msgSize + 1
+			bytes = bytes[:msgSize]
+			msgSize = int(bytes[0])
+		}
+
+		if bytesRead == 0 {
+			continue
+		}
+
+		readTotal := bytesRead
+		for readTotal < msgSize+1 {
+			bytesRead, err = c.conn.Read(bytes[readTotal:])
+			if err != nil && !errors.Is(err, io.EOF) {
+				log.Printf("[%s] Failed to read from connection: %s\n", c.username, err)
+				return fmt.Errorf("failed to read from connection: %w", err)
+			}
+
+			if bytesRead == 0 {
+				log.Printf("[%s] Connection has been closed gracefully \n", c.username)
+				return fmt.Errorf("connection closed")
+			}
+
+			readTotal += bytesRead
 		}
 
 		var msg pb.GameMessage
-		if err := proto.Unmarshal(bytes[1:n], &msg); err != nil {
-			log.Printf("[%s] Failed to unmarshall: %w\n", c.username, err)
+		if err := proto.Unmarshal(bytes[1:1+msgSize], &msg); err != nil {
+			log.Printf("[%s] Failed to unmarshall on additional: %v\n", c.username, err)
 			return fmt.Errorf("failed to unmarshal message: %w", err)
 		}
+
 		c.msgs <- &msg
 	}
 }

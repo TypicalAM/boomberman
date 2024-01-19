@@ -271,7 +271,7 @@ void Server::runRooms() {
 
       handleRoomPostEvent(pl->room);
 
-      if (!pl->player->markedForDisconnect)
+      if (!pl->player->markedForDisconnect && !pl->player->conn)
         while (pl->player->conn->HasMoreMessages()) {
           auto msg = pl->player->conn->Receive();
           if (!msg.has_value()) {

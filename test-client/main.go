@@ -5,16 +5,12 @@ import (
 	"log"
 	"math/rand"
 	"os"
-	"time"
-
-	"github.com/TypicalAM/boomberman/test-client/pb"
 )
 
 const serverAddr = "localhost:2137"
 
 func main() {
-	names := loadNames()
-	joinFirstGame(names)
+	runScenario(5000, loadTest)
 }
 
 func loadNames() []string {
@@ -33,6 +29,23 @@ func loadNames() []string {
 	return names
 }
 
+func runScenario(count int, scenario func([]Client)) {
+	clients := make([]Client, count)
+	names := loadNames()
+
+	for i := 0; i < count; i++ {
+		log.Println("Starting client: ", i)
+		clients[i] = *createClient(names[rand.Intn(len(names))])
+		defer clients[i].Close()
+	}
+
+	scenario(clients)
+
+	for i := range clients {
+		<-clients[i].Done()
+	}
+}
+
 func createClient(name string) *Client {
 	client, err := New(serverAddr, name)
 	if err != nil {
@@ -43,34 +56,4 @@ func createClient(name string) *Client {
 	go client.ReadLoop()
 	go client.GameLoop()
 	return client
-}
-
-func joinFirstGame(names []string) {
-	log.Println("Creating a client")
-	count := 3
-	clients := make([]*Client, count)
-
-	for i := 0; i < count; i++ {
-		log.Println("Client", i, "connecting")
-		random := rand.Intn(len(names))
-		clients[i] = createClient(names[random])
-		defer clients[i].Close()
-		clients[i].Send(&pb.GameMessage{
-			Type:    pb.MessageType_GET_ROOM_LIST,
-			Message: &pb.GameMessage_GetRoomList{&pb.GetRoomList{}},
-		})
-
-		time.Sleep(200 * time.Millisecond)
-	}
-
-	leaveMsg := &pb.GameMessage{Type: pb.MessageType_I_LEAVE,
-		Message: &pb.GameMessage_ILeave{&pb.ILeave{}}}
-	clients[0].Send(leaveMsg)
-	time.Sleep(50 * time.Millisecond)
-	clients[1].Send(leaveMsg)
-	time.Sleep(50 * time.Millisecond)
-
-	for _, client := range clients {
-		<-client.Done()
-	}
 }
