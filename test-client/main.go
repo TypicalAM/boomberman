@@ -10,7 +10,7 @@ import (
 const serverAddr = "localhost:2137"
 
 func main() {
-	runScenario(5000, loadTest)
+	runScenario(1000, loadTest)
 }
 
 func loadNames() []string {

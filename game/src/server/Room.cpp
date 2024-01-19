@@ -3,7 +3,6 @@
 #include <random>
 #include <sys/epoll.h>
 #include <sys/socket.h>
-#include <thread>
 #include <utility>
 
 Room::Room(boost::log::sources::logger roomLogger, int epollSock) {
@@ -212,7 +211,6 @@ void Room::NotifyExplosion() {
         << players[winner_idx]->username;
     sendBroadcast(&Connection::SendGameWon, players[winner_idx]->username);
     state.store(WAIT_FOR_END);
-    std::this_thread::sleep_for(std::chrono::seconds(4));
     LOG << "Closing other connections and ending the game";
     for (auto &player : players)
       player->markedForDisconnect = true;
@@ -226,7 +224,6 @@ void Room::NotifyExplosion() {
     sendBroadcast(&Connection::SendGameWon,
                   players[last_alive_index]->username);
     state.store(WAIT_FOR_END);
-    std::this_thread::sleep_for(std::chrono::seconds(4));
     LOG << "Closing other connections and ending the game";
     for (auto &player : players)
       player->markedForDisconnect = true;
@@ -278,7 +275,6 @@ PlayerDestructionInfo Room::DisconnectPlayers() {
         << players[0]->username;
     sendBroadcast(&Connection::SendGameWon, players[0]->username);
     state.store(WAIT_FOR_END);
-    std::this_thread::sleep_for(std::chrono::seconds(4));
     LOG << "Closing other connections and ending the game";
     epoll_ctl(epollSock, EPOLL_CTL_DEL, players[0]->conn->sock, nullptr);
     shutdown(players[0]->conn->sock, SHUT_RDWR);

@@ -18,6 +18,16 @@ struct PlayerInRoom {
   Room *room;
 };
 
+/**
+ * @struct BombInRoom
+ * Allows us to track the bombs's rooms without searching maps/vectors all the
+ * time
+ */
+struct BombInRoom {
+  int fd;
+  Room *room;
+};
+
 /*
  * @class Server
  * Main hub for managing the state of rooms, bombs and the lobby

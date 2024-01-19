@@ -46,6 +46,7 @@ Server::Server(int port) {
 
   // Create lobby epoll instance
   if ((lobbyEpollSock = epoll_create1(0)) == -1) {
+    close(srvSock);
     close(lobbyEpollSock); // Clean up on failure
     throw std::runtime_error("epoll creation failed");
   }
@@ -86,7 +87,6 @@ Server::Server(int port) {
   // Create room epoll instance
   if ((roomEpollSock = epoll_create1(0)) == -1) {
     close(srvSock); // Clean up on failure
-    close(roomEpollSock);
     close(lobbyEpollSock);
     close(sigSock);
     throw std::runtime_error("epoll creation failed");
@@ -125,11 +125,10 @@ Server::Server(int port) {
 void Server::Run() {
   std::thread rooms(&Server::runRooms, this);
   std::thread bombs(&Server::runBombs, this);
-  std::thread lobby(&Server::runLobby, this);
 
+  Server::runLobby();
   rooms.join();
   bombs.join();
-  lobby.join();
 
   LOG << "Done running";
 }
@@ -264,9 +263,9 @@ void Server::runRooms() {
       bool place_bomb = pl->room->HandleMessage(std::move(authored));
       if (place_bomb) {
         // Create a timer based on the timestamp and set a watch for it
-        epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = pl->room}};
-        epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
-                  &event);
+        BombInRoom bir{Bomb::CreateBombTimerfd(), pl->room};
+        epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = &bir}};
+        epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, bir.fd, &event);
       }
 
       handleRoomPostEvent(pl->room);
@@ -287,10 +286,9 @@ void Server::runRooms() {
           bool place_bomb = pl->room->HandleMessage(std::move(authored));
           if (place_bomb) {
             // Create a timer based on the timestamp and set a watch for it
-            epoll_event event = {EPOLLIN | EPOLLET,
-                                 epoll_data{.ptr = pl->room}};
-            epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(),
-                      &event);
+            BombInRoom bir{Bomb::CreateBombTimerfd(), pl->room};
+            epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = &bir}};
+            epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, bir.fd, &event);
           }
         }
 
@@ -306,15 +304,17 @@ void Server::runBombs() {
   while (!end.load()) {
     int event_num = epoll_wait(bombEpollSock, events, MAX_EVENTS, -1);
     for (int i = 0; i < event_num; i++) {
+      auto bir = static_cast<BombInRoom *>(events[i].data.ptr);
       if (shouldEnd(events[i])) {
         end.store(true);
+        close(bir->fd);
         continue;
       }
 
-      auto room = static_cast<Room *>(events[i].data.ptr);
       std::lock_guard<std::mutex> lock(roomsMtx);
-      room->NotifyExplosion();
-      handleRoomPostEvent(room);
+      bir->room->NotifyExplosion();
+      handleRoomPostEvent(bir->room);
+      close(bir->fd);
     }
   }
 }
@@ -441,8 +441,9 @@ bool Server::shouldEnd(epoll_event &event) {
 void Server::handleRoomPostEvent(Room *room) {
   const auto &[bombCount, playersToCleanup] = room->DisconnectPlayers();
   for (int i = 0; i < bombCount; i++) {
-    epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = room}};
-    epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, Bomb::CreateBombTimerfd(), &event);
+    BombInRoom bir{Bomb::CreateBombTimerfd(), room};
+    epoll_event event = {EPOLLIN | EPOLLET, epoll_data{.ptr = &bir}};
+    epoll_ctl(bombEpollSock, EPOLL_CTL_ADD, bir.fd, &event);
   }
 
   for (const auto &sock : playersToCleanup) {
